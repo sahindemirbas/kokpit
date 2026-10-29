@@ -1,10 +1,22 @@
 # Kokpit
 
-A self-hosted personal cockpit: one small web dashboard that gathers the things you check every morning, runs on your own device, and reads only the data you connect to it.
+A self-hosted personal cockpit: one small web dashboard that gathers the things you check every morning, runs on your own device, and reads only the data you connect to it. A short Telegram message tells you in the morning whether anything needs you.
 
 **Status: design and documentation stage.** This repository currently contains the product design, module specifications, privacy model and roadmap. It does not yet contain an installable application. The design is extracted from a working single-user instance that has run daily on a Raspberry Pi since 2025; see [docs/status.md](docs/status.md) for what exists today, what still has to be generalised, and what is only planned.
 
 Turkish version: [README.tr.md](README.tr.md)
+
+## A typical day
+
+This is how the reference instance is used today. Names and numbers below are illustrative.
+
+- 07:30: one Telegram line arrives: "2 decisions waiting on you, 1 job failed overnight, 3 new listings match your targets." If nothing is wrong, the line says so and stops there.
+- You open the dashboard. The Today tab shows the calendar, tasks due this week, the two decisions people are waiting for, and the weather for your city and the one you commute to.
+- The Brain tab shows where each project was left, split into "on you / on me / on someone else". You type a quick note; it is appended to your inbox file, nothing else is touched.
+- You ask an AI agent (any of Hermes, Claude Code, Codex, Antigravity) to continue a task. It reads the same notes folder, sees the last session card and the open threads, and at the end writes a new session card and a receipt. The next agent, or you, picks up from there.
+- Events shows a free concert at the opera house tonight and a food fair in a neighbouring town on Saturday, each with a calendar file.
+- Career shows new listings with a written reason for each match ("Python, SQL; Milan; remote not stated"), never a bare percentage.
+- The AI usage tab shows what the agents consumed today, the subscription limits where the provider exposes them, and marks any price it cannot determine as unknown.
 
 ## What it is for
 
@@ -16,10 +28,21 @@ You open one page in the morning and see:
 - **Events**: what is happening in your city and nearby, with category and free/paid filters, list, calendar and map views, and a per-event calendar file.
 - **Social media**: statistics for your own accounts, content comparison and calendar, drafts and reminders. Publishing only on supported platforms and only after explicit approval.
 - **AI usage**: per tool, model and session; limits and reset times where the provider exposes them; data freshness shown. Real API spend, subscription fees and list-price equivalents are kept apart.
-- **Agenda**: a daily digest of news in the areas you follow, optionally as a short audio summary.
-- **System health**: last successful update per connection, failed jobs, broken links.
+- **Agenda**: a daily digest of news in the areas you follow, optionally as a short audio summary. Items that relate to one of your active projects are tagged with the project and a stated reason.
+- **System health**: last successful update per connection, failed jobs, broken links. A connection that silently returns nothing is shown as "last update: 0 records", not as healthy.
+- **Telegram bot** (optional): the morning line, reminders, and approval buttons for anything that publishes or spends.
 
 Everything is a module. You enable what you want from a Connections screen; nothing else runs.
+
+## What makes it different
+
+**One notes folder, many agents.** The second brain is a plain Markdown folder you own. Several AI tools can work in it under one contract: a read-only hook gives every agent the open threads and the last session; at the end of a session the agent writes a `Last-Session.md` card, updates `Threads.md` and leaves a receipt saying what it changed. You can switch tools mid-project without losing the thread, and you can audit what each agent did. The conventions come from [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) (MIT), run here as a modified local fork; the full contract is in [docs/brain-protocol.md](docs/brain-protocol.md).
+
+**Works without an AI key.** Every module has a rule-based path: keyword scoring for jobs, keyword rules for event categories, rule-based usage advice, a deterministic morning report. A model is an opt-in connection that improves a module, never a requirement to run it.
+
+**Honest about what it does not know.** Unknown prices, unexposed quotas and failed measurements are shown as unknown. Empty results are visible. Features are labelled working, needs generalisation, or planned.
+
+**Nothing to leave behind.** Data lives in SQLite and Markdown on your device. Delete the app and you still have your notes, your exports and your database.
 
 ## Principles
 
@@ -29,6 +52,22 @@ Everything is a module. You enable what you want from a Connections screen; noth
 4. **No silent AI calls.** If a module sends data to an external model, the data and the destination are stated and approved first. CV matching does not need your name, phone or e-mail.
 5. **Unknown is not zero.** A price we cannot determine, a quota a provider does not expose, a measurement that failed: these are shown as unknown, never as 0.
 6. **Honest labels.** Features are marked as working, needs generalisation, or planned. The docs never describe a command that does not exist as if it did.
+7. **No model required.** Every module runs on rules alone; models are optional connections, listed and approved like any other.
+
+## What you need, and who this is not for
+
+Target requirements once the first release exists:
+
+- A device that stays on (Raspberry Pi, home server, old laptop) with Python 3.
+- A folder of Markdown notes, or the empty starter structure shipped with the app.
+- Optional: a Telegram bot token for the morning line; a Meta developer app for Instagram statistics; a model API key for summaries and translation.
+- Some willingness to edit a configuration file; the first release is for people who are comfortable with that.
+
+Not for you if you want a hosted service, a phone app, cloud sync between devices, or a team workspace. Each person runs their own instance; those are out of scope for the first release.
+
+## Add your city
+
+Generic sources (AllEvents, Eventbrite, Open-Meteo) work for any city once you enter its name. Local sources such as theatres, municipalities and tourism offices have no city parameter, so they live as small adapters under `adapters/events/<city>/` with a documented JSON contract. The author's Cremona adapters will ship as examples, disabled by default. Copying one and pointing it at your own town's agenda is the intended way to contribute; see [adapters/README.md](adapters/README.md). The same contract applies to job sources under `adapters/jobs/`.
 
 ## Repository layout
 
