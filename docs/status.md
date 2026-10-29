@@ -46,7 +46,8 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 
 - `kokpit init --city` geocodes via Nominatim, tries slug candidates against the real sites, writes `kokpit.toml` + starter vault. Events stay `false` in `[modules]` until you switch them on.
 - Jobs: `weather` (Open-Meteo), `events-collect` (AllEvents 24 + Eventbrite 18 rows for Cremona), `brain-check`.
-- Dashboard tabs: Today, Events (category chips, per-event `.ics`), Brain, Health, Connections (reads / writes / permission / last run per connection).
+- Dashboard tabs: Today, Events (category chips, per-event `.ics`), Brain, Health, Connections (reads / writes / permission / last run per connection; a connection with 0 records today is flagged).
+- `kokpit context "<message>"` prints the read-only brain block (threads, last session, upcoming dates, related notes); `integrations/hermes/kokpit-brain/` wraps it as a Hermes `pre_llm_call` plugin. Tests: 18.
 
 ## Planned, not started
 
@@ -55,7 +56,7 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 - Adapter contract and loader for `adapters/events/<city>/` and `adapters/jobs/<source>/`.
 - Language packs.
 - Docker image.
-- Licence decision and public release checklist.
+- Public release checklist (licence is MIT, see `LICENSE`).
 
 ## What is deliberately out of scope for the first release
 

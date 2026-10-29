@@ -7,9 +7,10 @@ folder, and Kokpit renders it. This document is the contract that makes that
 possible. Any tool that follows the file conventions below takes part; no
 agent is required.
 
-Status: the conventions are in daily use in the reference instance; the
-packaged hook scripts and the night organiser are **planned** for this
-repository (see `docs/roadmap.md`).
+Status: the conventions are in daily use in the reference instance. The
+read-only context hook is in this repository (`kokpit context`, Hermes plugin
+under `integrations/hermes/kokpit-brain/`); the night organiser is **planned**
+(see `docs/roadmap.md`).
 
 ## 0. Origin and credit
 

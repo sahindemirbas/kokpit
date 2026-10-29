@@ -1,0 +1,5 @@
+name: kokpit-brain
+version: 0.1.0
+description: Kokpit brain context on every turn (threads, last session, upcoming dates, related notes). Read-only, no model, no network.
+provides_hooks:
+  - pre_llm_call

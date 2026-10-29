@@ -66,6 +66,17 @@ def cmd_run_job(args) -> int:
     return 0 if jobs.run(cfg, args.name) else 1
 
 
+def cmd_context(args) -> int:
+    """Print the read-only brain context block (what an agent hook injects)."""
+    from .modules.brain.context import build_context
+    cfg = _load(args)
+    message = " ".join(args.message) if args.message else ""
+    text = build_context(cfg.vault, message, max_chars=args.max_chars)
+    if text:
+        print(text)
+    return 0
+
+
 def cmd_jobs(args) -> int:
     for name, fn in sorted(jobs.REGISTRY.items()):
         print(f"{name:14s} {(fn.__doc__ or '').strip().splitlines()[0]}")
@@ -87,6 +98,10 @@ def main(argv=None) -> int:
     p = sub.add_parser("run-job", help="run one scheduled job now")
     p.add_argument("name")
     p.set_defaults(fn=cmd_run_job)
+    p = sub.add_parser("context", help="print the read-only brain context an agent hook would inject")
+    p.add_argument("message", nargs="*", help="the user's message, used only to pick related notes")
+    p.add_argument("--max-chars", type=int, default=3500)
+    p.set_defaults(fn=cmd_context)
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)
     args = ap.parse_args(argv)
