@@ -5,7 +5,9 @@ from datetime import datetime
 
 from ...config import Config
 from ..brain import api as brain_api
+from ..events import api as events_api
 from ..health import api as health_api
+from . import weather
 
 
 def view(cfg: Config, now: datetime | None = None) -> dict:
@@ -27,6 +29,28 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
         h = health_api.view(cfg)
         out["sections"]["health"] = {"available": h["available"], "warnings": h["warnings"],
                                      "jobs": len(h["runs"]), "reason": h.get("reason", "")}
-    # weather and calendar are connections, not yet part of the skeleton
-    out["sections"]["weather"] = {"status": "planned", "note": "Open-Meteo connection, no key needed"}
+    if cfg.modules.get("events", False):
+        e = events_api.view(cfg, days=3)
+        out["sections"]["events"] = {"configured": e.get("configured", False), "next": e["events"][:5],
+                                     "upcoming": e["counts"]["upcoming"], "reason": e.get("reason", "")}
+    out["sections"]["weather"] = _weather(cfg)
+    out["sections"]["calendar"] = {"status": "planned", "note": "ICS / Google read-only connection"}
     return out
+
+
+def _weather(cfg: Config) -> dict:
+    if not cfg.has_place:
+        return {"status": "needs a place", "note": "run `kokpit init --city ...`"}
+    if not cfg.db.exists():
+        return {"status": "not fetched", "note": "run `kokpit run-job weather`"}
+    from ...db import connect
+    conn = connect(cfg.db, readonly=True)
+    try:
+        w = weather.latest(conn)
+    finally:
+        conn.close()
+    if not w:
+        return {"status": "not fetched", "note": "run `kokpit run-job weather`"}
+    w["status"] = "stale" if w["stale"] else "ok"
+    w["city"] = cfg.place.get("city")
+    return w

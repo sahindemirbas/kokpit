@@ -9,11 +9,13 @@ import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .config import Config
 from .modules.brain import api as brain_api
+from .modules.events import api as events_api
+from .modules.connections import api as connections_api
 from .modules.health import api as health_api
 from .modules.today import api as today_api
 
@@ -48,6 +50,21 @@ def make_handler(cfg: Config):
             self.end_headers()
             self.wfile.write(body)
 
+        def _ics(self, raw_id: str):
+            try:
+                ev = events_api.one(cfg, int(raw_id))
+            except ValueError:
+                ev = None
+            if ev is None:
+                return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+            body = events_api.store.ics(ev).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/calendar; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="kokpit-event-{ev["id"]}.ics"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
         def do_GET(self):
             path = urlparse(self.path).path
             try:
@@ -59,6 +76,14 @@ def make_handler(cfg: Config):
                     return self._json(brain_api.view(cfg))
                 if path == "/api/health":
                     return self._json(health_api.view(cfg))
+                if path == "/api/events":
+                    q = parse_qs(urlparse(self.path).query)
+                    days = max(1, min(60, int(q.get("days", ["14"])[0])))
+                    return self._json(events_api.view(cfg, days=days))
+                if path.startswith("/api/events/") and path.endswith(".ics"):
+                    return self._ics(path.split("/")[3].removesuffix(".ics"))
+                if path == "/api/connections":
+                    return self._json(connections_api.view(cfg))
                 if path == "/api/meta":
                     return self._json({"version": __version__, "modules": cfg.modules, "config": str(cfg.path)})
                 return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)

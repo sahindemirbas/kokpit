@@ -10,7 +10,9 @@ from collections.abc import Callable
 from .config import Config
 from .db import connect
 from .modules.brain import reader
+from .modules.events import api as events_api
 from .modules.health import store
+from .modules.today import weather
 
 Job = Callable[[Config], tuple[int, dict, list[str]]]
 
@@ -38,7 +40,29 @@ def brain_check(cfg: Config):
     return rows, {"threads": len(data["threads"]), "tasks": len(data["todo"]), "inbox": len(data["inbox"])}, warnings
 
 
-REGISTRY: dict[str, Job] = {"heartbeat": heartbeat, "brain-check": brain_check}
+def events_collect(cfg: Config):
+    """Fetches the enabled event sources for the configured place and upserts the events table."""
+    conn = connect(cfg.db)
+    try:
+        return events_api.collect(cfg, conn)
+    finally:
+        conn.close()
+
+
+def weather_job(cfg: Config):
+    """Fetches a 3-day Open-Meteo forecast for the configured place (no key) and caches it."""
+    if not cfg.has_place:
+        return 0, {}, ["no place configured"]
+    data = weather.fetch_forecast(cfg.place["lat"], cfg.place["lon"])
+    conn = connect(cfg.db)
+    try:
+        weather.save(conn, cfg.place["lat"], cfg.place["lon"], data)
+    finally:
+        conn.close()
+    return len(data["days"]), {"current": data["current"]}, []
+
+
+REGISTRY: dict[str, Job] = {"weather": weather_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect}
 
 
 def run(cfg: Config, name: str) -> bool:

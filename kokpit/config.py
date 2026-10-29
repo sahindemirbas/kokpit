@@ -23,6 +23,20 @@ DEFAULT_TOML = """# Kokpit configuration. Secrets never go here (use .env when a
 today = true
 brain = true
 health = true
+events = {events}
+
+[place]                       # set by `kokpit init --city "Lodi"`; geocoded once with OpenStreetMap
+city = "{city}"
+country = "{country}"         # ISO code, decides which generic sources apply
+lat = {lat}
+lon = {lon}
+radius_km = 40
+languages = {languages}       # keyword packs for event categories; first is the main one
+
+[events]
+allevents_slug = "{allevents}"   # allevents.in/<slug>; empty disables the source. A wrong slug shows as 0 records.
+eventbrite_slug = "{eventbrite}" # eventbrite.<tld>/d/<slug>/; empty disables the source
+adapters = []                    # adapters/events/<name> directories to enable (all off by default)
 
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
@@ -48,6 +62,12 @@ class Config:
     expected_jobs: list[str] = field(default_factory=list)
     host: str = "127.0.0.1"
     port: int = 8501
+    place: dict = field(default_factory=dict)      # city, country, lat, lon, radius_km, languages
+    events: dict = field(default_factory=dict)     # allevents_slug, eventbrite_slug, adapters
+
+    @property
+    def has_place(self) -> bool:
+        return self.place.get("lat") is not None and self.place.get("lon") is not None
 
     @property
     def base_dir(self) -> Path:
@@ -95,10 +115,54 @@ def load(path: str | Path) -> Config:
     server = raw.get("server", {})
     cfg.host = str(server.get("host", cfg.host))
     cfg.port = int(server.get("port", cfg.port))
+    place = raw.get("place", {})
+    cfg.place = {
+        "city": str(place.get("city", "")) or None,
+        "country": str(place.get("country", "")).upper() or None,
+        "lat": _float_or_none(place.get("lat")),
+        "lon": _float_or_none(place.get("lon")),
+        "radius_km": float(place.get("radius_km", 40)),
+        "languages": [str(x) for x in place.get("languages", ["en"])] or ["en"],
+    }
+    ev = raw.get("events", {})
+    cfg.events = {
+        "allevents_slug": str(ev.get("allevents_slug", "")),
+        "eventbrite_slug": str(ev.get("eventbrite_slug", "")),
+        "adapters": [str(x) for x in ev.get("adapters", [])],
+    }
+    cfg.modules.setdefault("events", False)
     return cfg
 
 
-def write_default(path: Path, vault: str = "data/vault", db: str = "data/kokpit.db") -> Path:
+def _float_or_none(v) -> float | None:
+    try:
+        return float(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+
+
+def write_default(path: Path, vault: str = "data/vault", db: str = "data/kokpit.db",
+                  place: dict | None = None, slugs: dict | None = None) -> Path:
+    """Write the default config. ``place`` (from the geocoder) switches the events module on."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(DEFAULT_TOML.format(vault=vault, db=db), encoding="utf-8")
+    place = place or {}
+    slugs = slugs or {}
+    langs = _language_guess(place.get("country"))
+    text = DEFAULT_TOML.format(
+        vault=vault, db=db, events="true" if place.get("lat") is not None else "false",
+        city=place.get("city") or "", country=place.get("country") or "",
+        lat=place.get("lat") if place.get("lat") is not None else 0.0,
+        lon=place.get("lon") if place.get("lon") is not None else 0.0,
+        languages="[" + ", ".join(f'"{x}"' for x in langs) + "]",
+        allevents=slugs.get("allevents_slug", ""), eventbrite=slugs.get("eventbrite_slug", ""),
+    )
+    path.write_text(text, encoding="utf-8")
     return path
+
+
+COUNTRY_LANGUAGE = {"IT": "it", "GB": "en", "IE": "en", "US": "en", "AU": "en", "CA": "en", "NZ": "en"}
+
+
+def _language_guess(country: str | None) -> list[str]:
+    lang = COUNTRY_LANGUAGE.get((country or "").upper())
+    return [lang, "en"] if lang and lang != "en" else ["en"]

@@ -15,7 +15,21 @@ def cmd_init(args) -> int:
         print(f"{path} exists; use --force to overwrite the config (the vault is never overwritten)")
         cfg = cfgmod.load(path)
     else:
-        cfgmod.write_default(path, vault=args.vault, db=args.db)
+        place = slugs = None
+        if args.city:
+            from .modules.events import geocode
+            try:
+                place = geocode.geocode(args.city)
+            except Exception as exc:  # offline or Nominatim down: config still gets written
+                print(f"could not geocode '{args.city}' ({exc.__class__.__name__}); set [place] by hand in {path}")
+            if place:
+                slugs = geocode.propose_slugs(place)
+                print(f"place: {place.get('display')} ({place['lat']}, {place['lon']})")
+                print(f"event sources proposed: allevents '{slugs['allevents_slug']}', eventbrite '{slugs['eventbrite_slug']}'"
+                      " (confirm on the Connections tab; a wrong slug shows as 0 records)")
+            elif place is None and args.city:
+                print(f"no match for '{args.city}'; events stay off until [place] is filled in")
+        cfgmod.write_default(path, vault=args.vault, db=args.db, place=place, slugs=slugs)
         print(f"wrote {path}")
         cfg = cfgmod.load(path)
     created = brain_api.init_vault(cfg.vault)
@@ -64,6 +78,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("init", help="write kokpit.toml and the starter vault")
     p.add_argument("--vault", default="data/vault", help="Markdown folder (default data/vault)")
     p.add_argument("--db", default="data/kokpit.db")
+    p.add_argument("--city", help='your city, e.g. "Lodi" or "Lodi, Italy"; geocoded once and written to [place]')
     p.add_argument("--force", action="store_true")
     p.set_defaults(fn=cmd_init)
     p = sub.add_parser("run", help="start the dashboard")
