@@ -53,9 +53,9 @@ Moved to M2:
 
 ## Pre-public checklist (blocks any visibility change)
 
-- [ ] Secret scan of the whole history.
-- [ ] Every fixture reviewed as synthetic (`docs/demo-vault/` and `docs/media/` were written as synthetic on 2026-10-29; re-check before going public).
+- [x] Secret scan of the whole history (gitleaks 8.30 over all commits and the working tree plus a regex pass, 2026-10-29, issue #4; repeated right before the visibility change).
+- [x] Every fixture reviewed as synthetic (`docs/demo-vault/`, `docs/media/`, `tests/` re-read on 2026-10-29, issue #5: irrigation timer and Italian lessons only, vault path `/tmp/kokpit-demo/vault`; the city name in tests and the example config is a public slug example).
 - [x] Licence chosen: MIT (`LICENSE`), compatible with the MIT notice of Avenox Beyin; third-party review in `THIRD_PARTY_NOTICES.md`. Data-source terms are reviewed per module as modules land.
-- [ ] Every file derived from Avenox Beyin carries the MIT copyright line and a header stating the modification (none exist yet; re-check when the hook script is packaged).
-- [ ] Docs re-read for anything that describes a non-existent feature as existing.
+- [x] Every file derived from Avenox Beyin carries the MIT copyright line and a header stating the modification (checked 2026-10-29: no file is derived from Beyin; `kokpit/modules/brain/context.py` implements the contract itself and says so, notice in `THIRD_PARTY_NOTICES.md`).
+- [x] Docs re-read for anything that describes a non-existent feature as existing (2026-10-29, issue #6: README status line and "Try it" brought up to the M1 tab set; brain-protocol, modules, architecture wording fixed).
 - [ ] Author's explicit go decision recorded.

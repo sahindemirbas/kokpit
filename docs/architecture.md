@@ -56,7 +56,7 @@ modules/<name>/
 
 Modules do not import each other. Cross-module data (e.g. "today" showing event count and open tasks) is assembled by the `today` module through the API of the others, not by reaching into their tables.
 
-Reference instance vs target: today the reference code is flat (one `web.py`, one `db.py`, one collector file per source). The module layout above is the target; moving to it is the first engineering milestone (see roadmap).
+Reference instance vs target: the reference code is flat (one `web.py`, one `db.py`, one collector file per source). This repository uses the module layout above from M1 on; the reference modules are ported into it one by one (see roadmap).
 
 ## Location and language
 

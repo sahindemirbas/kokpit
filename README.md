@@ -2,13 +2,13 @@
 
 A self-hosted personal cockpit: one small web dashboard that gathers the things you check every morning, runs on your own device, and reads only the data you connect to it. A short Telegram message tells you in the morning whether anything needs you.
 
-**Status: design and documentation stage.** This repository currently contains the product design, module specifications, privacy model and roadmap. It does not yet contain an installable application. The design is extracted from a working single-user instance that has run daily on a Raspberry Pi since 2025; see [docs/status.md](docs/status.md) for what exists today, what still has to be generalised, and what is only planned.
+**Status: M1 skeleton.** This repository contains the product design, module specifications, privacy model and roadmap, plus a runnable skeleton (`./run`: Today, Events, Brain, Health and Connections tabs over a starter vault; no package on PyPI yet). The design is extracted from a working single-user instance that has run daily on a Raspberry Pi since 2025; see [docs/status.md](docs/status.md) for what exists today, what still has to be generalised, and what is only planned.
 
 Turkish version: [README.tr.md](README.tr.md)
 
 ![Kokpit demo: Today, Brain with quick capture, Health](docs/media/demo.gif)
 
-The recording and the screenshots in `docs/media/` come from the synthetic sample vault in `docs/demo-vault/` (an irrigation timer, Italian lessons; nothing real). To reproduce: `python -m kokpit init --vault docs/demo-vault --db /tmp/demo.db`, set `expected = ["heartbeat", "brain-check"]` in `kokpit.toml`, run both jobs, then `./run`.
+The recording and the screenshots in `docs/media/` come from the synthetic sample vault in `docs/demo-vault/` (an irrigation timer, Italian lessons; nothing real). They were recorded at the start of M1 and show three tabs and a placeholder weather card; the current skeleton has Events and Connections too and live weather. To reproduce: `python -m kokpit init --vault docs/demo-vault --db /tmp/demo.db`, set `expected = ["heartbeat", "brain-check"]` in `kokpit.toml`, run both jobs, then `./run`.
 
 ## A typical day
 
@@ -108,9 +108,9 @@ cd kokpit
 ./run                     # writes kokpit.toml + a starter vault in data/, serves http://127.0.0.1:8501
 ```
 
-What you get today: the Today, Brain and Health tabs over a starter vault and a health table filled by two jobs (`heartbeat`, `brain-check`). Point `vault_path` in `kokpit.toml` at your own Markdown folder to see your threads and tasks; quick capture appends to `inbox/` or `To-Do.md` and never rewrites a note. Other commands: `python -m kokpit jobs`, `python -m kokpit run-job <name>`. Tests: `python -m unittest discover -s tests`.
+What you get today: the Today, Events, Brain, Health and Connections tabs over a starter vault, a weather card (Open-Meteo, filled by the `weather` job), an events list for your city (AllEvents and Eventbrite, filled by `events-collect` once `events` is switched on in `kokpit.toml`) and a health table filled by the jobs (`heartbeat`, `brain-check`, `weather`, `events-collect`). The calendar card on Today says "not connected" until M2. Point `vault_path` in `kokpit.toml` at your own Markdown folder to see your threads and tasks; quick capture appends to `inbox/` or `To-Do.md` and never rewrites a note. Other commands: `python -m kokpit jobs`, `python -m kokpit run-job <name>`. Tests: `python -m unittest discover -s tests`.
 
-Events, career, social, AI usage, agenda and the bot are not in the skeleton yet (see `docs/roadmap.md`). The eventual `pip install kokpit` and Docker paths are planned, not available.
+Local event adapters, career, social, AI usage, agenda and the bot are not in the skeleton yet (see `docs/roadmap.md`). The eventual `pip install kokpit` and Docker paths are planned, not available.
 
 ## Licence
 

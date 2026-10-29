@@ -24,7 +24,7 @@ additions, not part of upstream.
 
 What this means for the repository: this document is our own text and
 describes a contract, not Avenox's code. If a hook script or any other code
-derived from Beyin is packaged here (planned for M1), it ships with the
+derived from Beyin is ever packaged here (none is today: `kokpit context` is our own implementation of the contract), it ships with the
 original MIT copyright and licence text, and the derived files say so in their
 header. Kokpit's own licence is MIT (`LICENSE`), which is compatible with
 that obligation; see `THIRD_PARTY_NOTICES.md`.

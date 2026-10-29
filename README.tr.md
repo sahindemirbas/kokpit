@@ -2,13 +2,13 @@
 
 Kendi cihazında çalışan kişisel kokpit: her sabah baktığın şeyleri tek bir küçük web sayfasında toplar, yalnız senin bağladığın verileri okur. Sabah kısa bir Telegram mesajı, seni bekleyen bir şey olup olmadığını söyler.
 
-**Durum: tasarım ve dokümantasyon aşaması.** Bu depo şu an ürün tasarımını, modül tanımlarını, gizlilik modelini ve yol haritasını içerir; kurulabilir bir uygulama henüz yok. Tasarım, 2025'ten beri bir Raspberry Pi üzerinde her gün çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Bugün ne var, ne genelleştirilecek, ne yalnız planda: [docs/status.md](docs/status.md).
+**Durum: M1 iskelet.** Bu depo ürün tasarımını, modül tanımlarını, gizlilik modelini ve yol haritasını, ayrıca çalışan bir iskeleti içerir (`./run`: başlangıç vault'u üzerinde Today, Events, Brain, Health ve Connections sekmeleri; PyPI paketi henüz yok). Tasarım, 2025'ten beri bir Raspberry Pi üzerinde her gün çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Bugün ne var, ne genelleştirilecek, ne yalnız planda: [docs/status.md](docs/status.md).
 
 İngilizce sürüm: [README.md](README.md)
 
 ![Kokpit demo: Today, Brain ve hızlı kayıt, Health](docs/media/demo.gif)
 
-Kayıt ve `docs/media/` altındaki ekran görüntüleri `docs/demo-vault/` içindeki sentetik örnek vault'tan alındı (sulama zamanlayıcısı, İtalyanca dersleri; gerçek veri yok). Yeniden üretmek için: `python -m kokpit init --vault docs/demo-vault --db /tmp/demo.db`, `kokpit.toml` içinde `expected = ["heartbeat", "brain-check"]`, iki işi çalıştır, sonra `./run`.
+Kayıt ve `docs/media/` altındaki ekran görüntüleri `docs/demo-vault/` içindeki sentetik örnek vault'tan alındı (sulama zamanlayıcısı, İtalyanca dersleri; gerçek veri yok). M1'in başında kaydedildi: üç sekme ve yer tutucu hava kartı görünür; bugünkü iskelette Events ve Connections sekmeleri ile canlı hava da var. Yeniden üretmek için: `python -m kokpit init --vault docs/demo-vault --db /tmp/demo.db`, `kokpit.toml` içinde `expected = ["heartbeat", "brain-check"]`, iki işi çalıştır, sonra `./run`.
 
 ## Sıradan bir gün
 
@@ -87,9 +87,9 @@ cd kokpit
 ./run                     # kokpit.toml + data/ altında başlangıç vault'u yazar, http://127.0.0.1:8501
 ```
 
-Bugün çalışan: Today, Brain ve Health sekmeleri; başlangıç vault'u ve iki işin (`heartbeat`, `brain-check`) doldurduğu sağlık tablosu. `kokpit.toml` içindeki `vault_path` değerini kendi Markdown klasörüne çevirince kendi thread ve görevlerin görünür; hızlı not `inbox/` veya `To-Do.md` dosyasına ekler, hiçbir notu yeniden yazmaz. Diğer komutlar: `python -m kokpit jobs`, `python -m kokpit run-job <ad>`. Testler: `python -m unittest discover -s tests`.
+Bugün çalışan: Today, Events, Brain, Health ve Connections sekmeleri; `weather` işinin doldurduğu hava kartı (Open-Meteo); `kokpit.toml` içinde `events` açılınca `events-collect` işinin doldurduğu şehir etkinlikleri (AllEvents, Eventbrite); işlerin (`heartbeat`, `brain-check`, `weather`, `events-collect`) doldurduğu sağlık tablosu. Today'deki takvim kartı M2'ye kadar "bağlı değil" der. `kokpit.toml` içindeki `vault_path` değerini kendi Markdown klasörüne çevirince kendi thread ve görevlerin görünür; hızlı not `inbox/` veya `To-Do.md` dosyasına ekler, hiçbir notu yeniden yazmaz. Diğer komutlar: `python -m kokpit jobs`, `python -m kokpit run-job <ad>`. Testler: `python -m unittest discover -s tests`.
 
-Etkinlik, kariyer, sosyal, AI kullanımı, gündem ve bot iskelette henüz yok (`docs/roadmap.md`). `pip install kokpit` ve Docker planlı, mevcut değil.
+Yerel etkinlik adaptörleri, kariyer, sosyal, AI kullanımı, gündem ve bot iskelette henüz yok (`docs/roadmap.md`). `pip install kokpit` ve Docker planlı, mevcut değil.
 
 ## Lisans
 

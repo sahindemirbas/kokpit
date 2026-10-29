@@ -21,7 +21,7 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 - Agent protocol: several AI tools (reference: Hermes, Claude Code, Codex, Antigravity) share the same vault. A read-only context hook injects open threads and the last session into every agent; at the end of a work session the agent writes a `Last-Session.md` card, updates `Threads.md` and the relevant note, and leaves a receipt. Full contract in `docs/brain-protocol.md`.
 - Night organiser (**planned** module): scheduled job that files `inbox/` notes into folders, adds reciprocal links with a stated reason, appends dated status blocks when a condition in an older note has come true, folds new information into the note it belongs to, and separates ideas from projects. Uses a model, so it is opt-in and listed in Connections. A deterministic morning report (no model call) summarises the run.
 - Connections: a local folder path. Optional: the Hermes agent integration (see `integrations/hermes`) which can fill the same files; not required. Night organiser: model provider, opt-in.
-- Status: dashboard working with the author's vault; the empty starter structure and the folder-path setting are **generalise**; the hook scripts and the night organiser run in the reference instance but are not yet in this repository (**planned**).
+- Status: dashboard working with the author's vault; the empty starter structure and the folder-path setting are **generalise**; the read-only context hook is in this repository (`kokpit context`, M1); the night organiser runs in the reference instance but is not yet here (**planned**).
 
 ## Career
 
