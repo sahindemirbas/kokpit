@@ -44,3 +44,9 @@ def quick_capture(cfg: Config, kind: str, text: str, due: str = "") -> dict:
         p = capture.capture_note(cfg.vault, text)
         return {"ok": True, "kind": "note", "path": str(p.relative_to(cfg.vault))}
     raise ValueError("kind must be 'note' or 'task'")
+
+
+def complete_task(cfg: Config, text: str) -> dict:
+    if not cfg.quick_capture:
+        raise PermissionError("quick capture is disabled in kokpit.toml")
+    return {"ok": True, "task": capture.complete_task(cfg.vault, text)}

@@ -64,6 +64,29 @@ def today_warnings(conn: sqlite3.Connection, expected: list[str] | tuple[str, ..
     return out
 
 
+def failing_jobs(conn: sqlite3.Connection, min_streak: int = 2) -> list[dict]:
+    """Jobs whose most recent ``min_streak`` (or more) runs all failed, newest streak first.
+
+    Each item: ``{"job", "streak", "since", "error"}`` where ``since`` is the start of the first
+    failed run in the current streak and ``error`` the last recorded error text (may be empty).
+    """
+    ensure_schema(conn)
+    out = []
+    for (job,) in conn.execute("SELECT DISTINCT job FROM runs ORDER BY job").fetchall():
+        streak, since, error = 0, "", ""
+        for r in conn.execute("SELECT ok, started, finished, info FROM runs WHERE job=? ORDER BY id DESC", (job,)):
+            if r["ok"]:
+                break
+            if not streak:
+                error = str((json.loads(r["info"] or "{}") or {}).get("error", ""))[:200]
+            streak += 1
+            since = r["started"] or r["finished"] or ""
+        if streak >= min_streak:
+            out.append({"job": job, "streak": streak, "since": since, "error": error})
+    out.sort(key=lambda x: (-x["streak"], x["job"]))
+    return out
+
+
 def _row(r: sqlite3.Row) -> dict:
     d = dict(r)
     d["ok"] = bool(d["ok"])

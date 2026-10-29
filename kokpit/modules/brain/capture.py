@@ -62,3 +62,28 @@ def capture_task(vault: Path, text: str, due: str = "") -> str:
         tail = tail.rstrip("\n") + "\n" + line + "\n"
     p.write_text(head + tail, encoding="utf-8")
     return line
+
+
+def complete_task(vault: Path, text: str) -> str:
+    """Tick the first open task whose text matches (checkbox flipped in place, nothing else touched)."""
+    from . import reader
+    p = Path(vault) / "To-Do.md"
+    if not p.exists():
+        raise ValueError("To-Do.md not found")
+    body = p.read_text(encoding="utf-8")
+    h = re.search(r"^## Open\b.*$", body, re.M)
+    start = h.end() if h else 0
+    nxt = re.search(r"^## ", body[start:], re.M)
+    end = start + nxt.start() if nxt else len(body)
+    pos = start
+    for line in body[start:end].splitlines(keepends=True):
+        m = reader.TASK.match(line.rstrip("\r\n"))
+        if m and m.group(1).lower() != "x":
+            clean = reader._clean(reader.DUE.sub("", m.group(2)).replace("()", "").strip(" -"))
+            if clean == text:
+                i = body.index("[", pos)
+                body = body[:i] + "[x" + body[i + 2:]
+                p.write_text(body, encoding="utf-8")
+                return clean
+        pos += len(line)
+    raise ValueError("open task not found")

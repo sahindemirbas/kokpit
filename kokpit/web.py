@@ -78,7 +78,7 @@ def make_handler(cfg: Config):
                     return self._json(health_api.view(cfg))
                 if path == "/api/events":
                     q = parse_qs(urlparse(self.path).query)
-                    days = max(1, min(60, int(q.get("days", ["14"])[0])))
+                    days = max(1, min(3650, int(q.get("days", ["14"])[0])))
                     return self._json(events_api.view(cfg, days=days))
                 if path.startswith("/api/events/") and path.endswith(".ics"):
                     return self._ics(path.split("/")[3].removesuffix(".ics"))
@@ -92,11 +92,13 @@ def make_handler(cfg: Config):
 
         def do_POST(self):
             path = urlparse(self.path).path
-            if path != "/api/brain/capture":
+            if path not in ("/api/brain/capture", "/api/brain/done"):
                 return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
             try:
                 n = int(self.headers.get("Content-Length") or 0)
                 data = json.loads(self.rfile.read(n) or b"{}")
+                if path == "/api/brain/done":
+                    return self._json(brain_api.complete_task(cfg, data.get("text", "")))
                 res = brain_api.quick_capture(cfg, data.get("kind", ""), data.get("text", ""), data.get("due", ""))
                 return self._json(res)
             except PermissionError as exc:

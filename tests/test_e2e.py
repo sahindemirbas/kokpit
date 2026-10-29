@@ -8,6 +8,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -62,6 +63,18 @@ class EndToEnd(unittest.TestCase):
         self.assertTrue(res["ok"])
         self.assertIn("from the test", (self.cfg.vault / "To-Do.md").read_text())
         self.assertEqual(json.loads(self.get("/api/today")[1])["sections"]["brain"]["upcoming"][0]["text"], "from the test")
+
+    def test_tick_task_done(self):
+        todo = self.cfg.vault / "To-Do.md"
+        before = json.loads(self.get("/api/today")[1])["sections"]["brain"]["open_tasks"]
+        first = json.loads(self.get("/api/brain")[1])["todo"][0]["text"]
+        st, res = self.post("/api/brain/done", {"text": first})
+        self.assertTrue(res["ok"])
+        self.assertEqual(json.loads(self.get("/api/today")[1])["sections"]["brain"]["open_tasks"], before - 1)
+        self.assertIn("[x] " + first, todo.read_text())
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            self.post("/api/brain/done", {"text": first})
+        self.assertEqual(cm.exception.code, 400)
 
     def test_cli_init_and_jobs(self):
         d = Path(tempfile.mkdtemp())

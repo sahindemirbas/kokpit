@@ -28,6 +28,7 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
     if cfg.modules.get("health", True):
         h = health_api.view(cfg)
         out["sections"]["health"] = {"available": h["available"], "warnings": h["warnings"],
+                                     "failing": h.get("failing", []),
                                      "jobs": len(h["runs"]), "reason": h.get("reason", "")}
     if cfg.modules.get("events", False):
         e = events_api.view(cfg, days=3)

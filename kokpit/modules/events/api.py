@@ -53,7 +53,7 @@ def payload(cfg: Config, conn: sqlite3.Connection, days: int = 14) -> dict:
     """What the Events tab shows. Never fetches; reads the table filled by the job."""
     if not cfg.has_place:
         return {"configured": False, "place": None, "events": [], "counts": {"total": 0, "upcoming": 0, "by_source": {}}}
-    evs = store.upcoming(conn, days=days)
+    evs = store.upcoming(conn, days=days, limit=2000)
     return {
         "configured": True,
         "place": {k: cfg.place.get(k) for k in ("city", "country", "radius_km")},

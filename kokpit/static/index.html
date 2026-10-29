@@ -91,7 +91,7 @@ html[data-tema=dark] .leaflet-container{background:#2a2824}
 .nav{padding:8px 24px 0}.nav .btn{font:700 12.5px var(--mono);text-transform:uppercase;padding:7px 12px;border-radius:10px;letter-spacing:.02em}
 .nav .btn.on{background:#ffc21a;color:var(--ink);transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--shd,var(--ink))}
 .af{padding:18px 24px 40px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:18px}
-.af .mono{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.af .mono,.brw .mono{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em}
 .af-b{border:2.5px solid var(--ink);border-radius:16px;box-shadow:5px 5px 0 var(--shd,var(--ink));padding:16px 18px;position:relative;overflow:hidden;background:var(--card);min-width:0;overflow-wrap:anywhere;transition:transform .18s,box-shadow .18s;opacity:0;animation:afent .7s cubic-bezier(.2,.9,.25,1.15) forwards}
 .af-b:hover{transform:translate(-3px,-3px);box-shadow:8px 8px 0 var(--shd,var(--ink))}
 .af-b h4{margin:0 0 8px;font:500 11.5px var(--mono);text-transform:uppercase;letter-spacing:.06em}
@@ -176,7 +176,7 @@ html[data-tema=dark] .leaflet-container{background:#2a2824}
 .af-mq div{display:inline-block;animation:afmq 60s linear infinite}.af-mq:hover div{animation-play-state:paused}
 .af-mq b{margin:0 20px;cursor:pointer}.af-mq b:hover{text-decoration:underline}.af-mq em{font-style:normal;color:var(--bg)}
 .af-bu{position:fixed;width:9px;height:9px;border-radius:2px;pointer-events:none;z-index:3000;animation:afburst .6s ease-out forwards}
-.af textarea{width:100%;font:500 15px/1.4 var(--sans);border:2px solid var(--ink);border-radius:10px;padding:10px;background:var(--bg);resize:vertical}
+.af textarea,.brw textarea{width:100%;font:500 15px/1.4 var(--sans);border:2px solid var(--ink);border-radius:10px;padding:10px;background:var(--bg);resize:vertical}
 .af table{box-shadow:none}
 @media(max-width:900px){.s4,.s5,.s6,.s7,.s8{grid-column:span 12}.af-hero h2{max-width:none}}
 @media(max-width:700px){.af{padding:14px 14px 30px;gap:14px}.af-top{padding:16px 14px 4px}.nav{padding:8px 14px 0}.af-cd .n{font-size:80px}.af-stk{width:78px;height:78px;right:-14px;top:-14px}.af-hero h4{padding-right:56px}.nav{flex-wrap:nowrap;overflow-x:auto;padding-bottom:8px}.nav .btn{flex:none}.af-wx .wxtp b{font-size:46px}.af-wx .wxtp .lo b{font-size:28px}}
@@ -190,7 +190,7 @@ body{--tc:#ffc21a}
 .af-hd h2{margin:0;font:800 clamp(40px,6.5vw,76px)/.88 var(--sans);letter-spacing:-.05em;text-transform:uppercase;position:relative;z-index:1}
 .af-hd.an h2 span{display:inline-block;animation:afdrop .55s cubic-bezier(.3,1.6,.5,1) both}
 .af-hd .sb{font:500 12px var(--mono);text-transform:uppercase;letter-spacing:.06em;position:relative;z-index:1;padding-bottom:8px}
-.af-hd .nums{display:flex;gap:10px;margin-left:auto;position:relative;z-index:1;margin-right:110px;flex-wrap:wrap}
+.af-hd .nums{display:flex;gap:10px;margin-left:auto;position:relative;z-index:1;flex-wrap:wrap}
 .af-hd .nums div{background:var(--card);border:2px solid var(--ink);border-radius:12px;padding:6px 12px;box-shadow:3px 3px 0 var(--shd,var(--ink))}
 .af-hd .nums b{display:block;font:800 30px/1 var(--sans);letter-spacing:-.03em}.af-hd .nums span{font:500 10px var(--mono);text-transform:uppercase}
 .af-hd .stk{position:absolute;right:-20px;top:50%;margin-top:-66px;width:132px;height:132px;animation:afspin 18s linear infinite;pointer-events:none}
@@ -347,14 +347,14 @@ html[data-tema=dark] .gv-c{background:var(--card)}
 .bm-st.dirty{font-weight:800}.bm-st.err{color:#c0392b;font-weight:800}.bm-st.ok{color:#1c7a45;font-weight:700}
 html[data-tema=dark] .bm-st.err{color:#ff8a7a}html[data-tema=dark] .bm-st.ok{color:#6fdc9c}
 @media(max-width:700px){.bm{padding:8px 14px 30px}.bm-q label{gap:9px}.bm-bar{bottom:6px}}
-.br-g{columns:3 330px;column-gap:18px;padding:8px 24px 6px}
-.br-c{break-inside:avoid;margin:0 0 18px;background:var(--card);border:2.5px solid var(--ink);border-radius:16px;box-shadow:5px 5px 0 var(--shd,var(--ink));padding:16px 18px;transition:transform .18s,box-shadow .18s;display:inline-block;width:100%}
+.br-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start;padding:8px 24px 6px}
+.br-c{margin:0;background:var(--card);border:2.5px solid var(--ink);border-radius:16px;box-shadow:5px 5px 0 var(--shd,var(--ink));padding:16px 18px;transition:transform .18s,box-shadow .18s;display:inline-block;width:100%}
 .br-c:hover{transform:translate(-3px,-3px);box-shadow:8px 8px 0 var(--shd,var(--ink))}
 .br-c.you{background:#fff0a8}
 /* Beyin filters + links */
 .kpi-b{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%;display:block}
 .kpi-b[aria-pressed=true]{outline:3px solid var(--ink);outline-offset:3px;transform:translate(-3px,-3px);box-shadow:8px 8px 0 var(--shd,var(--ink))}
-.kpi-b[aria-pressed=true] span:after{content:' · seçili'}
+.kpi-b[aria-pressed=true] span:after{content:' · selected'}
 .kpi-b:focus-visible,.af-rl:focus-visible,.af-kp button:focus-visible,.sr button.ln:focus-visible,.br-h .btn:focus-visible,#br-list:focus-visible,.br-c:focus-visible,#af-tasks:focus-visible{outline:3px solid #ff5a3c;outline-offset:3px}
 #br-list,.br-c,#af-tasks{scroll-margin-top:12px}#br-list:focus,.br-c:focus,#af-tasks:focus{outline:none}#br-list:focus-visible,.br-c:focus-visible,#af-tasks:focus-visible{outline:3px solid #ff5a3c}
 .br-c.hl{outline:4px solid #ff5a3c;outline-offset:4px}
@@ -387,6 +387,7 @@ html[data-tema=dark] .bm-st.err{color:#ff8a7a}html[data-tema=dark] .bm-st.ok{col
 .br-d{margin:18px 24px 0;border:2.5px solid var(--ink);border-radius:14px;background:var(--card);box-shadow:4px 4px 0 var(--shd,var(--ink));padding:10px 14px}
 .br-d summary{font:800 17px var(--sans);text-transform:uppercase;cursor:pointer}
 .afa .br-c,.afa .br-e,.afa .st-lv,.afa .st-due{opacity:0;animation:afent .55s cubic-bezier(.2,.9,.25,1.15) forwards}
+@media(max-width:900px){.br-g{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:700px){.br-u{margin-left:0}.br-g{padding:8px 14px 6px}.br-tl{padding:6px 14px 4px 36px}.br-tl:before{left:21px}.br-d{margin:18px 14px 0}}
 
 /* Satranç (v2) */
@@ -636,6 +637,7 @@ const $=s=>document.getElementById(s),esc=s=>String(s==null?'':s).replace(/[&<>"
 const base=p=>String(p||"").replace(/\/+$/,"").split("/").pop()||p;
 const J=async(p,opt)=>{const r=await fetch(p,opt);const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j};
 const DS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],DSK=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],ML=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const ND=s=>new Date(s+'T00:00:00');
 const AFC=['#4a9dff','#ff7eb6','#ffc21a','#2fbf71','#ff9b3d','#b9a4ff','#7be0d0'],AFT={};
 const afTag=t=>AFT[t]||(AFT[t]=AFC[Object.keys(AFT).length%AFC.length]);
@@ -643,13 +645,23 @@ const afD=(i,b=.05,s=.07)=>`style="animation-delay:${(b+i*s).toFixed(2)}s"`;
 const afSplit=(s,d)=>[...s].map((c,i)=>`<span style="animation-delay:${(d+i*.04).toFixed(2)}s">${c==' '?'&nbsp;':esc(c)}</span>`).join('');
 function afHi(){const h=new Date().getHours();return h<5?'Good night':h<12?'Good morning':h<18?'Good afternoon':h<23?'Good evening':'Good night'}
 function afClock(){const e=$('afclk');if(!e)return;const d=new Date();e.firstChild.nodeValue=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');$('afdt').textContent=DS[d.getDay()]+' '+d.getDate()+' '+ML[d.getMonth()]+' '+d.getFullYear()}
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function afKind(s){s=(s||'').toLowerCase();return /thunder|storm/.test(s)?'storm':/snow/.test(s)?'snow':/rain|drizzle|shower/.test(s)?'rain':/fog/.test(s)?'fog':/partly|mostly clear/.test(s)?'part':/clear|sun/.test(s)?'sun':'cloud'}
+function afIcon(k,sz){const C='<path d="M20 62a18 18 0 0 1 10-33 24 24 0 0 1 46-4 17 17 0 0 1 24 18 12 12 0 0 1-4 19z" fill="#fffaf0" stroke="#161412" stroke-width="3"/>';
+ const SUN=(x,y,r)=>`<g class="af-sun"><circle cx="${x}" cy="${y}" r="${r}" fill="#ffc21a" stroke="#161412" stroke-width="3"/>${[0,45,90,135,180,225,270,315].map(a=>{const c=Math.cos(a*Math.PI/180),s=Math.sin(a*Math.PI/180);return `<line x1="${x+c*(r+5)}" y1="${y+s*(r+5)}" x2="${x+c*(r+12)}" y2="${y+s*(r+12)}" stroke="#161412" stroke-width="3" stroke-linecap="round"/>`}).join('')}</g>`;
+ let g='';if(k=='sun')g=SUN(60,48,24);else if(k=='part')g=SUN(88,30,16)+C;else if(k=='fog')g=C+[74,86,98].map((y,i)=>`<line class="af-fog" x1="18" y1="${y}" x2="104" y2="${y}" stroke="#fffaf0" stroke-width="4" stroke-linecap="round" style="animation-delay:${i*.4}s"/>`).join('');
+ else if(k=='rain'||k=='storm')g=[24,46,68,90].map((x,i)=>`<line class="af-drop" x1="${x}" y1="70" x2="${x-5}" y2="84" stroke="#fff" stroke-width="4" stroke-linecap="round" style="animation-delay:${i*.27}s"/>`).join('')+(k=='rain'?SUN(88,30,16):'')+C+(k=='storm'?'<path d="M58 60l-10 20h12l-6 18 18-26H60l8-12z" fill="#ffc21a" stroke="#161412" stroke-width="2.5"/>':'');
+ else if(k=='snow')g=[26,48,70,92].map((x,i)=>`<circle class="af-drop" cx="${x}" cy="74" r="4" fill="#fff" style="animation-delay:${i*.3}s;animation-duration:2s"/>`).join('')+C;else g=C;
+ return `<svg class="ic" width="${sz}" height="${sz}" viewBox="0 0 120 110" aria-hidden="true">${g}</svg>`}
+function afScroll(id){const e=$(id);if(e){e.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});e.focus({preventScroll:true})}}
 function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){const p=document.createElement('i');p.className='af-bu';const a=k/14*6.283;p.style.cssText=`left:${b.left+b.width/2-4}px;top:${b.top+b.height/2-4}px;background:${['#ffc21a','#ff5a3c','#4a9dff','#2fbf71'][k%4]};--x:${Math.cos(a)*56}px;--y:${Math.sin(a)*56}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),700)}}
 const NAVT=[['bg','Today'],['ev','Events'],['br','Brain'],['hl','Health'],['cn','Connections']],HASH={today:'bg',events:'ev',brain:'br',health:'hl',connections:'cn'},HASHR={bg:'today',ev:'events',br:'brain',hl:'health',cn:'connections'};
-const S={view:HASH[location.hash.replace('#','')]||'bg'};
+const S={hn:{},view:HASH[location.hash.replace('#','')]||'bg'};
 function nav(){$('nav').innerHTML=NAVT.map(([k,l])=>`<button type="button" class="btn${k==S.view?' on':''}" data-view="${k}">${l}</button>`).join('')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;location.hash=HASHR[S.view];render()}
- const s=e.target.closest('[data-scroll]');if(s){const t=$(s.dataset.scroll);if(t){t.scrollIntoView({behavior:'smooth',block:'start'});t.focus()}}});
-function counts(v){v.querySelectorAll('[data-c]').forEach(e=>{const t=+e.dataset.c,s0=performance.now();if(!t){e.textContent='0';return}const f=p=>{const r=Math.min(1,(p-s0)/1100);e.textContent=Math.round(t*(1-Math.pow(1-r,3)));if(r<1)requestAnimationFrame(f)};requestAnimationFrame(f)})}
+ const s=e.target.closest('[data-scroll]');if(s)afScroll(s.dataset.scroll)});
+function afCount(root,ms=1000){root.querySelectorAll('[data-c]').forEach(e=>{const t=+e.dataset.c,s0=performance.now();if(!t||RM){e.textContent=String(t||0);return}const f=p=>{const r=Math.min(1,(p-s0)/ms);e.textContent=Math.round(t*(1-Math.pow(1-r,3)));if(r<1)requestAnimationFrame(f)};requestAnimationFrame(f)})}
+const counts=v=>afCount(v,1100);
 const ring=`<svg class="af-stk" viewBox="0 0 120 120"><circle cx="60" cy="60" r="47" fill="#ff5a3c" stroke="#161412" stroke-width="3"/><defs><path id="afcp" d="M60,60 m-34,0 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0"/></defs><text font-family="DM Mono" font-size="13" font-weight="500" fill="#161412"><textPath href="#afcp" textLength="211" lengthAdjust="spacing">YOUR DAY · YOUR SPACE · </textPath></text></svg>`;
 const K=(n,l,at)=>`<button type="button" ${at}><b data-c="${n}">0</b><span>${l}</span></button>`;
 const dueTxt=(d,days)=>d?`${esc(d)}${days!=null?(days<0?' · '+Math.abs(days)+'d late':days===0?' · today':' · '+days+'d'):''}`:'';
@@ -660,14 +672,15 @@ function afWx(w){const na=`<div class="na"><small>-</small><b>-</b><small>-</sma
  const d0=w.days[0],rest=w.days.slice(1,5),st=w.status=='stale'?`stale · ${w.age_hours}h old`:`fetched ${esc((w.fetched||'').slice(11,16))}`;
  const rain=d0.rain_pct!=null&&d0.rain_pct>=30?`<div class="mono wxp">rain ${d0.rain_pct}%${d0.rain_mm?' · '+d0.rain_mm+' mm':''}</div>`:'';
  const fc=rest.map(d=>`<div><small>${DN[new Date(d.date+'T12:00').getDay()]}</small><b>${t(d.max)}</b><small>${t(d.min)}</small><small>${d.rain_pct!=null?d.rain_pct+'%':'-'}</small></div>`).join('')+na.repeat(Math.max(0,4-rest.length));
- return `<h4>Weather · connection</h4><div class="wxg"><div class="wxc"><div class="wxh"><div><b class="wxn">${esc(w.city||'Your city')}</b><span class="mono">${st}</span></div></div><div class="wxtp"><div><b>${t(d0.max)}</b><span>high</span></div><div class="lo"><b>${t(d0.min)}</b><span>low</span></div></div><div class="wxd">${esc(d0.text||'')}${w.current&&w.current.temp!=null?` · now ${t(w.current.temp)}`:''}</div>${rain}<div class="fc">${fc}</div></div></div><div class="mono wxk">Open-Meteo, no API key. Cached by the weather job; a stale cache is shown with its age, never hidden.</div>`}
+ return `<h4>Weather · connection</h4><div class="wxg"><div class="wxc"><div class="wxh"><div><b class="wxn">${esc(w.city||'Your city')}</b><span class="mono">${st}</span></div>${afIcon(afKind(d0.text),50)}</div><div class="wxtp"><div><b>${t(d0.max)}</b><span>high</span></div><div class="lo"><b>${t(d0.min)}</b><span>low</span></div></div><div class="wxd">${esc(d0.text||'')}${w.current&&w.current.temp!=null?` · now ${t(w.current.temp)}`:''}</div>${rain}<div class="fc">${fc}</div></div></div><div class="mono wxk">Open-Meteo, no API key. Cached by the weather job; a stale cache is shown with its age, never hidden.</div>`}
 
+const afFail=f=>`${f.job}: failed ${f.streak} runs in a row${f.since?' since '+String(f.since).slice(0,16).replace('T',' '):''}${f.error?' · '+f.error:''}`;
 async function bugunView(){const v=$('view');if(!v.querySelector('.af'))v.innerHTML='<div class="empty">Loading...</div>';
  const d=await J('/api/today');if(S.view!='bg')return;
  const b=d.sections.brain,hl=d.sections.health,td=new Date(d.now);
  const you=b?b.on_you.map(y=>({thread:y.thread,text:esc(y.text)})):[],T2=b?b.open_tasks:0,DT=b?b.upcoming:[];
  let i=0,h=`<div class="af">`;
- const warns=hl&&hl.available?hl.warnings:[];
+ const warns=hl&&hl.available?(hl.failing||[]).map(afFail).concat(hl.warnings):[];
  if(warns.length)h+=`<div class="af-b af-wr s12" ${afD(i++)}><h4>Warning <span class="af-st">attention</span></h4><ul style="margin:4px 0 0;padding-left:20px">${warns.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
  h+=`<div class="af-b af-hero s7" ${afD(i++)}>${ring}<h4>${DS[td.getDay()]} ${td.getDate()} ${ML[td.getMonth()]} · your day</h4><h2>${afSplit(afHi(),.25)}</h2>
   <div class="af-kp">${K(you.length,'waiting on you','data-bf="you"')}${K(T2,'open tasks','data-view="br"')}${K(b?b.threads:0,'active threads','data-view="br"')}${K(b?b.inbox:0,'in inbox','data-view="br"')}${hl&&hl.available?K(hl.jobs,'jobs last night','data-view="hl"'):''}</div></div>`;
@@ -686,51 +699,116 @@ async function bugunView(){const v=$('view');if(!v.querySelector('.af'))v.innerH
 async function bwNote(){const t=$('bnote'),b=$('bnoteb'),s=$('bnotes'),val=t.value.trim();if(!val)return;b.disabled=t.disabled=true;s.textContent='Saving...';
  try{const r=await J('/api/brain/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'note',text:val})});s.textContent='saved '+base(r.path);t.value='';afBurst(b)}catch(e){s.textContent=e.message}b.disabled=t.disabled=false}
 
-async function brView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/brain');if(S.view!='br')return;
+async function brView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const [d,hh]=await Promise.all([J('/api/brain'),J('/api/health').catch(()=>null)]);if(S.view!='br')return;d.hwarn=hh&&hh.available?(hh.failing||[]).length+(hh.warnings||[]).length:0;
+ S.hn.br=d.exists?[[d.lanes.on_you.length,'on you'],[d.todo.length,'tasks'],[d.threads.length,'threads']]:[];
  if(!d.exists){v.innerHTML=`<div class="empty">Vault not found: ${esc(base(d.vault))}</div>`;return}
- let i=0,h=`<div class="af">`;
- h+=`<div class="af-b s12" style="padding:10px 18px;animation-delay:.05s"><span class="mono">${esc(base(d.vault))} · ${d.files.map(f=>`${esc(f.file)} ${f.exists?`${f.chars}/${f.limit}`:'missing'}`).join(' · ')}</span></div>`;i++;
- const lane=(name,items)=>`<h4 style="margin-top:14px">${name} · ${items.length}</h4>${items.length?items.map(o=>`<div class="af-row"><span class="tx">${esc(o.text)}<span class="mono" style="display:block;font-size:10px;margin-top:2px">${esc(o.thread)}${o.due?' · '+dueTxt(o.due):''}</span></span></div>`).join(''):'<p>Empty.</p>'}`;
- h+=`<div class="af-b s4" ${afD(i++)}><h4>Lanes</h4>${lane('On you',d.lanes.on_you)}${lane('On me',d.lanes.on_me)}${lane('On someone else',d.lanes.others)}</div>`;
- h+=`<div class="af-b s4" id="af-tasks" tabindex="-1" ${afD(i++)}><h4>Tasks · ${d.todo.length}</h4>${d.todo.length?d.todo.map(t=>`<div class="af-row"><span class="af-ck" role="button" title="Mark as done" onclick="afDone(this)"></span><span class="tx">${esc(t.text)}<span class="mono" style="display:block;font-size:10px;margin-top:2px">${dueTxt(t.due,t.days_left)}</span></span></div>`).join(''):'<p>No open tasks in To-Do.md.</p>'}<p class="mono" style="font-size:10px;margin:10px 0 0">Tick the box when it is done.</p></div>`;
- if(d.quick_capture)h+=`<div class="af-b af-hero s4" ${afD(i++)}><h4>Quick capture</h4><form id="cap"><div style="display:flex;gap:8px;margin-bottom:8px"><select name="kind" class="btn" style="padding:6px 10px;font:700 13px var(--sans)"><option value="task">task</option><option value="note">note</option></select><input type="date" name="due" class="btn" style="padding:6px 10px;font:700 13px var(--sans)" title="due (tasks only)"></div><textarea name="text" rows="3" placeholder="One line for a task, anything for a note" required></textarea><div style="display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn">Append</button><span id="capmsg" class="mono" style="font-size:11px"></span></div></form><p class="mono" style="font-size:10px;margin:10px 0 0">A task goes under ## Open in To-Do.md; a note becomes a new file in inbox/.</p></div>`;
- h+=`<div class="af-b af-pd s7" ${afD(i++)}><h4>Sessions · ${d.sessions.length}</h4>${d.sessions.length?d.sessions.map(s=>`<div style="border-top:1.5px solid #fff3d633;padding:10px 0"><div style="font:800 18px/1.1 var(--sans)">${esc(s.title)}</div><div class="mono" style="margin:4px 0 6px">${esc(s.at)} · ${esc(s.session)}</div><div style="font-size:14px">${esc(s.text)}</div></div>`).join(''):'<p>Last-Session.md is empty.</p>'}</div>`;
- h+=`<div class="af-b af-gd s5" ${afD(i++)}><h4>Threads · ${d.threads.length}</h4>${d.threads.length?d.threads.map(t=>`<p class="g"><small>${esc(t.date)}${t.source?' · '+esc(t.source):''}</small>${esc(t.title)}<span style="display:block;font-weight:500;font-size:13.5px;margin-top:3px">${esc(t.status)||'no status line'}</span>${t.open.length?`<span class="mono" style="display:block;margin-top:4px">${t.open.length} open</span>`:''}</p>`).join(''):'<p>No active threads in Threads.md.</p>'}${d.inbox.length?`<p class="mono" style="margin-top:12px">Inbox: ${d.inbox.map(esc).join(', ')}</p>`:''}</div>`;
- v.innerHTML=h+'</div>';counts(v);
- const f=$('cap');if(f)f.onsubmit=async ev=>{ev.preventDefault();const fd=new FormData(f),msg=$('capmsg');
-  try{const r=await J('/api/brain/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:fd.get('kind'),text:fd.get('text'),due:fd.get('due')})});msg.textContent=r.kind==='task'?'appended to To-Do.md':'saved '+base(r.path);f.text.value='';afBurst(f.querySelector('button'));setTimeout(brView,700)}
+ S._bd=d;S.bf=S.bf||'all';brDraw()}
+function brDraw(){const d=S._bd,f=S.bf||'all',v=$('view');
+ const warn=d.hwarn||0;
+ const K=(n,l,k)=>{const on=f==k;return `<button type="button" class="kpi kpi-b" data-bf="${on?'all':k}" aria-pressed="${on}"><b>${n}</b><span>${l}</span></button>`},KP=(n,l)=>`<div class="kpi"><b>${n}</b><span>${l}</span></div>`;
+ let h=`<div class="brw"><div class="kp">${K(d.lanes.on_you.length,'waiting on you','you')}${K(d.threads.length,'active threads','act')}${K(d.todo.length,'open tasks','task')}${KP(d.inbox.length,'inbox')}${KP(warn,'warnings')}</div>`;
+ const head=(t,n)=>`<div class="sec br-h" id="br-h"><span>${t} · ${n}</span>${f!='all'?'<button type="button" class="btn" data-bf="all">Show all</button>':''}</div>`;
+ const ow={you:['On you','#ff7eb6'],me:['On me','#4a9dff']};
+ const item=o=>{const k=o.on_you?'you':o.owner=='me'?'me':'';const [l,c]=ow[k]||[o.owner?'On '+esc(o.owner):'Open','#e4ddcc'];return `<div class="br-i" style="--c:${c}"><span class="mono">${l}</span> ${esc(o.text)}${o.due?` <span class="mono">${dueTxt(o.due)}</span>`:''}</div>`};
+ const card=t=>{const ys=t.open.filter(o=>o.on_you),n=ys.length,its=f=='you'?ys:t.open;
+  return `<div class="br-c${n?' you':''}"><div class="br-t">${n?`<span class="br-n">on you ${n}</span>`:''}<h3>${esc(t.title)}</h3><span class="mono">${esc(t.date)}${t.source?' · '+esc(t.source):''}</span></div><div class="br-k mono">Where you left off</div><p class="br-s">${esc(t.status)||'No status line'}</p>${its.length?`<div class="br-l">${its.map(item).join('')}</div>`:''}</div>`};
+ if(f=='task'){h+=''}else{
+  const TH=d.threads.map(t=>({t,n:t.open.filter(o=>o.on_you).length})).sort((a,b)=>b.n-a.n),sh=f=='you'?TH.filter(x=>x.n):TH;
+  h+=head(f=='you'?'On you':'Open threads',f=='you'?d.lanes.on_you.length:d.threads.length)+(sh.length?`<div class="br-g">${sh.map(x=>card(x.t)).join('')}</div>`:`<p class="br-em">${f=='you'?'Nothing is waiting on you.':'No active threads in Threads.md.'}</p>`)}
+ h+=`<div class="sec"><span>Tasks · ${d.todo.length}</span>${f=='task'?'<button type="button" class="btn" data-bf="all">Show all</button>':''}</div><div class="br-g"><div class="br-c" id="af-tasks" tabindex="-1">${d.todo.length?d.todo.map((t,i)=>`<div class="af-row"><span class="af-ck" role="button" title="Mark as done" data-i="${i}" onclick="afDone(this)"></span><span class="tx">${esc(t.text)}<span class="mono" style="display:block;font-size:10px;margin-top:2px">${dueTxt(t.due,t.days_left)}</span></span></div>`).join(''):'<p>No open tasks in To-Do.md.</p>'}<p class="mono" style="margin:10px 0 0">Tick the box when it is done.</p></div>`;
+ if(d.quick_capture)h+=`<div class="br-c"><div class="br-t"><h3>Quick capture</h3></div><form id="cap" style="margin-top:10px"><div style="display:flex;gap:8px;margin-bottom:8px"><select name="kind" class="btn" style="padding:6px 10px;font:700 13px var(--sans)"><option value="task">task</option><option value="note">note</option></select><input type="date" name="due" class="btn" style="padding:6px 10px;font:700 13px var(--sans)" title="due (tasks only)"></div><textarea name="text" rows="3" placeholder="One line for a task, anything for a note" required></textarea><div style="display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn">Append</button><span id="capmsg" class="mono" style="font-size:11px"></span></div></form><p class="mono" style="margin:10px 0 0">A task goes under ## Open in To-Do.md; a note becomes a new file in inbox/.</p></div>`;
+ h+=`</div>`;
+ if(f!='task'){
+  h+=`<div class="sec"><span>Sessions · ${d.sessions.length}</span></div>${d.sessions.length?`<div class="br-g">${d.sessions.map(x=>`<div class="br-c"><div class="br-t"><h3>${esc(x.title)}</h3><span class="mono">${esc(x.at)}${x.session?' · '+esc(x.session):''}</span></div><p class="br-s">${esc(x.text)}</p></div>`).join('')}</div>`:'<p class="br-em">Last-Session.md is empty.</p>'}`;
+  if(d.inbox.length)h+=`<div class="sec"><span>Inbox · ${d.inbox.length}</span></div><div class="br-g"><div class="br-c">${d.inbox.map(x=>`<div class="br-i mono">${esc(x)}</div>`).join('')}</div></div>`}
+ h+=`<p class="mono" style="padding:14px 24px 30px">${esc(base(d.vault))} · ${d.files.map(x=>`${esc(x.file)} ${x.exists?`${x.chars}/${x.limit}`:'missing'}`).join(' · ')}</p></div>`;
+ v.innerHTML=h;counts(v);
+ v.onclick=ev=>{const b=ev.target.closest('[data-bf]');if(b){S.bf=b.dataset.bf;brDraw();return}};
+ const fm=$('cap');if(fm)fm.onsubmit=async ev=>{ev.preventDefault();const fd=new FormData(fm),msg=$('capmsg');
+  try{const r=await J('/api/brain/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:fd.get('kind'),text:fd.get('text'),due:fd.get('due')})});msg.textContent=r.kind==='task'?'appended to To-Do.md':'saved '+base(r.path);fm.text.value='';afBurst(fm.querySelector('button'));setTimeout(brView,700)}
   catch(e){msg.textContent=e.message}}}
-function afDone(el){if(el.classList.contains('dn'))return;el.classList.add('dn');afBurst(el)}
+async function afDone(el){if(el.classList.contains('dn')||el.dataset.busy)return;const t=S._bd&&S._bd.todo[+el.dataset.i];if(!t)return;el.dataset.busy=1;
+ try{await J('/api/brain/done',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:t.text})});el.classList.add('dn');afBurst(el);setTimeout(brView,700)}
+ catch(e){el.title=e.message;delete el.dataset.busy}}
 
 async function hlView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/health');if(S.view!='hl')return;
  if(!d.available){v.innerHTML=`<div class="af"><div class="af-b s12"><p>${esc(d.reason)}</p></div></div>`;return}
+ d.warnings=(d.failing||[]).map(afFail).concat(d.warnings);S.hn.hl=[[d.runs.length,'jobs'],[d.runs.filter(r=>!r.ok).length,'failed'],[d.warnings.length,'warnings']];
  const rows=d.runs.map(r=>`<tr><td><b>${esc(r.job)}</b></td><td>${r.ok?'ok':'error'}</td><td class="mono">${r.rows??'n/a'}</td><td class="mono">${esc(r.finished)}</td><td>${r.warnings.map(esc).join('<br>')||''}${r.ok?'':`<div class="mono">${esc(r.info.error||'')}</div>`}</td></tr>`).join('');
  v.innerHTML=`<div class="af"><div class="af-b s4 ${d.warnings.length?'af-wr':'af-gd'}" ${afD(0)}><h4>Today ${d.warnings.length?'<span class="af-st">attention</span>':''}</h4><div style="font:800 40px/1 var(--sans);letter-spacing:-.04em;margin-top:8px"><span data-c="${d.runs.length}">0</span> <span style="font-size:20px">jobs</span></div>${d.warnings.length?`<ul style="margin:8px 0 0;padding-left:20px">${d.warnings.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:'<p>No warnings today.</p>'}</div>
   <div class="af-b s8" ${afD(1)}><h4>Expected before the morning</h4>${d.expected.length?d.expected.map(x=>`<div class="af-row"><span class="af-ck ${d.runs.some(r=>r.job===x&&r.ok)?'dn':''}"></span><span class="tx">${esc(x)}</span></div>`).join(''):'<p>None configured; add names to <code>expected</code> in kokpit.toml.</p>'}</div>
   <div class="af-b s12" ${afD(2)}><h4>Last run per job</h4><table><thead><tr><th>job</th><th>result</th><th>rows</th><th>finished</th><th>warnings</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;counts(v)}
 
-async function evView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/events');if(S.view!='ev')return;
+const EFR=[['today','Today'],['week','7 days'],['weekend','Weekend'],['month','30 days'],['all','All'],['ongoing','Ongoing']],EFL={today:'today',week:'7 days',weekend:'weekend',month:'30 days',all:'all',ongoing:'ongoing'};
+const EF={rng:'week',q:'',long:false,city:new Set(),cat:new Set(),ev:[],cats:[]};
+const efToday=()=>fmt(new Date()),efAdd=n=>{const x=ND(efToday());x.setDate(x.getDate()+n);return fmt(x)};
+function efNorm(e){const d=String(e.start||'').slice(0,10),f=String(e.end||e.start||'').slice(0,10)||d;return Object.assign({},e,{_d:d,_e:f<d?d:f,_long:(ND(f)-ND(d))/864e5>45,_c:e.city||'',_k:e.category||'other'})}
+function efInRng(e){const r=EF.rng,t=efToday();
+ if(r=='today')return e._d<=t&&e._e>=t;if(r=='week')return e._e>=t&&e._d<=efAdd(7);if(r=='month')return e._e>=t&&e._d<=efAdd(30);if(r=='all')return e._e>=t;if(r=='ongoing')return e._d<t&&e._e>=t;
+ if(r=='weekend'){const w=ND(t).getDay(),sat=w==0?efAdd(-1):efAdd(6-w),sun=w==0?t:efAdd(7-w);return e._e>=(w==0||w==6?t:sat)&&e._d<=sun}return true}
+function efBase(skip){const q=EF.q.trim().toLowerCase();return EF.ev.filter(e=>(EF.long||!e._long)&&(skip=='c'||!EF.city.size||EF.city.has(e._c))&&(skip=='k'||!EF.cat.size||EF.cat.has(e._k))&&(!q||[e.title,e.venue,e.city].join(' ').toLowerCase().includes(q))&&efInRng(e))}
+function efCnt(dim){const m={};efBase(dim).forEach(e=>{const k=dim=='c'?e._c:e._k;m[k]=(m[k]||0)+1});return k=>m[k]||0}
+function efActive(){const a=[];if(EF.q.trim())a.push(['q','Search: '+(EF.q.length>20?EF.q.slice(0,19)+'...':EF.q)]);[...EF.city].forEach(k=>a.push(['c:'+k,k]));[...EF.cat].forEach(k=>a.push(['k:'+k,k]));if(EF.long)a.push(['long','45+ day events']);return a}
+function efSummary(){const a=efActive(),n=efBase().length;
+ return `<span class="ef-cnt"><b>${n}</b>events · ${esc(EFL[EF.rng])}</span><div class="ef-ac">${a.length?`<span class="ef-ct">${a.length} ${a.length==1?'filter':'filters'}</span>`+a.map(([k,l])=>`<button type="button" class="ef-tg" data-efclr="${esc(k)}" aria-label="Remove filter ${esc(l)}">${esc(l)}<i aria-hidden="true">x</i></button>`).join('')+'<button type="button" class="ef-rs" data-efclr="all">Reset</button>':'<span class="ef-ct">No filters</span>'}</div>`}
+function efClear(k){if(k=='all'){EF.q='';EF.city.clear();EF.cat.clear();EF.long=false}else if(k=='q')EF.q='';else if(k=='long')EF.long=false;else if(k.slice(0,2)=='c:')EF.city.delete(k.slice(2));else if(k.slice(0,2)=='k:')EF.cat.delete(k.slice(2));efSync(true)}
+function efList(){let i=0,h='',day='';const list=efBase();
+ for(const e of list){if(e._d!==day){day=e._d;const x=ND(day);h+=`<div class="af-b s12" style="padding:8px 18px" ${afD(i++)}><span class="mono">${DSK[x.getDay()]} ${x.getDate()} ${ML[x.getMonth()]}</span></div>`}
+  h+=`<div class="af-b s6" ${afD(i++)}><div class="af-row"><span class="tx"><a href="${esc(e.url||'#')}" target="_blank" rel="noopener">${esc(e.title)}</a><span class="mono" style="display:block;font-size:10px;margin-top:3px">${esc([e.venue,e.city,e.distance_km!=null?Math.round(e.distance_km)+' km':''].filter(Boolean).join(' · '))}</span></span><i style="background:${afTag(e._k)}">${esc(e._k)}</i></div><p class="mono" style="font-size:10px;margin:8px 0 0">${esc(e.source)} · <a href="/api/events/${e.id}.ics">add to calendar</a></p></div>`}
+ if(!list.length)h+=`<div class="af-b s12" ${afD(i++)}><p>Nothing matches these filters. Try a wider date range, or run <code>kokpit run-job events-collect</code>.</p></div>`;return h}
+function efSync(full){const v=$('view');if(S.view!='ev'||!$('efsum'))return;$('efsum').innerHTML=efSummary();const cc=efCnt('c'),ck=efCnt('k');
+ document.querySelectorAll('#ctl [data-rng]').forEach(b=>{const on=b.dataset.rng==EF.rng;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
+ document.querySelectorAll('#ctl [data-city],#ctl [data-cat]').forEach(b=>{const isC=b.dataset.city!=null,key=isC?b.dataset.city:b.dataset.cat,on=(isC?EF.city:EF.cat).has(key),n=(isC?cc:ck)(key);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);b.querySelector('.ef-n').textContent=n;b.classList.toggle('ef-z',n===0&&!on)});
+ const l=$('evl');if(l)l.innerHTML=efList();const lg=$('efl');if(lg)lg.checked=EF.long;const q=$('efq');if(q&&full&&q.value!==EF.q)q.value=EF.q}
+function efChips(attr,keys,set){const f=attr=='city'?efCnt('c'):efCnt('k');return keys.map(k=>`<button type="button" class="chip${set.has(k)?' on':''}" data-${attr}="${esc(k)}" aria-pressed="${set.has(k)}" style="--c:${afTag(k)}"><span class="dot"></span>${esc(k)}<span class="ef-n">${f(k)}</span></button>`).join('')}
+function efPanel(){const cities=[...new Set(EF.ev.map(e=>e._c).filter(Boolean))].sort();
+ const dt=EFR.map(([k,v])=>`<button type="button" class="btn${EF.rng==k?' on':''}" data-rng="${k}" aria-pressed="${EF.rng==k}">${v}</button>`).join('');
+ return `<div class="ef" role="group" aria-label="Event filters"><div class="ef-sm" id="efsum" role="status" aria-live="polite">${efSummary()}</div><div class="ef-bd"><div class="ef-c">`+
+  `<div class="ef-r"><span class="ef-l">Date</span><div class="ef-bt">${dt}</div></div>`+
+  `<div class="ef-r"><label class="ef-l" for="efq">Search</label><div class="ef-bt"><input type="search" id="efq" placeholder="Search events or places" value="${esc(EF.q)}" autocomplete="off"><label class="ef-sw"><input type="checkbox" id="efl"${EF.long?' checked':''}>Include events longer than 45 days</label></div></div></div>`+
+  `<div class="ef-c"><div class="ef-r"><span class="ef-l">City</span><div class="ef-bt ef-rail">${efChips('city',cities,EF.city)||'<span class="ef-ht">No cities yet</span>'}</div></div><div class="ef-r"><span class="ef-l">Category</span><div class="ef-bt ef-rail">${efChips('cat',EF.cats,EF.cat)}</div></div></div></div></div>`}
+async function evView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/events?days=3650');if(S.view!='ev')return;
  if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Events module is off. Set <code>events = true</code> under [modules] in kokpit.toml.</p></div></div>`;return}
  if(!d.configured){v.innerHTML=`<div class="af"><div class="af-b s12"><p>No place yet. Run <code>kokpit init --city "Your city" --force</code>.</p></div></div>`;return}
  if(d.reason){v.innerHTML=`<div class="af"><div class="af-b s12"><p>${esc(d.reason)}</p></div></div>`;return}
- S.evCat=S.evCat||'';const cats=['',...(d.categories||[])].filter(c=>!c||d.events.some(e=>e.category===c));
- const list=d.events.filter(e=>!S.evCat||e.category===S.evCat);const by=Object.entries(d.counts.by_source||{}).map(([k,n])=>`${esc(k)} ${n}`).join(' · ');
- let i=0,h=`<div class="af"><div class="af-b af-hero s12" ${afD(i++)}><h4>${esc(d.place.city)} · ${d.place.radius_km} km · next ${d.days} days</h4><div style="font:800 40px/1 var(--sans);letter-spacing:-.04em;margin-top:8px"><span data-c="${d.counts.upcoming}">0</span> <span style="font-size:20px">events</span></div><p class="mono" style="font-size:11px;margin:8px 0 0">${by||'no source has run yet'}</p>
- <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">${cats.map(c=>`<button type="button" class="chip${c===S.evCat?' on':''}" data-cat="${esc(c)}" style="--c:${afTag(c||'all')}"><span class="dot"></span>${esc(c||'all')}</button>`).join('')}</div></div>`;
- let day='';for(const e of list){const dd=String(e.start||'').slice(0,10);if(dd!==day){day=dd;const x=ND(dd);h+=`<div class="af-b s12" style="padding:8px 18px" ${afD(i++)}><span class="mono">${DSK[x.getDay()]} ${x.getDate()} ${ML[x.getMonth()]}</span></div>`}
-  h+=`<div class="af-b s6" ${afD(i++)}><div class="af-row"><span class="tx"><a href="${esc(e.url||'#')}" target="_blank" rel="noopener">${esc(e.title)}</a><span class="mono" style="display:block;font-size:10px;margin-top:3px">${esc([e.venue,e.city,e.distance_km!=null?Math.round(e.distance_km)+' km':''].filter(Boolean).join(' · '))}</span></span><i style="background:${afTag(e.category)}">${esc(e.category)}</i></div><p class="mono" style="font-size:10px;margin:8px 0 0">${esc(e.source)} · <a href="/api/events/${e.id}.ics">add to calendar</a></p></div>`}
- if(!list.length)h+=`<div class="af-b s12" ${afD(i++)}><p>Nothing in this window. Run <code>kokpit run-job events-collect</code> or check the slugs on Connections.</p></div>`;
- v.innerHTML=h+'</div>';counts(v);v.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{S.evCat=b.dataset.cat;evView()})}
+ EF.ev=(d.events||[]).map(efNorm);EF.cats=d.categories||[];
+ const c=$('ctl');c.innerHTML=efPanel();v.innerHTML=`<div class="af"><div id="evl" style="display:contents">${efList()}</div></div>`;counts(v);
+ c.onclick=ev=>{const t=ev.target.closest('[data-efclr],[data-rng],[data-city],[data-cat]');if(!t||!c.contains(t))return;
+  if(t.dataset.efclr!=null)return efClear(t.dataset.efclr);
+  if(t.dataset.rng){EF.rng=t.dataset.rng}else{const s=t.dataset.city!=null?EF.city:EF.cat,k=t.dataset.city!=null?t.dataset.city:t.dataset.cat;s.has(k)?s.delete(k):s.add(k)}efSync()};
+ c.oninput=ev=>{if(ev.target.id=='efq'){EF.q=ev.target.value;efSync()}};
+ c.onchange=ev=>{if(ev.target.id=='efl'){EF.long=ev.target.checked;efSync()}}}
 
 async function cnView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/connections');if(S.view!='cn')return;
  const tone=s=>/^ok$/.test(s)?'af-gd':/planned|off|not set|not created|not run/.test(s)?'':'af-wr';
  const last=l=>l?`${l.ok?'ok':'error'}${l.rows!=null?' · '+l.rows+' rows':''} · ${esc(l.finished)}${l.today?'':' (not today)'}`:'never';
- const groups=['today','brain','health','events','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span></div>`;
+ S.hn.cn=[[d.connections.filter(c=>c.status==='ok').length,'ok'],[d.connections.length,'total']];const groups=['today','brain','health','events','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span></div>`;
  for(const g of groups){const items=d.connections.filter(c=>c.module===g);if(!items.length)continue;
   for(const c of items)h+=`<div class="af-b s4 ${tone(c.status)}" ${afD(i++)}><h4>${esc(c.name)} ${c.enabled?'':'<span class="mono" style="font-size:10px">off</span>'}</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">${esc(c.module)} · ${esc(c.kind)}</p><p style="margin:0"><b>reads</b> ${esc(c.reads)}</p><p style="margin:0"><b>writes</b> ${esc(c.writes)}</p><p style="margin:0"><b>permission</b> ${esc(c.permission)}</p><p style="margin:0"><b>target</b> <span class="mono">${esc(c.target)}</span></p>${c.detail?`<p class="mono" style="font-size:10px;margin:6px 0 0">${esc(c.detail)}</p>`:''}<p class="mono" style="font-size:10px;margin:8px 0 0">status ${esc(c.status)} · last ${last(c.last)}</p>${c.last&&c.last.warnings&&c.last.warnings.length?`<p class="mono" style="font-size:10px;margin:4px 0 0">${c.last.warnings.map(esc).join('<br>')}</p>`:''}</div>`}
  v.innerHTML=h+'</div>'}
 
-async function render(){nav();window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,br:brView,hl:hlView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+const AFN=k=>(S.hn&&S.hn[k])||[];
+const AFH={ev:['Events','#ff6b4a',()=>'Around your city',()=>AFN('ev')],
+ br:['Brain','#ffd23f',()=>'Open loops and where you left off',()=>AFN('br')],
+ hl:['Health','#2fbf71',()=>'Nightly jobs, last runs and warnings',()=>AFN('hl')],
+ cn:['Connections','#7be0d0',()=>'What Kokpit reads, and when it last worked',()=>AFN('cn')]};
+const AFR={ev:'EVENTS',br:'BRAIN',hl:'HEALTH',cn:'CONNECTIONS'};
+let afLast='',afT=0;
+function afRing(c){return (AFR[S.view]||c[0].toLocaleUpperCase('en'))+' · KOKPIT · '}
+function afHero(anim){const h=$('afhd'),c=AFH[S.view];document.body.style.setProperty('--tc',c?c[1]:'#ffc21a');if(!h)return;if(!c){h.innerHTML='';h.hidden=true;return}h.hidden=false;
+ const rt=afRing(c),ring=`<svg class="stk" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="47" fill="#fffaf0" stroke="#161412" stroke-width="3"/><circle cx="60" cy="60" r="16" fill="${c[1]}" stroke="#161412" stroke-width="3"/><defs><path id="afhp" d="M60,60 m-34,0 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0"/></defs><text font-family="DM Mono" font-size="${Math.min(13,211/(rt.length*.62)).toFixed(1)}" font-weight="500" fill="#161412"><textPath href="#afhp" textLength="211" lengthAdjust="spacing">${esc(rt)}</textPath></text></svg>`;
+ h.innerHTML=`<div class="af-hd${anim?' an':''}"><div class="shp c"></div><div class="shp z"></div>${ring}<div><div class="sb">${esc(c[2]())}</div><h2>${anim?afSplit(c[0],.1):esc(c[0])}</h2></div></div>`;if(anim)afCount(h)}
+function afDecor(){const v=$('view'),key=S.view;
+ if(v.children.length==1&&v.firstElementChild.classList.contains('empty')&&/Loading/.test(v.textContent)){if(S.view!=afLast)afHero(false);return}
+ const fresh=key!=afLast;afLast=key;afHero(fresh&&!RM);
+ if(!fresh||RM||v.querySelector('.af')){v.classList.remove('afa');return}
+ v.classList.remove('afa');void v.offsetWidth;v.classList.add('afa');let i=0;
+ v.querySelectorAll('.kpi,.bx,.sec,.tw,.day,.card,.cd').forEach(e=>{if(!e.style.animationDelay||e.classList.contains('cd'))e.style.animationDelay=(Math.min(i++,24)*(e.classList.contains('cd')?.012:.05)).toFixed(3)+'s'});
+ v.querySelectorAll('tbody').forEach(tb=>[...tb.rows].slice(0,30).forEach((r,j)=>r.style.animationDelay=(.25+j*.03).toFixed(2)+'s'));
+ v.querySelectorAll('.kpi b').forEach(b=>{const m=b.textContent.trim().match(/^(\d{1,7})$/);if(m)b.dataset.c=m[1]});afCount(v);
+ clearTimeout(afT);afT=setTimeout(()=>v.classList.remove('afa'),2500)}
+new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
+async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,br:brView,hl:hlView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 window.addEventListener('hashchange',()=>{const n=HASH[location.hash.replace('#','')]||'bg';if(n!=S.view){S.view=n;render()}});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`}).catch(()=>{});
 afClock();setInterval(afClock,15000);render();

@@ -75,6 +75,7 @@ def test_collect_upsert_and_view():
         conn.close()
         v = api.view(cfg, days=14)
         assert v["enabled"] and v["configured"] and v["place"]["city"] == "Testville" and v["counts"]["total"] == 2
+        assert api.view(cfg, days=3650)["days"] == 3650
         assert v["events"] == []  # 2099 is beyond the 14-day window; the table still has them
         ev = api.one(cfg, 1)
         assert ev and ev["title"] == "Sagra della zucca" and api.one(cfg, 999) is None
