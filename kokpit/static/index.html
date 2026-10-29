@@ -2,123 +2,219 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Kokpit</title>
+<script>try{var t=localStorage.getItem("kokpit_theme");if(!t)t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=t}catch(e){}</script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#0f1115; --card:#171a21; --fg:#e6e6e6; --muted:#8b93a7; --line:#262b36; --ok:#4caf7d; --warn:#e3a33a; --bad:#e05d5d; --acc:#6ea8fe; }
-  @media (prefers-color-scheme: light) { :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2230; --muted:#667085; --line:#e4e7ec; } }
-  * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--fg); }
-  header { display:flex; align-items:center; gap:18px; padding:12px 20px; border-bottom:1px solid var(--line); }
-  header h1 { font-size:17px; margin:0; letter-spacing:.3px; }
-  nav button { background:none; border:0; color:var(--muted); padding:8px 10px; font:inherit; cursor:pointer; border-bottom:2px solid transparent; }
-  nav button.active { color:var(--fg); border-color:var(--acc); }
-  header .meta { margin-left:auto; color:var(--muted); font-size:12px; }
-  main { padding:18px 20px; max-width:1200px; margin:0 auto; }
-  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
-  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:0 0 10px; }
-  .card h3 { font-size:15px; margin:0 0 4px; }
-  .big { font-size:30px; font-weight:600; line-height:1; }
-  .muted { color:var(--muted); } .small { font-size:12px; }
-  ul { margin:0; padding-left:18px; } li { margin:3px 0; }
-  .lane { margin-top:8px; }
-  .tag { display:inline-block; font-size:11px; padding:1px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); margin-left:6px; vertical-align:middle; }
-  .tag.you { color:var(--warn); border-color:var(--warn); } .tag.me { color:var(--acc); border-color:var(--acc); }
-  .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
-  table { width:100%; border-collapse:collapse; font-size:13px; } th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-weight:500; }
-  form { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
-  input, textarea, select { font:inherit; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; }
-  textarea { width:100%; min-height:64px; } input[type=date] { width:160px; }
-  button.primary { background:var(--acc); color:#0b1020; border:0; border-radius:6px; padding:7px 14px; font:inherit; cursor:pointer; }
-  .empty { color:var(--muted); font-style:italic; }
-  .err { color:var(--bad); white-space:pre-wrap; }
-  footer { padding:16px 20px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); margin-top:30px; }
+:root{--w:#fff;--w2:#fffdf6;--bg:#fff3d6;--ink:#161412;--card:#fffaf0;--sans:'Bricolage Grotesque',system-ui,sans-serif;--mono:'DM Mono',ui-monospace,monospace;--sh:4px 4px 0 var(--shd,var(--ink))}
+html[data-theme=dark]{color-scheme:dark;--bg:#1d1b18;--card:#27241f;--ink:#e6dfcd;--w:#2f2b25;--w2:#2b2823;--shd:#0b0a09}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 16px/1.35 var(--sans);overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+.mono{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+a{color:inherit}
+
+/* top bar */
+.top{padding:20px 24px 6px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.logo{font:800 clamp(38px,6vw,64px)/.9 var(--sans);text-transform:uppercase;letter-spacing:-.045em;background:var(--ink);color:var(--bg);padding:4px 12px 7px;transform:rotate(-2deg);animation:drop .8s cubic-bezier(.3,1.5,.5,1) both;cursor:pointer;transition:transform .3s}
+.logo:hover{transform:rotate(1.5deg) scale(1.03)}
+.clk{font:500 30px/1 var(--mono);letter-spacing:-.02em}
+.clk small{display:block;font:500 11.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-top:5px}
+.theme{margin-left:auto;font:700 12px var(--mono);text-transform:uppercase;background:var(--card);border:2px solid var(--ink);border-radius:99px;padding:5px 12px;cursor:pointer;box-shadow:3px 3px 0 var(--shd,var(--ink))}
+.meta{width:100%;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.04em;opacity:.75}
+
+/* nav */
+.nav{padding:8px 24px 0;display:flex;gap:10px;flex-wrap:wrap}
+.btn{font:700 14px var(--sans);border:2px solid var(--ink);background:var(--card);color:var(--ink);padding:7px 14px;border-radius:999px;cursor:pointer;box-shadow:3px 3px 0 var(--shd,var(--ink));transition:transform .12s,box-shadow .12s,background .12s;text-decoration:none;display:inline-block}
+.btn:hover{transform:translate(-1px,-2px);box-shadow:5px 5px 0 var(--shd,var(--ink))}
+.btn:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.nav .btn{font:700 12.5px var(--mono);text-transform:uppercase;padding:7px 12px;border-radius:10px;letter-spacing:.02em}
+.nav .btn.on{background:#ffc21a;color:#161412;transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--shd,var(--ink))}
+
+/* grid + cards */
+.af{padding:18px 24px 40px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:18px}
+.b{border:2.5px solid var(--ink);border-radius:16px;box-shadow:5px 5px 0 var(--shd,var(--ink));padding:16px 18px;position:relative;overflow:hidden;background:var(--card);min-width:0;overflow-wrap:anywhere;transition:transform .18s,box-shadow .18s;opacity:0;animation:ent .7s cubic-bezier(.2,.9,.25,1.15) forwards}
+.b:hover{transform:translate(-3px,-3px);box-shadow:8px 8px 0 var(--shd,var(--ink))}
+.b h4{margin:0 0 8px;font:500 11.5px var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.b p{margin:6px 0}
+.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}.s7{grid-column:span 7}.s8{grid-column:span 8}.s12{grid-column:span 12}
+@keyframes ent{from{opacity:0;transform:translateY(26px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes drop{from{transform:translateY(-120%) rotate(-12deg);opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes bar{from{transform:scaleX(0)}}
+@keyframes pop{0%{transform:scale(0)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
+@keyframes stamp{from{transform:rotate(-8deg) scale(2.4);opacity:0}to{transform:rotate(-8deg);opacity:1}}
+
+/* hero */
+.hero{background:#ffc21a;color:#161412;--ink:#161412;min-height:230px}
+.hero h2{margin:4px 0 14px;font:800 clamp(40px,5.4vw,64px)/.9 var(--sans);letter-spacing:-.045em;text-transform:uppercase;max-width:80%}
+.hero h2 span{display:inline-block;animation:drop .6s cubic-bezier(.3,1.6,.5,1) both}
+.kp{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:10px;position:relative;z-index:1}
+.kp button{background:#fffaf0;border:2px solid #161412;border-radius:12px;padding:8px 11px;cursor:pointer;text-align:left;width:100%;transition:transform .15s,box-shadow .15s}
+.kp button:hover{transform:translate(-2px,-2px);box-shadow:3px 3px 0 #161412}
+.kp b{display:block;font:800 34px/1 var(--sans);letter-spacing:-.04em}
+.kp span{font:500 10.5px var(--mono);text-transform:uppercase;letter-spacing:.05em}
+.stk{position:absolute;right:-16px;top:-16px;width:124px;height:124px;animation:spin 16s linear infinite;pointer-events:none}
+
+/* rows, tags, stamps */
+.row{display:flex;gap:10px;align-items:center;padding:9px 11px;border:2px solid var(--ink);border-radius:11px;margin-top:8px;background:var(--w);transition:transform .15s,background .2s;width:100%;text-align:left}
+.row:hover{transform:translateX(6px);background:var(--w2)}
+.row .tx{flex:1;font:600 14.5px/1.35 var(--sans)}
+.row .tx small{display:block;font:500 10px var(--mono);text-transform:uppercase;margin-top:2px;opacity:.8}
+.row i{font-style:normal;font:700 10px var(--mono);text-transform:uppercase;padding:3px 7px;border-radius:6px;border:2px solid #161412;color:#161412;white-space:nowrap;max-width:42%;overflow:hidden;text-overflow:ellipsis}
+.ck{width:24px;height:24px;border:2.5px solid var(--ink);border-radius:7px;flex:none;position:relative;background:var(--w);box-shadow:2px 2px 0 var(--shd,var(--ink))}
+.ck.dn{background:#2fbf71}.ck.dn:after{content:'';position:absolute;left:6px;top:1px;width:6px;height:12px;border:solid #161412;border-width:0 3px 3px 0;transform:rotate(45deg);animation:pop .3s}
+.st{display:inline-block;font:800 11px var(--mono);border:2.5px solid #d6281b;color:#d6281b;padding:2px 7px;border-radius:4px;animation:stamp .5s .8s cubic-bezier(.3,1.6,.5,1) both;background:var(--card);vertical-align:middle;margin-left:6px}
+.st.ok{border-color:#1f8f52;color:#1f8f52}
+.pv{display:inline-block;font:700 10px var(--mono);text-transform:uppercase;padding:2px 7px;border-radius:6px;border:2px solid var(--ink);margin-left:6px;vertical-align:middle;white-space:nowrap}
+.pv.late{background:#ff5a3c;color:#161412;border-color:#161412}.pv.soon{background:#ffc21a;color:#161412;border-color:#161412}
+.pv.you{background:#ff7eb6;color:#161412;border-color:#161412}.pv.me{background:#4a9dff;color:#161412;border-color:#161412}
+
+/* countdown */
+.cd{background:#ff7eb6;color:#161412;--ink:#161412}
+.cd .n{font:800 104px/.85 var(--sans);letter-spacing:-.06em}
+.dl{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;margin-top:9px}
+.pb{height:10px;border:2px solid #161412;border-radius:6px;background:#fffaf0;overflow:hidden;margin-top:3px}
+.pb s{display:block;height:100%;background:#161412;transform-origin:left;animation:bar 1.2s cubic-bezier(.2,.8,.2,1) both}
+
+/* colour cards */
+.wx{background:#4a9dff;color:#161412;--ink:#161412}
+.wx .big{font:800 48px/.95 var(--sans);letter-spacing:-.04em;margin-top:8px}
+.gd{background:#2fbf71;color:#161412;--ink:#161412}
+.pd{background:var(--ink);color:var(--bg)}
+.pd .mono,.pd h4{color:#ffc21a}
+.pd .t{font:800 22px/1.05 var(--sans);letter-spacing:-.03em;text-transform:uppercase;margin:8px 0 6px}
+.cap{background:#ffd23f;color:#161412;--ink:#161412}
+.cap textarea,.cap input,.cap select{width:100%;border:2px solid #161412;border-radius:10px;padding:9px 10px;background:#fffaf0;color:#161412;margin-top:8px;font:500 15px/1.4 var(--sans)}
+.cap textarea{resize:vertical;min-height:72px}
+.cap .r2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cap .btn{margin-top:10px;background:#161412;color:#fff3d6;border-color:#161412;box-shadow:3px 3px 0 #8a6a00}
+.lane{margin-top:10px;padding-top:8px;border-top:2px dashed var(--ink)}
+.lane:first-of-type{border-top:0;padding-top:0;margin-top:4px}
+.lane b{font:800 17px var(--sans);text-transform:uppercase;letter-spacing:-.01em}
+.lane b em{font:500 11px var(--mono);font-style:normal;margin-left:6px;opacity:.8}
+.ses{border-top:2px solid var(--ink);padding:10px 0 4px;margin-top:8px}
+.ses:first-of-type{border-top:0;margin-top:0}
+.ses .h{font:800 15px/1.2 var(--sans)}
+.ses .h .mono{margin-left:6px;opacity:.8}
+.ses .x{font-size:13.5px;margin-top:3px;opacity:.9}
+.th{background:var(--w);border:2px solid var(--ink);border-radius:12px;padding:10px 12px;margin-top:10px}
+.th .t{font:800 17px/1.15 var(--sans);text-transform:uppercase;letter-spacing:-.02em}
+.th .s{font-size:13.5px;margin:4px 0}
+.th ul{margin:4px 0 0;padding-left:18px;font-size:13.5px}
+
+/* table */
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:2px solid var(--ink);border-radius:12px;overflow:hidden;margin-top:8px}
+th{font:500 11.5px var(--mono);text-transform:uppercase;text-align:left;padding:8px 10px;background:var(--ink);color:var(--bg)}
+td{padding:8px 10px;border-top:1.5px solid var(--ink);font-size:14px;vertical-align:top}
+.ok{color:#1f8f52;font-weight:700}.bad{color:#d6281b;font-weight:700}
+html[data-theme=dark] .ok{color:#2fbf71}html[data-theme=dark] .bad{color:#ff6b4a}
+.empty{opacity:.75;font-style:italic}
+.err{color:#d6281b;white-space:pre-wrap;padding:24px}
+.foot{padding:6px 24px 40px;font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.04em;opacity:.7}
+
+@media(max-width:900px){.s4,.s5,.s6,.s7,.s8{grid-column:span 12}.hero h2{max-width:none}}
+@media(max-width:700px){.af{padding:14px 14px 30px;gap:14px}.top{padding:16px 14px 4px}.nav{padding:8px 14px 0;flex-wrap:nowrap;overflow-x:auto}.nav .btn{flex:none}.cd .n{font-size:80px}.stk{width:78px;height:78px;right:-14px;top:-14px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.b,.hero h2 span{opacity:1}}
 </style>
 </head>
 <body>
-<header>
-  <h1>Kokpit</h1>
-  <nav id="nav"></nav>
-  <span class="meta" id="meta"></span>
-</header>
-<main id="main"><p class="muted">Loading…</p></main>
-<footer>Local-first. The page reads a SQLite database and a Markdown folder on this machine; the only write is quick capture. Reload to refresh.</footer>
+<div class="top">
+  <div class="logo" data-t="today">Kokpit</div>
+  <div class="clk" id="clk">--:--<small id="dt"></small></div>
+  <button type="button" class="theme" id="theme" aria-label="Toggle dark mode">dark</button>
+  <div class="meta" id="meta"></div>
+</div>
+<div class="nav" id="nav" role="navigation"></div>
+<div id="view"></div>
+<div class="foot">Local-first. The page reads a SQLite database and a Markdown folder on this machine; the only write is quick capture.</div>
+
 <script>
-const TABS = { today: "Today", brain: "Brain", health: "Health" };
-const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const api = async (p, opt) => { const r = await fetch(p, opt); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j; };
-let tab = location.hash.replace("#", "") || "today";
+const TABS={today:"Today",brain:"Brain",health:"Health"};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const base=p=>String(p||"").replace(/\/+$/,"").split("/").pop()||p;
+const api=async(p,opt)=>{const r=await fetch(p,opt);const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j};
+const DS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],ML=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const PAL=["#ffc21a","#4a9dff","#ff7eb6","#2fbf71","#ff6b4a","#ffd23f"],TAGC={};
+const tag=t=>TAGC[t]||(TAGC[t]=PAL[Object.keys(TAGC).length%PAL.length]);
+const D=(i,b=.05,s=.07)=>`style="animation-delay:${(b+i*s).toFixed(2)}s"`;
+const split=(s,d)=>[...s].map((c,i)=>`<span style="animation-delay:${(d+i*.04).toFixed(2)}s">${c==" "?"&nbsp;":esc(c)}</span>`).join("");
+const hi=()=>{const h=new Date().getHours();return h<5?"Good night":h<12?"Good morning":h<18?"Good afternoon":h<23?"Good evening":"Good night"};
+let tab=location.hash.replace("#","")||"today";
 
-function nav() {
-  $("#nav").innerHTML = Object.entries(TABS).map(([k, v]) => `<button data-t="${k}" class="${k === tab ? "active" : ""}">${v}</button>`).join("");
-  $("#nav").querySelectorAll("button").forEach(b => b.onclick = () => { tab = b.dataset.t; location.hash = tab; render(); });
-}
-const card = (title, body) => `<section class="card"><h2>${esc(title)}</h2>${body}</section>`;
-const dueTag = (d, days) => d ? `<span class="tag ${days < 0 ? "bad" : days <= 2 ? "warn" : ""}">${esc(d)}${days != null ? ` · ${days < 0 ? Math.abs(days) + "d late" : days === 0 ? "today" : days + "d"}` : ""}</span>` : "";
-const ownerTag = (o) => o.on_you ? `<span class="tag you">on you</span>` : o.owner === "me" ? `<span class="tag me">on me</span>` : o.owner ? `<span class="tag">on ${esc(o.owner)}</span>` : "";
+function clock(){const d=new Date();$("#clk").firstChild.nodeValue=String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");$("#dt").textContent=DS[d.getDay()]+" "+d.getDate()+" "+ML[d.getMonth()]+" "+d.getFullYear()}
+clock();setInterval(clock,15000);
+$("#theme").onclick=()=>{const h=document.documentElement,n=h.dataset.theme=="dark"?"light":"dark";h.dataset.theme=n;try{localStorage.setItem("kokpit_theme",n)}catch(e){}ui()};
+function ui(){$("#theme").textContent=document.documentElement.dataset.theme=="dark"?"light":"dark"}ui();
+function count(root){root.querySelectorAll("[data-c]").forEach(e=>{const t=+e.dataset.c,s0=performance.now();if(!t){e.textContent="0";return}const f=p=>{const r=Math.min(1,(p-s0)/1000);e.textContent=Math.round(t*(1-Math.pow(1-r,3)));if(r<1)requestAnimationFrame(f)};requestAnimationFrame(f)})}
 
-async function today() {
-  const d = await api("/api/today"); const b = d.sections.brain, h = d.sections.health;
-  let out = `<p class="muted">${esc(d.day)}</p><div class="grid">`;
-  if (h) out += card("Health", h.available
-    ? (h.warnings.length ? `<ul>${h.warnings.map(w => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : `<p class="ok">All ${h.jobs} job(s) fine today.</p>`)
-    : `<p class="muted">${esc(h.reason)}</p>`);
-  if (b) {
-    out += card("Waiting on you", b.on_you.length ? `<ul>${b.on_you.map(o => `<li>${esc(o.text)} <span class="muted small">(${esc(o.thread)})</span></li>`).join("")}</ul>` : `<p class="empty">Nothing is waiting on you.</p>`);
-    out += card("Upcoming", b.upcoming.length ? `<ul>${b.upcoming.map(u => `<li>${esc(u.text)} ${dueTag(u.date, u.days_left)} <span class="muted small">${esc(u.from)}</span></li>`).join("")}</ul>` : `<p class="empty">No dated items. Add <code>(due: YYYY-MM-DD)</code> to a task.</p>`);
-    out += card("Brain", `<div class="big">${b.threads}</div><div class="muted">active threads</div><p>${b.open_tasks} open tasks${b.overdue ? `, <span class="bad">${b.overdue} overdue</span>` : ""} · inbox ${b.inbox}</p>` +
-      (b.last_session ? `<p class="small"><b>Last session</b> ${esc(b.last_session.at)} · ${esc(b.last_session.title)}<br><span class="muted">${esc(b.last_session.text)}</span></p>` : `<p class="empty">No session card yet.</p>`) +
-      (b.vault_exists ? "" : `<p class="bad">Vault folder not found.</p>`));
+function nav(){$("#nav").innerHTML=Object.entries(TABS).map(([k,v])=>`<button type="button" class="btn${k===tab?" on":""}" data-t="${k}">${v}</button>`).join("")}
+document.addEventListener("click",e=>{const b=e.target.closest("[data-t]");if(b){tab=b.dataset.t;location.hash=tab;render()}});
+
+const due=(d,days)=>d?`<span class="pv ${days<0?"late":days<=2?"soon":""}">${esc(d)}${days!=null?` · ${days<0?Math.abs(days)+"d late":days===0?"today":days+"d"}`:""}</span>`:"";
+const owner=o=>o.on_you?`<span class="pv you">on you</span>`:o.owner==="me"?`<span class="pv me">on me</span>`:o.owner?`<span class="pv">on ${esc(o.owner)}</span>`:"";
+const ring=`<svg class="stk" viewBox="0 0 120 120"><circle cx="60" cy="60" r="47" fill="#ff5a3c" stroke="#161412" stroke-width="3"/><defs><path id="cp" d="M60,60 m-34,0 a34,34 0 1,1 68,0 a34,34 0 1,1 -68,0"/></defs><text font-family="DM Mono" font-size="13" font-weight="500" fill="#161412"><textPath href="#cp" textLength="211" lengthAdjust="spacing">YOUR DAY · YOUR SPACE · </textPath></text></svg>`;
+const K=(n,l,at="")=>`<button type="button" ${at}><b data-c="${n}">0</b><span>${l}</span></button>`;
+
+async function today(){
+  const d=await api("/api/today"),b=d.sections.brain,h=d.sections.health,now=new Date(d.now);
+  let i=0,out=`<div class="af">`;
+  const warns=h&&h.available?h.warnings:[];
+  if(warns.length)out+=`<div class="b s12" style="background:#ffd23f;color:#161412;--ink:#161412;animation-delay:${(.05+i++*.07).toFixed(2)}s"><h4>Warning <span class="st">attention</span></h4><ul style="margin:4px 0 0;padding-left:20px">${warns.map(w=>`<li>${esc(w)}</li>`).join("")}</ul></div>`;
+  out+=`<div class="b hero s7" ${D(i++)}>${ring}<h4>${DS[now.getDay()]} ${now.getDate()} ${ML[now.getMonth()]} · your day</h4><h2>${split(hi(),.25)}</h2>
+    <div class="kp">${K(b?b.on_you.length:0,"waiting on you",'data-t="brain"')}${K(b?b.open_tasks:0,"open tasks",'data-t="brain"')}${K(b?b.threads:0,"active threads",'data-t="brain"')}${K(b?b.inbox:0,"in inbox",'data-t="brain"')}</div></div>`;
+  out+=`<div class="b wx s5" ${D(i++)}><h4>Weather <span class="st">planned</span></h4><div class="big">--°</div><p class="mono" style="margin-top:10px">${esc(d.sections.weather.note)}</p><p style="font-size:13.5px">A connection, not a module: it switches on from the Connections screen and needs no API key.</p></div>`;
+  if(b){
+    out+=`<div class="b s7" ${D(i++)}><h4>Waiting on you · ${b.on_you.length}</h4>${b.on_you.length?b.on_you.map(o=>`<div class="row"><span class="tx">${esc(o.text)}</span><i style="background:${tag(o.thread)}">${esc(o.thread)}</i></div>`).join(""):`<p>Nothing is waiting on you.</p>`}</div>`;
+    const U=b.upcoming,nx=U[0],mx=Math.max(30,...U.map(x=>x.days_left));
+    out+=`<div class="b cd s5" ${D(i++)}><h4>Upcoming</h4>${nx?`<div class="mono" style="margin-top:6px">${esc(nx.text)}</div><div class="n"><span data-c="${nx.days_left}">0</span><span style="font-size:32px;letter-spacing:-.02em"> days</span></div>`:""}
+      ${U.length?U.map((x,j)=>`<div class="dl"><span>${esc(x.text)}</span><b class="mono" style="white-space:nowrap">${esc(x.date)}</b></div><div class="pb"><s style="width:${Math.max(4,100-x.days_left/mx*100).toFixed(0)}%;animation-delay:${(.5+j*.1).toFixed(2)}s"></s></div>`).join(""):`<p>No dated items. Add <code>(due: YYYY-MM-DD)</code> to a task.</p>`}</div>`;
+    out+=`<div class="b pd s4" ${D(i++)}><h4>Last session</h4>${b.last_session?`<div class="t">${esc(b.last_session.title)}</div><div class="mono">${esc(b.last_session.at)} · ${esc(b.last_session.session)}</div><p style="font-size:13.5px;margin-top:10px">${esc(b.last_session.text)}</p>`:`<p class="empty">No session card yet.</p>`}</div>`;
   }
-  out += card("Weather", `<p class="empty">${esc(d.sections.weather.note)} (planned)</p>`);
-  return out + "</div>";
+  out+=`<div class="b gd s4" ${D(i++)}><h4>Health</h4>${h?h.available?`<div style="font:800 40px/1 var(--sans);letter-spacing:-.04em;margin-top:8px"><span data-c="${h.jobs}">0</span> <span style="font-size:20px">jobs</span></div><p class="mono" style="margin-top:8px">${warns.length?warns.length+" warning(s), see above":"all fine today"}</p>`:`<p class="empty">${esc(h.reason)}</p>`:`<p class="empty">Module off.</p>`}<button type="button" class="btn" data-t="health" style="margin-top:10px;background:#fffaf0;color:#161412;border-color:#161412;box-shadow:3px 3px 0 #161412">Open</button></div>`;
+  out+=`<div class="b s4" ${D(i++)}><h4>Brain</h4><div style="font:800 40px/1 var(--sans);letter-spacing:-.04em;margin-top:8px"><span data-c="${b?b.open_tasks:0}">0</span> <span style="font-size:20px">open tasks</span></div><p class="mono" style="margin-top:8px">${b&&b.overdue?`<span class="bad">${b.overdue} overdue</span> · `:""}${b?b.threads:0} threads · inbox ${b?b.inbox:0}</p>${b&&!b.vault_exists?`<p class="bad">Vault folder not found.</p>`:""}<button type="button" class="btn" data-t="brain" style="margin-top:10px">Open</button></div>`;
+  return out+"</div>";
 }
 
-async function brain() {
-  const d = await api("/api/brain");
-  if (!d.exists) return `<p class="bad">Vault not found: ${esc(d.vault)}</p>`;
-  const lane = (name, items, cls) => `<div class="lane"><b>${name}</b> <span class="muted small">${items.length}</span>${items.length ? `<ul>${items.map(o => `<li>${esc(o.text)} ${dueTag(o.due)} <span class="muted small">${esc(o.thread)}</span></li>`).join("")}</ul>` : `<p class="empty">empty</p>`}</div>`;
-  let out = `<p class="muted small">${esc(d.vault)} · ${d.files.map(f => `${esc(f.file)} ${f.exists ? `<span class="${f.over ? "bad" : "ok"}">${f.chars}/${f.limit}</span>` : `<span class="bad">missing</span>`}`).join(" · ")}</p><div class="grid">`;
-  out += card("Lanes", lane("On you", d.lanes.on_you) + lane("On me", d.lanes.on_me) + lane("On someone else", d.lanes.others));
-  out += card("Open tasks", d.todo.length ? `<ul>${d.todo.map(t => `<li>${esc(t.text)} ${dueTag(t.due, t.days_left)}</li>`).join("")}</ul>` : `<p class="empty">No open tasks in To-Do.md</p>`);
-  if (d.quick_capture) out += card("Quick capture", `
-    <form id="cap"><select name="kind"><option value="task">task</option><option value="note">note</option></select>
-    <input type="date" name="due" title="due (tasks only)"><textarea name="text" placeholder="One line for a task, anything for a note" required></textarea>
-    <button class="primary">Append</button><span id="capmsg" class="small muted"></span></form>
-    <p class="small muted">A task is appended under <code>## Open</code> in To-Do.md; a note becomes a new file in inbox/. Nothing is rewritten.</p>`);
-  out += card("Sessions", d.sessions.length ? d.sessions.map(s => `<p><b>${esc(s.at)}</b> · ${esc(s.title)} <span class="muted small">${esc(s.session)}</span><br><span class="muted small">${esc(s.text)}</span></p>`).join("") : `<p class="empty">Last-Session.md is empty.</p>`);
-  out += "</div><h2 style='margin-top:22px' class='muted'>Threads</h2><div class='grid'>";
-  out += d.threads.length ? d.threads.map(t => card(t.title, `<p class="small">${esc(t.status) || "<span class='empty'>no status line</span>"}</p>` +
-    (t.open.length ? `<ul>${t.open.map(o => `<li>${esc(o.text)}${ownerTag(o)}${dueTag(o.due)}</li>`).join("")}</ul>` : "") +
-    `<p class="small muted">${esc(t.date)} ${t.source ? "· " + esc(t.source) : ""}</p>`)).join("") : `<p class="empty">No active threads in Threads.md.</p>`;
-  out += `</div>${d.inbox.length ? `<p class="small muted">Inbox: ${d.inbox.map(esc).join(", ")}</p>` : ""}`;
-  return out;
+async function brain(){
+  const d=await api("/api/brain");
+  if(!d.exists)return `<p class="err">Vault not found: ${esc(d.vault)}</p>`;
+  let i=0,out=`<div class="af">`;
+  const lane=(name,items)=>`<div class="lane"><b>${name}<em>${items.length}</em></b>${items.length?items.map(o=>`<div class="row"><span class="tx">${esc(o.text)}${due(o.due)}<small>${esc(o.thread)}</small></span></div>`).join(""):`<p class="empty">empty</p>`}</div>`;
+  out+=`<div class="b s12" style="padding:10px 18px;animation-delay:.05s"><span class="mono">${esc(base(d.vault))} · ${d.files.map(f=>`${esc(f.file)} ${f.exists?`<span class="${f.over?"bad":"ok"}">${f.chars}/${f.limit}</span>`:`<span class="bad">missing</span>`}`).join(" · ")}</span></div>`;i++;
+  out+=`<div class="b s4" ${D(i++)}><h4>Lanes</h4>${lane("On you",d.lanes.on_you)}${lane("On me",d.lanes.on_me)}${lane("On someone else",d.lanes.others)}</div>`;
+  out+=`<div class="b s4" ${D(i++)}><h4>Open tasks · ${d.todo.length}</h4>${d.todo.length?d.todo.map(t=>`<div class="row"><span class="ck"></span><span class="tx">${esc(t.text)}${due(t.due,t.days_left)}</span></div>`).join(""):`<p class="empty">No open tasks in To-Do.md</p>`}</div>`;
+  if(d.quick_capture)out+=`<div class="b cap s4" ${D(i++)}><h4>Quick capture</h4><form id="cap"><div class="r2"><select name="kind"><option value="task">task</option><option value="note">note</option></select><input type="date" name="due" title="due (tasks only)"></div><textarea name="text" placeholder="One line for a task, anything for a note" required></textarea><button class="btn">Append</button> <span id="capmsg" class="mono" style="margin-left:8px"></span></form><p class="mono" style="margin-top:10px;font-size:10px">A task goes under ## Open in To-Do.md; a note becomes a new file in inbox/. Nothing is rewritten.</p></div>`;
+  out+=`<div class="b s7" ${D(i++)}><h4>Sessions · ${d.sessions.length}</h4>${d.sessions.length?d.sessions.map(s=>`<div class="ses"><div class="h">${esc(s.title)}<span class="mono">${esc(s.at)} · ${esc(s.session)}</span></div><div class="x">${esc(s.text)}</div></div>`).join(""):`<p class="empty">Last-Session.md is empty.</p>`}</div>`;
+  out+=`<div class="b s5" ${D(i++)}><h4>Threads · ${d.threads.length}</h4>${d.threads.length?d.threads.map(t=>`<div class="th"><div class="t">${esc(t.title)}</div><div class="s">${esc(t.status)||"<span class='empty'>no status line</span>"}</div>${t.open.length?`<ul>${t.open.map(o=>`<li>${esc(o.text)}${owner(o)}${due(o.due)}</li>`).join("")}</ul>`:""}<div class="mono" style="margin-top:6px">${esc(t.date)}${t.source?" · "+esc(t.source):""}</div></div>`).join(""):`<p class="empty">No active threads in Threads.md.</p>`}${d.inbox.length?`<p class="mono" style="margin-top:12px">Inbox: ${d.inbox.map(esc).join(", ")}</p>`:""}</div>`;
+  return out+"</div>";
 }
 
-async function health() {
-  const d = await api("/api/health");
-  if (!d.available) return `<p class="muted">${esc(d.reason)}</p>`;
-  const rows = d.runs.map(r => `<tr><td>${esc(r.job)}</td><td class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "error"}</td><td>${r.rows ?? "<span class='muted'>n/a</span>"}</td><td>${esc(r.finished)}</td><td>${r.warnings.map(esc).join("<br>") || ""}${r.ok ? "" : `<div class="small muted">${esc(r.info.error || "")}</div>`}</td></tr>`).join("");
-  return `<div class="grid"><section class="card" style="grid-column:1/-1">${d.warnings.length ? `<ul>${d.warnings.map(w => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : `<p class="ok">No warnings today.</p>`}
-    <p class="small muted">Expected before the morning: ${d.expected.length ? d.expected.map(esc).join(", ") : "none configured"}</p></section>
-    <section class="card" style="grid-column:1/-1"><h2>Last run per job</h2><table><tr><th>job</th><th>result</th><th>rows</th><th>finished</th><th>warnings</th></tr>${rows}</table></section></div>`;
+async function health(){
+  const d=await api("/api/health");
+  if(!d.available)return `<div class="af"><div class="b s12"><p class="empty">${esc(d.reason)}</p></div></div>`;
+  const rows=d.runs.map(r=>`<tr><td><b>${esc(r.job)}</b></td><td class="${r.ok?"ok":"bad"}">${r.ok?"ok":"error"}</td><td class="mono">${r.rows??"n/a"}</td><td class="mono">${esc(r.finished)}</td><td>${r.warnings.map(esc).join("<br>")||""}${r.ok?"":`<div class="mono">${esc(r.info.error||"")}</div>`}</td></tr>`).join("");
+  return `<div class="af"><div class="b s4 ${d.warnings.length?"":"gd"}" ${D(0)} ${d.warnings.length?'style="background:#ffd23f;color:#161412;--ink:#161412"':""}><h4>Today ${d.warnings.length?'<span class="st">attention</span>':'<span class="st ok">fine</span>'}</h4><div style="font:800 40px/1 var(--sans);letter-spacing:-.04em;margin-top:8px"><span data-c="${d.runs.length}">0</span> <span style="font-size:20px">jobs</span></div>${d.warnings.length?`<ul style="margin:8px 0 0;padding-left:20px">${d.warnings.map(w=>`<li>${esc(w)}</li>`).join("")}</ul>`:`<p>No warnings today.</p>`}</div>
+    <div class="b s8" ${D(1)}><h4>Expected before the morning</h4>${d.expected.length?d.expected.map(x=>`<div class="row"><span class="ck ${d.runs.some(r=>r.job===x&&r.ok)?"dn":""}"></span><span class="tx">${esc(x)}</span></div>`).join(""):`<p class="empty">none configured; add names to <code>expected</code> in kokpit.toml</p>`}</div>
+    <div class="b s12" ${D(2)}><h4>Last run per job</h4><table><tr><th>job</th><th>result</th><th>rows</th><th>finished</th><th>warnings</th></tr>${rows}</table></div></div>`;
 }
 
-async function render() {
-  nav();
-  try { $("#main").innerHTML = await ({ today, brain, health })[tab](); }
-  catch (e) { $("#main").innerHTML = `<p class="err">${esc(e.message)}</p>`; }
-  const f = $("#cap"); if (f) f.onsubmit = async (ev) => {
-    ev.preventDefault(); const fd = new FormData(f); const msg = $("#capmsg");
-    try { const r = await api("/api/brain/capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: fd.get("kind"), text: fd.get("text"), due: fd.get("due") }) });
-      msg.textContent = r.kind === "task" ? "appended to To-Do.md" : "saved " + r.path; f.text.value = ""; setTimeout(render, 700); }
-    catch (e) { msg.textContent = e.message; msg.className = "small bad"; }
+async function render(){
+  nav();const v=$("#view");
+  try{v.innerHTML=await({today,brain,health})[tab]()}catch(e){v.innerHTML=`<p class="err">${esc(e.message)}</p>`}
+  count(v);window.scrollTo(0,0);
+  const f=$("#cap");if(f)f.onsubmit=async ev=>{
+    ev.preventDefault();const fd=new FormData(f),msg=$("#capmsg");
+    try{const r=await api("/api/brain/capture",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:fd.get("kind"),text:fd.get("text"),due:fd.get("due")})});
+      msg.textContent=r.kind==="task"?"appended to To-Do.md":"saved "+r.path;f.text.value="";setTimeout(render,700)}
+    catch(e){msg.textContent=e.message;msg.className="mono bad"}
   };
 }
-api("/api/meta").then(m => $("#meta").textContent = `v${m.version} · ${m.config}`).catch(() => {});
-window.onhashchange = () => { tab = location.hash.replace("#", "") || "today"; render(); };
+api("/api/meta").then(m=>$("#meta").textContent=`v${m.version} · ${base(m.config)}`).catch(()=>{});
+window.onhashchange=()=>{tab=location.hash.replace("#","")||"today";render()};
 render();
 </script>
 </body>
