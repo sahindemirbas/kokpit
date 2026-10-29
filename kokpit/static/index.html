@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kokpit</title>
+<style>
+  :root { --bg:#0f1115; --card:#171a21; --fg:#e6e6e6; --muted:#8b93a7; --line:#262b36; --ok:#4caf7d; --warn:#e3a33a; --bad:#e05d5d; --acc:#6ea8fe; }
+  @media (prefers-color-scheme: light) { :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2230; --muted:#667085; --line:#e4e7ec; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; align-items:center; gap:18px; padding:12px 20px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:17px; margin:0; letter-spacing:.3px; }
+  nav button { background:none; border:0; color:var(--muted); padding:8px 10px; font:inherit; cursor:pointer; border-bottom:2px solid transparent; }
+  nav button.active { color:var(--fg); border-color:var(--acc); }
+  header .meta { margin-left:auto; color:var(--muted); font-size:12px; }
+  main { padding:18px 20px; max-width:1200px; margin:0 auto; }
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:0 0 10px; }
+  .card h3 { font-size:15px; margin:0 0 4px; }
+  .big { font-size:30px; font-weight:600; line-height:1; }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  ul { margin:0; padding-left:18px; } li { margin:3px 0; }
+  .lane { margin-top:8px; }
+  .tag { display:inline-block; font-size:11px; padding:1px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); margin-left:6px; vertical-align:middle; }
+  .tag.you { color:var(--warn); border-color:var(--warn); } .tag.me { color:var(--acc); border-color:var(--acc); }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+  table { width:100%; border-collapse:collapse; font-size:13px; } th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-weight:500; }
+  form { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  input, textarea, select { font:inherit; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:7px 9px; }
+  textarea { width:100%; min-height:64px; } input[type=date] { width:160px; }
+  button.primary { background:var(--acc); color:#0b1020; border:0; border-radius:6px; padding:7px 14px; font:inherit; cursor:pointer; }
+  .empty { color:var(--muted); font-style:italic; }
+  .err { color:var(--bad); white-space:pre-wrap; }
+  footer { padding:16px 20px; color:var(--muted); font-size:12px; border-top:1px solid var(--line); margin-top:30px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kokpit</h1>
+  <nav id="nav"></nav>
+  <span class="meta" id="meta"></span>
+</header>
+<main id="main"><p class="muted">Loading…</p></main>
+<footer>Local-first. The page reads a SQLite database and a Markdown folder on this machine; the only write is quick capture. Reload to refresh.</footer>
+<script>
+const TABS = { today: "Today", brain: "Brain", health: "Health" };
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const api = async (p, opt) => { const r = await fetch(p, opt); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j; };
+let tab = location.hash.replace("#", "") || "today";
+
+function nav() {
+  $("#nav").innerHTML = Object.entries(TABS).map(([k, v]) => `<button data-t="${k}" class="${k === tab ? "active" : ""}">${v}</button>`).join("");
+  $("#nav").querySelectorAll("button").forEach(b => b.onclick = () => { tab = b.dataset.t; location.hash = tab; render(); });
+}
+const card = (title, body) => `<section class="card"><h2>${esc(title)}</h2>${body}</section>`;
+const dueTag = (d, days) => d ? `<span class="tag ${days < 0 ? "bad" : days <= 2 ? "warn" : ""}">${esc(d)}${days != null ? ` · ${days < 0 ? Math.abs(days) + "d late" : days === 0 ? "today" : days + "d"}` : ""}</span>` : "";
+const ownerTag = (o) => o.on_you ? `<span class="tag you">on you</span>` : o.owner === "me" ? `<span class="tag me">on me</span>` : o.owner ? `<span class="tag">on ${esc(o.owner)}</span>` : "";
+
+async function today() {
+  const d = await api("/api/today"); const b = d.sections.brain, h = d.sections.health;
+  let out = `<p class="muted">${esc(d.day)}</p><div class="grid">`;
+  if (h) out += card("Health", h.available
+    ? (h.warnings.length ? `<ul>${h.warnings.map(w => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : `<p class="ok">All ${h.jobs} job(s) fine today.</p>`)
+    : `<p class="muted">${esc(h.reason)}</p>`);
+  if (b) {
+    out += card("Waiting on you", b.on_you.length ? `<ul>${b.on_you.map(o => `<li>${esc(o.text)} <span class="muted small">(${esc(o.thread)})</span></li>`).join("")}</ul>` : `<p class="empty">Nothing is waiting on you.</p>`);
+    out += card("Upcoming", b.upcoming.length ? `<ul>${b.upcoming.map(u => `<li>${esc(u.text)} ${dueTag(u.date, u.days_left)} <span class="muted small">${esc(u.from)}</span></li>`).join("")}</ul>` : `<p class="empty">No dated items. Add <code>(due: YYYY-MM-DD)</code> to a task.</p>`);
+    out += card("Brain", `<div class="big">${b.threads}</div><div class="muted">active threads</div><p>${b.open_tasks} open tasks${b.overdue ? `, <span class="bad">${b.overdue} overdue</span>` : ""} · inbox ${b.inbox}</p>` +
+      (b.last_session ? `<p class="small"><b>Last session</b> ${esc(b.last_session.at)} · ${esc(b.last_session.title)}<br><span class="muted">${esc(b.last_session.text)}</span></p>` : `<p class="empty">No session card yet.</p>`) +
+      (b.vault_exists ? "" : `<p class="bad">Vault folder not found.</p>`));
+  }
+  out += card("Weather", `<p class="empty">${esc(d.sections.weather.note)} (planned)</p>`);
+  return out + "</div>";
+}
+
+async function brain() {
+  const d = await api("/api/brain");
+  if (!d.exists) return `<p class="bad">Vault not found: ${esc(d.vault)}</p>`;
+  const lane = (name, items, cls) => `<div class="lane"><b>${name}</b> <span class="muted small">${items.length}</span>${items.length ? `<ul>${items.map(o => `<li>${esc(o.text)} ${dueTag(o.due)} <span class="muted small">${esc(o.thread)}</span></li>`).join("")}</ul>` : `<p class="empty">empty</p>`}</div>`;
+  let out = `<p class="muted small">${esc(d.vault)} · ${d.files.map(f => `${esc(f.file)} ${f.exists ? `<span class="${f.over ? "bad" : "ok"}">${f.chars}/${f.limit}</span>` : `<span class="bad">missing</span>`}`).join(" · ")}</p><div class="grid">`;
+  out += card("Lanes", lane("On you", d.lanes.on_you) + lane("On me", d.lanes.on_me) + lane("On someone else", d.lanes.others));
+  out += card("Open tasks", d.todo.length ? `<ul>${d.todo.map(t => `<li>${esc(t.text)} ${dueTag(t.due, t.days_left)}</li>`).join("")}</ul>` : `<p class="empty">No open tasks in To-Do.md</p>`);
+  if (d.quick_capture) out += card("Quick capture", `
+    <form id="cap"><select name="kind"><option value="task">task</option><option value="note">note</option></select>
+    <input type="date" name="due" title="due (tasks only)"><textarea name="text" placeholder="One line for a task, anything for a note" required></textarea>
+    <button class="primary">Append</button><span id="capmsg" class="small muted"></span></form>
+    <p class="small muted">A task is appended under <code>## Open</code> in To-Do.md; a note becomes a new file in inbox/. Nothing is rewritten.</p>`);
+  out += card("Sessions", d.sessions.length ? d.sessions.map(s => `<p><b>${esc(s.at)}</b> · ${esc(s.title)} <span class="muted small">${esc(s.session)}</span><br><span class="muted small">${esc(s.text)}</span></p>`).join("") : `<p class="empty">Last-Session.md is empty.</p>`);
+  out += "</div><h2 style='margin-top:22px' class='muted'>Threads</h2><div class='grid'>";
+  out += d.threads.length ? d.threads.map(t => card(t.title, `<p class="small">${esc(t.status) || "<span class='empty'>no status line</span>"}</p>` +
+    (t.open.length ? `<ul>${t.open.map(o => `<li>${esc(o.text)}${ownerTag(o)}${dueTag(o.due)}</li>`).join("")}</ul>` : "") +
+    `<p class="small muted">${esc(t.date)} ${t.source ? "· " + esc(t.source) : ""}</p>`)).join("") : `<p class="empty">No active threads in Threads.md.</p>`;
+  out += `</div>${d.inbox.length ? `<p class="small muted">Inbox: ${d.inbox.map(esc).join(", ")}</p>` : ""}`;
+  return out;
+}
+
+async function health() {
+  const d = await api("/api/health");
+  if (!d.available) return `<p class="muted">${esc(d.reason)}</p>`;
+  const rows = d.runs.map(r => `<tr><td>${esc(r.job)}</td><td class="${r.ok ? "ok" : "bad"}">${r.ok ? "ok" : "error"}</td><td>${r.rows ?? "<span class='muted'>n/a</span>"}</td><td>${esc(r.finished)}</td><td>${r.warnings.map(esc).join("<br>") || ""}${r.ok ? "" : `<div class="small muted">${esc(r.info.error || "")}</div>`}</td></tr>`).join("");
+  return `<div class="grid"><section class="card" style="grid-column:1/-1">${d.warnings.length ? `<ul>${d.warnings.map(w => `<li class="warn">${esc(w)}</li>`).join("")}</ul>` : `<p class="ok">No warnings today.</p>`}
+    <p class="small muted">Expected before the morning: ${d.expected.length ? d.expected.map(esc).join(", ") : "none configured"}</p></section>
+    <section class="card" style="grid-column:1/-1"><h2>Last run per job</h2><table><tr><th>job</th><th>result</th><th>rows</th><th>finished</th><th>warnings</th></tr>${rows}</table></section></div>`;
+}
+
+async function render() {
+  nav();
+  try { $("#main").innerHTML = await ({ today, brain, health })[tab](); }
+  catch (e) { $("#main").innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+  const f = $("#cap"); if (f) f.onsubmit = async (ev) => {
+    ev.preventDefault(); const fd = new FormData(f); const msg = $("#capmsg");
+    try { const r = await api("/api/brain/capture", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: fd.get("kind"), text: fd.get("text"), due: fd.get("due") }) });
+      msg.textContent = r.kind === "task" ? "appended to To-Do.md" : "saved " + r.path; f.text.value = ""; setTimeout(render, 700); }
+    catch (e) { msg.textContent = e.message; msg.className = "small bad"; }
+  };
+}
+api("/api/meta").then(m => $("#meta").textContent = `v${m.version} · ${m.config}`).catch(() => {});
+window.onhashchange = () => { tab = location.hash.replace("#", "") || "today"; render(); };
+render();
+</script>
+</body>
+</html>

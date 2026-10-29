@@ -87,20 +87,26 @@ adapters/
 integrations/
   hermes/README.md      optional integration with the Hermes agent (not required)
 config/
-  kokpit.example.toml   example configuration, no personal data
+  kokpit.example.toml   example configuration, no personal data (full target shape)
+kokpit/                 the package: config, db, jobs, web, static/index.html
+  modules/today|brain|health
+run                     one-command start
+tests/                  unit tests on synthetic fixtures + one end-to-end test
 ```
 
-## Planned installation
+## Try it (M1 skeleton)
 
-Not available yet. The target is:
+Python 3.11 or newer, nothing else to install:
 
 ```
-pip install kokpit        # or: docker compose up
-kokpit init               # asks for city, CV path, target roles, modules to enable
-kokpit run                # local dashboard on http://localhost:8501
+git clone https://github.com/sahindemirbas/kokpit
+cd kokpit
+./run                     # writes kokpit.toml + a starter vault in data/, serves http://127.0.0.1:8501
 ```
 
-These commands are a design target, not a current feature.
+What you get today: the Today, Brain and Health tabs over a starter vault and a health table filled by two jobs (`heartbeat`, `brain-check`). Point `vault_path` in `kokpit.toml` at your own Markdown folder to see your threads and tasks; quick capture appends to `inbox/` or `To-Do.md` and never rewrites a note. Other commands: `python -m kokpit jobs`, `python -m kokpit run-job <name>`. Tests: `python -m unittest discover -s tests`.
+
+Events, career, social, AI usage, agenda and the bot are not in the skeleton yet (see `docs/roadmap.md`). The eventual `pip install kokpit` and Docker paths are planned, not available.
 
 ## Licence
 

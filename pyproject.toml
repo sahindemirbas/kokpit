@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kokpit"
+version = "0.1.0.dev1"
+description = "Local-first personal dashboard that several AI agents share as one brain"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+kokpit = "kokpit.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["kokpit*"]
+
+[tool.setuptools.package-data]
+kokpit = ["static/*", "modules/*/schema.sql", "modules/brain/starter/**/*", "modules/brain/starter/**/.keep"]

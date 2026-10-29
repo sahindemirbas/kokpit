@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# One command: create config + starter vault on first run, then serve the dashboard.
+# Needs Python 3.11+ and nothing else.
+set -e
+cd "$(dirname "$0")"
+PY="${PYTHON:-python3}"
+"$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' || {
+  echo "Kokpit needs Python 3.11 or newer (found: $("$PY" --version 2>&1))"; exit 1; }
+[ -f kokpit.toml ] || "$PY" -m kokpit init
+exec "$PY" -m kokpit run "$@"

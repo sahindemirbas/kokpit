@@ -7,3 +7,10 @@ __pycache__/
 data/
 audio/
 kokpit.toml
+
+# local instance
+kokpit.toml
+data/
+__pycache__/
+*.pyc
+*.egg-info/

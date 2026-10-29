@@ -8,13 +8,20 @@ Milestones are ordered; each one is usable on its own. No dates: the author work
 - Decision: repository first, Hermes integration optional (done).
 - Decision: city is a user setting, sources chosen by country, local adapters per city (done).
 
-## M1: core skeleton
+## M1: core skeleton (in progress)
 
-- Package layout `kokpit/` with `today`, `brain`, `events`, `health` modules and the single-page dashboard.
-- `kokpit init` (city, vault path, modules), `kokpit run`, `kokpit run-job <name>`.
-- Empty starter vault structure and `docs/brain-protocol.md` conventions; packaged context hook script that any agent can call.
-- Health table and Connections screen (read-only view first).
-- Synthetic fixtures and tests for date detection, dedupe, category rules.
+Done:
+- Package layout `kokpit/` with `today`, `brain`, `health` modules; single static page over a JSON API; standard library only (`http.server`, `sqlite3`, `tomllib`).
+- `./run`, `kokpit init` (vault path, db path), `kokpit run`, `kokpit run-job <name>`, `kokpit jobs`.
+- Empty starter vault; brain reader for Threads / To-Do / Last-Session with the owner lanes (on you / on me / on someone else), upcoming dates from `due:` tags only, quick capture (append-only).
+- Health table (`runs`) with "0 records" and "did not run today" warnings; `heartbeat` and `brain-check` jobs.
+- Tests on synthetic fixtures (brain parsing, capture, health warnings) and one end-to-end test that starts the server.
+
+Open:
+- `events` module skeleton and `kokpit init` asking for the city.
+- Packaged context hook script that any agent can call (Beyin MIT notice).
+- Connections screen (read-only view).
+- Weather and calendar on the Today tab.
 
 ## M2: events for any city
 

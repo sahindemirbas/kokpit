@@ -73,17 +73,19 @@ Genel kaynaklar (AllEvents, Eventbrite, Open-Meteo) şehir adını girince her �
 
 README.md içindeki tablo ile aynıdır; dokümanlar İngilizce yazılmıştır.
 
-## Planlanan kurulum
+## Dene (M1 iskelet)
 
-Henüz yok. Hedef:
+Python 3.11 ve üstü yeterli, başka kurulum yok:
 
 ```
-pip install kokpit        # veya: docker compose up
-kokpit init               # şehir, CV yolu, hedef roller, açılacak modüller
-kokpit run                # yerel panel http://localhost:8501
+git clone https://github.com/sahindemirbas/kokpit
+cd kokpit
+./run                     # kokpit.toml + data/ altında başlangıç vault'u yazar, http://127.0.0.1:8501
 ```
 
-Bu komutlar tasarım hedefidir, mevcut özellik değil.
+Bugün çalışan: Today, Brain ve Health sekmeleri; başlangıç vault'u ve iki işin (`heartbeat`, `brain-check`) doldurduğu sağlık tablosu. `kokpit.toml` içindeki `vault_path` değerini kendi Markdown klasörüne çevirince kendi thread ve görevlerin görünür; hızlı not `inbox/` veya `To-Do.md` dosyasına ekler, hiçbir notu yeniden yazmaz. Diğer komutlar: `python -m kokpit jobs`, `python -m kokpit run-job <ad>`. Testler: `python -m unittest discover -s tests`.
+
+Etkinlik, kariyer, sosyal, AI kullanımı, gündem ve bot iskelette henüz yok (`docs/roadmap.md`). `pip install kokpit` ve Docker planlı, mevcut değil.
 
 ## Lisans
 
