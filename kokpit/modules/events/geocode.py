@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from urllib.parse import urlencode
 
 from ... import fetch
@@ -45,6 +46,9 @@ def geocode(city: str) -> dict | None:
 
 
 def slugify(s: str) -> str:
+    """Lower case, accents dropped, anything else becomes one dash: "Reggio nell'Emilia" -> "reggio-nell-emilia"."""
+    s = unicodedata.normalize("NFKD", s.replace("ß", "ss"))
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
     s = re.sub(r"[^a-z0-9]+", "-", s.lower().strip())
     return s.strip("-")
 

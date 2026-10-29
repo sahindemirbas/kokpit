@@ -27,7 +27,7 @@ Moved to M2:
 ## M2: events for any city
 
 - Calendar connection for Today (ICS URL first, Google read-only second), read-only scope only. Status: ICS URL done (`calendar_ics_urls`, `calendar` job); Google read-only still open.
-- Geocode and place settings; country-based source enabling; slug confirmation.
+- Geocode and place settings; country-based source enabling; slug confirmation. Status: done (`python -m kokpit place "<city>"`: Open-Meteo geocoder candidates, `--pick N` prints the `[place]`/`[events]` block with a per-country source table, `--write` edits kokpit.toml in place with a `.bak` copy, slugs stay commented until `--confirm-slug`).
 - Adapter loader for `adapters/events/<city>/`; Cremona examples ported and disabled by default.
 - Language pack for categories (Italian first, English second) and translation target setting.
 - "Last successful update: 0 records" surfaced everywhere. Status: done (`freshness` field on Today weather/calendar/brain/events and `/api/events`; never run, 0 records and last-run-failed shown on each card).

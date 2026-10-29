@@ -50,6 +50,7 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 - Dashboard tabs: Today, Events (category chips, per-event `.ics`), Brain, Health, Connections (reads / writes / permission / last run per connection; a connection with 0 records today is flagged).
 - `kokpit context "<message>"` prints the read-only brain block (threads, last session, upcoming dates, related notes); `integrations/hermes/kokpit-brain/` wraps it as a Hermes `pre_llm_call` plugin. Tests: 18.
 - Freshness line on every data card (weather, calendar, tasks/brain-check, Events tab): last successful update, record count, "0 records", "never run" or "last run failed"; one `freshness` shape `{job, last_status, last_success, records}` from the health table. Tests: 44.
+- `kokpit place "<city>"`: Open-Meteo geocoder candidates, per-country event source table (unknown countries marked unverified), accent-free slugs kept as comments until `--confirm-slug`, `--write` edits `kokpit.toml` in place with a `.bak` copy and refuses if any other setting would change. Tests: 54.
 
 ## Planned, not started
 

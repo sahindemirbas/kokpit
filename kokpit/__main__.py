@@ -1,4 +1,4 @@
-"""Command line: kokpit init | run | run-job <name> | jobs"""
+"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs"""
 from __future__ import annotations
 
 import argparse
@@ -77,6 +77,49 @@ def cmd_context(args) -> int:
     return 0
 
 
+def cmd_place(args) -> int:
+    """Geocode a city, show the event sources for its country, print or write the config block."""
+    from .modules.events import place
+    try:
+        cands = place.search(args.query, count=args.count)
+    except place.PlaceError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 3
+    if not cands:
+        print(f"error: no place found for '{args.query}'; try another spelling or add the country", file=sys.stderr)
+        return 4
+    if args.pick is None:
+        print(place.format_candidates(cands))
+        if args.write:
+            print("error: --write needs --pick N", file=sys.stderr)
+            return 2
+        print(f"\nnext: python -m kokpit place \"{args.query}\" --pick N")
+        return 0
+    if not 1 <= args.pick <= len(cands):
+        print(f"error: --pick must be between 1 and {len(cands)}", file=sys.stderr)
+        return 2
+    cand = cands[args.pick - 1]
+    print(f"picked: {cand['city']}, {cand['region'] or '-'}, {cand['country']} ({cand['lat']}, {cand['lon']})\n")
+    print(place.block(cand, confirm_slug=args.confirm_slug))
+    if not args.confirm_slug:
+        print("\nThe slugs are derived from the city name and not checked. Open them on the site; "
+              "if they work, rerun with --confirm-slug to make them active.")
+    if not args.write:
+        print("\n(nothing written; add --write to update kokpit.toml)")
+        return 0
+    path = cfgmod.find_config(args.config)
+    if path is None or not path.exists():
+        print("error: no kokpit.toml found; run `kokpit init` first or paste the block by hand", file=sys.stderr)
+        return 2
+    try:
+        bak = place.write(path, cand, confirm_slug=args.confirm_slug)
+    except place.UnsafeEdit as exc:
+        print(f"error: did not write {path}: {exc}. Paste the block above by hand.", file=sys.stderr)
+        return 5
+    print(f"\nupdated {path} (backup: {bak}); slugs {'active' if args.confirm_slug else 'left as comments'}")
+    return 0
+
+
 def cmd_jobs(args) -> int:
     for name, fn in sorted(jobs.REGISTRY.items()):
         print(f"{name:14s} {(fn.__doc__ or '').strip().splitlines()[0]}")
@@ -102,6 +145,13 @@ def main(argv=None) -> int:
     p.add_argument("message", nargs="*", help="the user's message, used only to pick related notes")
     p.add_argument("--max-chars", type=int, default=3500)
     p.set_defaults(fn=cmd_context)
+    p = sub.add_parser("place", help="find your city (Open-Meteo geocoder), show event sources, set [place]")
+    p.add_argument("query", help='city name, e.g. "Bergamo"')
+    p.add_argument("--pick", type=int, help="number of the candidate to use (from the list)")
+    p.add_argument("--write", action="store_true", help="update kokpit.toml (keeps a .bak copy)")
+    p.add_argument("--confirm-slug", action="store_true", help="make the proposed event slugs active")
+    p.add_argument("--count", type=int, default=5, help="how many candidates to list (default 5)")
+    p.set_defaults(fn=cmd_place)
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)
     args = ap.parse_args(argv)
