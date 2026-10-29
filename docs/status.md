@@ -42,10 +42,15 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 - Flat code layout; no module boundaries; no `kokpit init`.
 - Scheduler lines written by hand.
 
+## Working in the M1 skeleton (checked live on 29 Oct 2026, Cremona)
+
+- `kokpit init --city` geocodes via Nominatim, tries slug candidates against the real sites, writes `kokpit.toml` + starter vault. Events stay `false` in `[modules]` until you switch them on.
+- Jobs: `weather` (Open-Meteo), `events-collect` (AllEvents 24 + Eventbrite 18 rows for Cremona), `brain-check`.
+- Dashboard tabs: Today, Events (category chips, per-event `.ics`), Brain, Health, Connections (reads / writes / permission / last run per connection).
+
 ## Planned, not started
 
-- `kokpit init` / `kokpit run` / `kokpit schedule` / `kokpit doctor` commands.
-- Connections screen with per-connection read/permission/last-update panel.
+- `kokpit schedule` / `kokpit doctor` commands (`init --city` and `run` exist; init verifies the AllEvents/Eventbrite slugs live and prints the record count per source).
 - CV extraction and target-profile form.
 - Adapter contract and loader for `adapters/events/<city>/` and `adapters/jobs/<source>/`.
 - Language packs.
