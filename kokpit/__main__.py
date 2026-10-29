@@ -25,8 +25,9 @@ def cmd_init(args) -> int:
             if place:
                 slugs = geocode.propose_slugs(place)
                 print(f"place: {place.get('display')} ({place['lat']}, {place['lon']})")
-                print(f"event sources proposed: allevents '{slugs['allevents_slug']}', eventbrite '{slugs['eventbrite_slug']}'"
-                      " (confirm on the Connections tab; a wrong slug shows as 0 records)")
+                slugs, counts = geocode.verify_slugs(place, slugs)
+                shown = ", ".join(f"{s} '{slugs[s + '_slug']}' ({'unreachable' if n < 0 else f'{n} events'})" for s, n in counts.items())
+                print(f"event sources: {shown} (change them on the Connections tab; a wrong slug shows as 0 records)")
             elif place is None and args.city:
                 print(f"no match for '{args.city}'; events stay off until [place] is filled in")
         cfgmod.write_default(path, vault=args.vault, db=args.db, place=place, slugs=slugs)

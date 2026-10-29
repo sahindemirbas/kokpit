@@ -644,7 +644,7 @@ const afSplit=(s,d)=>[...s].map((c,i)=>`<span style="animation-delay:${(d+i*.04)
 function afHi(){const h=new Date().getHours();return h<5?'Good night':h<12?'Good morning':h<18?'Good afternoon':h<23?'Good evening':'Good night'}
 function afClock(){const e=$('afclk');if(!e)return;const d=new Date();e.firstChild.nodeValue=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');$('afdt').textContent=DS[d.getDay()]+' '+d.getDate()+' '+ML[d.getMonth()]+' '+d.getFullYear()}
 function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){const p=document.createElement('i');p.className='af-bu';const a=k/14*6.283;p.style.cssText=`left:${b.left+b.width/2-4}px;top:${b.top+b.height/2-4}px;background:${['#ffc21a','#ff5a3c','#4a9dff','#2fbf71'][k%4]};--x:${Math.cos(a)*56}px;--y:${Math.sin(a)*56}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),700)}}
-const NAVT=[['bg','Today'],['br','Brain'],['hl','Health']],HASH={today:'bg',brain:'br',health:'hl'},HASHR={bg:'today',br:'brain',hl:'health'};
+const NAVT=[['bg','Today'],['ev','Events'],['br','Brain'],['hl','Health'],['cn','Connections']],HASH={today:'bg',events:'ev',brain:'br',health:'hl',connections:'cn'},HASHR={bg:'today',ev:'events',br:'brain',hl:'health',cn:'connections'};
 const S={view:HASH[location.hash.replace('#','')]||'bg'};
 function nav(){$('nav').innerHTML=NAVT.map(([k,l])=>`<button type="button" class="btn${k==S.view?' on':''}" data-view="${k}">${l}</button>`).join('')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;location.hash=HASHR[S.view];render()}
@@ -703,7 +703,28 @@ async function hlView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
   <div class="af-b s8" ${afD(1)}><h4>Expected before the morning</h4>${d.expected.length?d.expected.map(x=>`<div class="af-row"><span class="af-ck ${d.runs.some(r=>r.job===x&&r.ok)?'dn':''}"></span><span class="tx">${esc(x)}</span></div>`).join(''):'<p>None configured; add names to <code>expected</code> in kokpit.toml.</p>'}</div>
   <div class="af-b s12" ${afD(2)}><h4>Last run per job</h4><table><thead><tr><th>job</th><th>result</th><th>rows</th><th>finished</th><th>warnings</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;counts(v)}
 
-async function render(){nav();window.scrollTo(0,0);try{await({bg:bugunView,br:brView,hl:hlView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+async function evView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/events');if(S.view!='ev')return;
+ if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Events module is off. Set <code>events = true</code> under [modules] in kokpit.toml.</p></div></div>`;return}
+ if(!d.configured){v.innerHTML=`<div class="af"><div class="af-b s12"><p>No place yet. Run <code>kokpit init --city "Your city" --force</code>.</p></div></div>`;return}
+ if(d.reason){v.innerHTML=`<div class="af"><div class="af-b s12"><p>${esc(d.reason)}</p></div></div>`;return}
+ S.evCat=S.evCat||'';const cats=['',...(d.categories||[])].filter(c=>!c||d.events.some(e=>e.category===c));
+ const list=d.events.filter(e=>!S.evCat||e.category===S.evCat);const by=Object.entries(d.counts.by_source||{}).map(([k,n])=>`${esc(k)} ${n}`).join(' · ');
+ let i=0,h=`<div class="af"><div class="af-b af-hero s12" ${afD(i++)}><h4>${esc(d.place.city)} · ${d.place.radius_km} km · next ${d.days} days</h4><div style="font:800 40px/1 var(--sans);letter-spacing:-.04em;margin-top:8px"><span data-c="${d.counts.upcoming}">0</span> <span style="font-size:20px">events</span></div><p class="mono" style="font-size:11px;margin:8px 0 0">${by||'no source has run yet'}</p>
+ <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">${cats.map(c=>`<button type="button" class="chip${c===S.evCat?' on':''}" data-cat="${esc(c)}" style="--c:${afTag(c||'all')}"><span class="dot"></span>${esc(c||'all')}</button>`).join('')}</div></div>`;
+ let day='';for(const e of list){const dd=String(e.start||'').slice(0,10);if(dd!==day){day=dd;const x=ND(dd);h+=`<div class="af-b s12" style="padding:8px 18px" ${afD(i++)}><span class="mono">${DSK[x.getDay()]} ${x.getDate()} ${ML[x.getMonth()]}</span></div>`}
+  h+=`<div class="af-b s6" ${afD(i++)}><div class="af-row"><span class="tx"><a href="${esc(e.url||'#')}" target="_blank" rel="noopener">${esc(e.title)}</a><span class="mono" style="display:block;font-size:10px;margin-top:3px">${esc([e.venue,e.city,e.distance_km!=null?Math.round(e.distance_km)+' km':''].filter(Boolean).join(' · '))}</span></span><i style="background:${afTag(e.category)}">${esc(e.category)}</i></div><p class="mono" style="font-size:10px;margin:8px 0 0">${esc(e.source)} · <a href="/api/events/${e.id}.ics">add to calendar</a></p></div>`}
+ if(!list.length)h+=`<div class="af-b s12" ${afD(i++)}><p>Nothing in this window. Run <code>kokpit run-job events-collect</code> or check the slugs on Connections.</p></div>`;
+ v.innerHTML=h+'</div>';counts(v);v.querySelectorAll('[data-cat]').forEach(b=>b.onclick=()=>{S.evCat=b.dataset.cat;evView()})}
+
+async function cnView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/connections');if(S.view!='cn')return;
+ const tone=s=>/^ok$/.test(s)?'af-gd':/planned|off|not set|not created|not run/.test(s)?'':'af-wr';
+ const last=l=>l?`${l.ok?'ok':'error'}${l.rows!=null?' · '+l.rows+' rows':''} · ${esc(l.finished)}${l.today?'':' (not today)'}`:'never';
+ const groups=['today','brain','health','events','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span></div>`;
+ for(const g of groups){const items=d.connections.filter(c=>c.module===g);if(!items.length)continue;
+  for(const c of items)h+=`<div class="af-b s4 ${tone(c.status)}" ${afD(i++)}><h4>${esc(c.name)} ${c.enabled?'':'<span class="mono" style="font-size:10px">off</span>'}</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">${esc(c.module)} · ${esc(c.kind)}</p><p style="margin:0"><b>reads</b> ${esc(c.reads)}</p><p style="margin:0"><b>writes</b> ${esc(c.writes)}</p><p style="margin:0"><b>permission</b> ${esc(c.permission)}</p><p style="margin:0"><b>target</b> <span class="mono">${esc(c.target)}</span></p>${c.detail?`<p class="mono" style="font-size:10px;margin:6px 0 0">${esc(c.detail)}</p>`:''}<p class="mono" style="font-size:10px;margin:8px 0 0">status ${esc(c.status)} · last ${last(c.last)}</p>${c.last&&c.last.warnings&&c.last.warnings.length?`<p class="mono" style="font-size:10px;margin:4px 0 0">${c.last.warnings.map(esc).join('<br>')}</p>`:''}</div>`}
+ v.innerHTML=h+'</div>'}
+
+async function render(){nav();window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,br:brView,hl:hlView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 window.addEventListener('hashchange',()=>{const n=HASH[location.hash.replace('#','')]||'bg';if(n!=S.view){S.view=n;render()}});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`}).catch(()=>{});
 afClock();setInterval(afClock,15000);render();

@@ -128,3 +128,15 @@ if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_"):
             fn(); print("ok", name)
+
+
+def test_verify_slugs_picks_first_slug_with_records():
+    p = {"city": "Cremona", "country": "IT", "country_name": "Italy", "languages": ["it"]}
+    slugs = geocode.propose_slugs(p)
+    seen = []
+    fetchers = {"allevents": lambda slug, lang: (seen.append(slug), [{"x": 1}] if slug == "cremona" else [])[1],
+                "eventbrite": lambda slug, country, lang: (_ for _ in ()).throw(OSError("down"))}
+    out, counts = geocode.verify_slugs(p, slugs, fetchers)
+    assert seen == ["cremona-it", "cremona"]
+    assert out == {"allevents_slug": "cremona", "eventbrite_slug": "italy--cremona"}
+    assert counts == {"allevents": 1, "eventbrite": -1}

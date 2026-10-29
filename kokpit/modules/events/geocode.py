@@ -58,3 +58,36 @@ def propose_slugs(place: dict) -> dict:
         "allevents_slug": f"{city}-{cc}" if city and cc else city,
         "eventbrite_slug": f"{country}--{city}" if city and country else city,
     }
+
+
+def allevents_candidates(place: dict) -> list[str]:
+    """AllEvents is inconsistent: big cities are ``/cremona``, smaller ones ``/lodi-it``."""
+    city = slugify(place.get("city") or "")
+    cc = (place.get("country") or "").lower()
+    out = [f"{city}-{cc}", city] if city and cc else [city]
+    return [s for s in out if s]
+
+
+def verify_slugs(place: dict, slugs: dict, fetchers: dict | None = None) -> tuple[dict, dict[str, int]]:
+    """Try each proposed slug once and keep the first that returns records.
+
+    Returns (slugs, counts). A source that cannot be reached keeps the proposed
+    slug and gets count -1; the user can still fix it on the Connections screen.
+    """
+    from . import sources
+    fetchers = fetchers or sources.SOURCES
+    lang = (place.get("languages") or ["en"])[0]
+    out, counts = dict(slugs), {}
+    cands = {"allevents": allevents_candidates(place), "eventbrite": [slugs.get("eventbrite_slug") or ""]}
+    for src, key in (("allevents", "allevents_slug"), ("eventbrite", "eventbrite_slug")):
+        counts[src] = -1
+        for slug in [s for s in cands[src] if s]:
+            try:
+                got = fetchers[src](slug, lang) if src == "allevents" else fetchers[src](slug, place.get("country"), lang)
+            except Exception:
+                break
+            counts[src] = len(got)
+            if got:
+                out[key] = slug
+                break
+    return out, counts
