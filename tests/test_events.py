@@ -47,19 +47,22 @@ def test_jsonld_parse_and_radius():
 
 
 def test_categories_it_en():
-    assert categories.classify({"title": "Sagra della zucca"}, ["it", "en"]) == "sagra"
+    assert categories.classify({"title": "Sagra della zucca"}, ["it", "en"]) == "food"
     assert categories.classify({"title": "Concerto jazz"}, ["it"]) == "concert"
     assert categories.classify({"title": "Serata", "description": "Presentazione del libro"}, ["it"]) == "talk"
     assert categories.classify({"title": "Laboratorio per bambini a teatro"}, ["it"]) == "kids"
     assert categories.classify({"title": "Book launch"}, ["en"]) == "talk"
     assert categories.classify({"title": "Qualcosa"}, ["it"]) == "other"
     assert categories.classify({"title": "x", "category_hint": "opera"}, ["it"]) == "opera"
+    assert categories.classify({"title": "x", "category_hint": "sagra"}) == "food"  # old id kept as alias
 
 
 def test_collect_upsert_and_view():
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
         cfg = _cfg(tmp)
+        assert cfg.events["category_languages"] == ["en"]
+        cfg.events["category_languages"] = ["it", "en"]  # Italian fixture titles need the it pack
         fetchers = {"allevents": lambda slug, lang: [r for r in (sources.record(e, "allevents", lang) for e in sources.jsonld_events(PAGE)) if r],
                     "eventbrite": lambda slug, country, lang: []}
         conn = sqlite3.connect(tmp / "k.db"); conn.row_factory = sqlite3.Row
@@ -69,7 +72,7 @@ def test_collect_upsert_and_view():
         rows2, _, _ = api.collect(cfg, conn, fetchers)  # idempotent
         assert rows2 == 2 and conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 2
         evs = store.upcoming(conn, days=5, today="2099-01-09")
-        assert [e["category"] for e in evs] == ["sagra", "talk"]
+        assert [e["category"] for e in evs] == ["food", "talk"]
         assert store.upcoming(conn, days=5, today="2099-01-11")[0]["title"] == "Sagra della zucca"  # multi-day still listed
         assert store.counts(conn, today="2099-02-01")["upcoming"] == 0
         conn.close()

@@ -1,0 +1,17 @@
+{
+  "language": "en",
+  "label": "English",
+  "rules": [
+    {"category": "kids", "keywords": ["kids", "children", "family", "families"]},
+    {"category": "food", "keywords": ["food festival", "street food", "tasting", "wine festival"]},
+    {"category": "opera", "keywords": ["opera"]},
+    {"category": "dance", "keywords": ["dance", "ballet"]},
+    {"category": "theatre", "keywords": ["theatre", "theater", "play", "comedy", "stand-up", "standup"]},
+    {"category": "cinema", "keywords": ["cinema", "film", "screening", "movie"]},
+    {"category": "exhibition", "keywords": ["exhibition", "gallery", "museum", "vernissage"]},
+    {"category": "concert", "keywords": ["concert", "live music", "gig", "jazz", "rock", "dj", "choir", "orchestra", "recital"]},
+    {"category": "fair", "keywords": ["fair", "market", "flea", "expo"]},
+    {"category": "sport", "keywords": ["run", "marathon", "tournament", "match", "football", "cycling", "hike", "yoga"]},
+    {"category": "talk", "keywords": ["talk", "lecture", "conference", "book launch", "seminar", "workshop", "meetup", "panel"]}
+  ]
+}

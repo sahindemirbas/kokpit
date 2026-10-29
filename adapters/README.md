@@ -4,7 +4,7 @@ An adapter turns one data source into Kokpit records. Community adapters live he
 
 ```
 adapters/
-  events/<city-or-source>/   e.g. events/cremona/ (example, disabled by default)
+  events/<city-or-source>/   e.g. events/example-city/ (offline template, disabled by default)
   jobs/<source>/             e.g. jobs/accenture/
 ```
 
@@ -20,12 +20,12 @@ def collect(settings: dict) -> list[dict]:
 ## adapter.toml
 
 ```toml
-name = "cremona-teatro-ponchielli"      # unique slug
+name = "example-city-riverside-hall"    # unique slug
 kind = "events"                          # events | jobs
 scope = "city"                           # city | country | global
-country = "IT"                           # required for city/country scope
-city = "Cremona"
-homepage = "https://..."
+country = "XX"                           # required for city/country scope
+city = "Example City"
+homepage = "https://example.org/events"
 schedule = "daily"                       # daily | twice-daily | weekly
 terms_reviewed = false                   # set true after reading the source's terms
 maintainer = "github-handle"
@@ -35,27 +35,27 @@ maintainer = "github-handle"
 
 ```json
 {
-  "source": "cremona-teatro-ponchielli",
+  "source": "example-city-riverside-hall",
   "source_id": "stable id or URL",
   "title": "string",
   "description": "string or null",
   "start": "2026-11-05T20:30:00+01:00",
   "end": null,
-  "venue": "string or null",
-  "address": "string or null",
-  "city": "Cremona",
-  "province": "CR",
+  "venue": "Riverside Hall",
+  "address": "1 River Street",
+  "city": "Example City",
+  "province": "EX",
   "lat": null,
   "lon": null,
-  "url": "https://...",
+  "url": "https://example.org/events/autumn-concert",
   "image": null,
   "price": "free | paid | unknown",
   "category_hint": "opera",
-  "language": "it"
+  "language": "en"
 }
 ```
 
-Rules: `start` is ISO 8601 with offset; a date without time is `YYYY-MM-DD` (never invent a time). `price` unknown stays `unknown`. `category_hint` is optional; the core classifier decides.
+Rules: `start` is ISO 8601 with offset; a date without time is `YYYY-MM-DD` (never invent a time). `price` unknown stays `unknown`. `category_hint` is optional and must be one of the English category ids (see [docs/category-packs.md](../docs/category-packs.md)); without it the core classifier decides.
 
 ## Job record
 

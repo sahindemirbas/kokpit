@@ -2,7 +2,7 @@
 
 Collect: generic sources (allevents, eventbrite) chosen by the slugs in
 ``[events]`` plus the local adapters enabled in ``[events] adapters``, filtered to ``radius_km`` around ``[place]``, categorised by the
-configured language packs, upserted into the ``events`` table. Each source that
+category packs in ``[events] category_languages`` (default ``["en"]``), upserted into the ``events`` table. Each source that
 fails is a warning, not a crash; a source that returns 0 records is reported
 as such (the silent-empty trap from docs/modules.md).
 """
@@ -48,8 +48,10 @@ def collect(cfg: Config, conn: sqlite3.Connection, fetchers: dict | None = None)
         if not kept:
             warnings.append(f"{name}: 0 records (check the slug on the Connections screen)")
         records.extend(kept)
+    packs, pack_warns = categories.load_packs(ev.get("category_languages"), [cfg.resolve(d) for d in ev.get("category_pack_dirs", [])])
+    warnings.extend(pack_warns)
     for r in records:
-        r["category"] = categories.classify(r, place["languages"])
+        r["category"] = categories.classify(r, packs=packs)
     n = store.upsert(conn, records)
     return n, {"sources": per_source, "radius_km": place["radius_km"]}, warnings
 
@@ -66,6 +68,7 @@ def payload(cfg: Config, conn: sqlite3.Connection, days: int = 14) -> dict:
         "events": evs,
         "counts": store.counts(conn),
         "categories": categories.CATEGORIES,
+        "category_labels": categories.LABELS,
     }
 
 

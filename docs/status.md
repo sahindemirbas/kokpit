@@ -36,7 +36,7 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 ## Needs generalisation (hard-wired today)
 
 - City, country, neighbouring provinces, map centre, weather cities.
-- Translation target (Turkish) and classification keyword language (Italian).
+- Translation target (Turkish). Category keywords are generalised: language packs, English by default (docs/category-packs.md).
 - Vault path and vault structure assumptions.
 - Account names and chat ids.
 - Flat code layout; no module boundaries; no `kokpit init`.

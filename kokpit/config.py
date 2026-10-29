@@ -40,13 +40,15 @@ country = "{country}"         # ISO code, decides which generic sources apply
 lat = {lat}
 lon = {lon}
 radius_km = 40
-languages = {languages}       # keyword packs for event categories; first is the main one
+languages = {languages}       # listing language(s) of the place; first is the main one
 
 [events]
 allevents_slug = "{allevents}"   # allevents.in/<slug>; empty disables the source. A wrong slug shows as 0 records.
 eventbrite_slug = "{eventbrite}" # eventbrite.<tld>/d/<slug>/; empty disables the source
 adapters = []                    # adapters/events/<name> directories to enable (all off by default)
 adapter_dirs = []                # extra folders holding your own <name>/collect.py adapters
+category_languages = ["en"]      # keyword packs for categories, merged in order; built in: en, it
+category_pack_dirs = []          # folders with your own <code>.json packs; same code wins over the built-in one
 
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
@@ -142,6 +144,8 @@ def load(path: str | Path) -> Config:
         "eventbrite_slug": str(ev.get("eventbrite_slug", "")),
         "adapters": [str(x) for x in list(ev.get("adapters", [])) + list(ev.get("enabled_adapters", []))],
         "adapter_dirs": [str(x) for x in ev.get("adapter_dirs", [])],
+        "category_languages": _str_list(ev.get("category_languages"), ["en"]),
+        "category_pack_dirs": _str_list(ev.get("category_pack_dirs"), []),
     }
     cfg.modules.setdefault("events", False)
     today = raw.get("today", {})
@@ -151,6 +155,13 @@ def load(path: str | Path) -> Config:
         urls = [urls]
     cfg.calendar_ics_urls = [str(u).strip() for u in urls if str(u).strip()]
     return cfg
+
+
+def _str_list(v, default: list[str]) -> list[str]:
+    if isinstance(v, str):
+        v = [v]
+    out = [str(x).strip() for x in (v or []) if str(x).strip()] if isinstance(v, list) else []
+    return out or list(default)
 
 
 def _float_or_none(v) -> float | None:

@@ -1,0 +1,17 @@
+{
+  "language": "it",
+  "label": "Italiano",
+  "rules": [
+    {"category": "kids", "keywords": ["bambini", "famiglie", "ragazzi", "laboratorio per"]},
+    {"category": "food", "keywords": ["sagra", "festa del", "festa della", "street food", "degustazion", "cantine aperte"]},
+    {"category": "opera", "keywords": ["opera", "lirica", "lirico", "melodramma"]},
+    {"category": "dance", "keywords": ["danza", "balletto", "ballo"]},
+    {"category": "theatre", "keywords": ["teatro", "spettacolo teatrale", "commedia", "prosa", "monologo"]},
+    {"category": "cinema", "keywords": ["cinema", "film", "proiezione", "rassegna cinematografica"]},
+    {"category": "exhibition", "keywords": ["mostra", "esposizione", "museo", "vernissage", "inaugurazione"]},
+    {"category": "concert", "keywords": ["concerto", "live", "musica", "jazz", "rock", "dj set", "coro", "orchestra", "recital"]},
+    {"category": "fair", "keywords": ["fiera", "mercatino", "mercato", "antiquariato", "expo"]},
+    {"category": "sport", "keywords": ["corsa", "maratona", "torneo", "partita", "calcio", "ciclismo", "trekking", "camminata"]},
+    {"category": "talk", "keywords": ["conferenza", "incontro con", "presentazione del libro", "presentazione", "convegno", "seminario", "workshop", "dibattito", "lezione"]}
+  ]
+}

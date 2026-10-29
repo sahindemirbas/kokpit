@@ -29,7 +29,8 @@ Moved to M2:
 - Calendar connection for Today (ICS URL first, Google read-only second), read-only scope only. Status: ICS URL done (`calendar_ics_urls`, `calendar` job); Google read-only still open.
 - Geocode and place settings; country-based source enabling; slug confirmation. Status: done (`python -m kokpit place "<city>"`: Open-Meteo geocoder candidates, `--pick N` prints the `[place]`/`[events]` block with a per-country source table, `--write` edits kokpit.toml in place with a `.bak` copy, slugs stay commented until `--confirm-slug`).
 - Adapter loader for `adapters/events/<city>/`. Status: done (`collect.py` contract, off by default, `[events] adapters` and `adapter_dirs`, broken adapters isolated as Health warnings, `kokpit adapters` list; offline template `example-city` added, the author's city examples are a separate step).
-- Language pack for categories (Italian first, English second) and translation target setting.
+- Language pack for categories. Status: done (keyword packs as JSON in `kokpit/modules/events/category_packs/`, English ids and labels, `[events] category_languages = ["en"]` by default, `it` built in but off, own packs via `category_pack_dirs` override a built-in pack with the same code, broken packs and unknown ids are warnings; format in docs/category-packs.md).
+- Translation target setting. Status: open. Translation needs a model connection, which no module has yet; the setting lands with that connection so it is not a dead option.
 - "Last successful update: 0 records" surfaced everywhere. Status: done (`freshness` field on Today weather/calendar/brain/events and `/api/events`; never run, 0 records and last-run-failed shown on each card).
 
 ## M3: career

@@ -14,7 +14,7 @@ The Connections screen is where a user enables modules and links accounts. It is
 | Calendar | Today | ICS URL (working); Google OAuth read-only (planned) | events of today plus the next 6 days | none | read-only scope only; ICS address is a secret |
 | City / place | Events, Today | setting | geocode once (Nominatim) | none | radius or neighbouring provinces |
 | AllEvents, Eventbrite, Sagramap | Events | public pages | listings | none | slug confirmed by user; rate limits respected |
-| Local event adapters | Events | per-city adapter | listings | none | shipped disabled; examples for Cremona |
+| Local event adapters | Events | per-city adapter | listings | none | shipped disabled; offline `example-city` template |
 | Weather | Today, Events | public API (Open-Meteo) | forecast | none | no key |
 | CV file | Career | local path | text of the CV | none | parsing is local; model-assisted parsing opt-in |
 | Job sources | Career | public pages, adapters | listings | none | LinkedIn guest search without login |

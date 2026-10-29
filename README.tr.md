@@ -85,6 +85,18 @@ adapter_dirs = ["~/kokpit-adapters/events"] # isteğe bağlı: kendi adaptör kl
 
 `python -m kokpit adapters` bulunanları ve açık/kapalı durumunu listeler. Depoda ağ kullanmayan tek bir şablon var: [adapters/events/example-city/](adapters/events/example-city/); gerçek şehir adaptörleri ayrı bir adım.
 
+### Kategori dili
+
+Etkinlik kategorilerinin kimlikleri ve etiketleri İngilizcedir (food, concert, opera, theatre, ...). Onları seçen anahtar kelimeler dil paketlerinden gelir; varsayılan `en` açıktır, `it` Kokpit ile gelir ama kapalıdır.
+
+```toml
+[events]
+category_languages = ["it", "en"]        # bu sırayla birleşir; varsayılan ["en"]
+category_pack_dirs = ["~/kokpit-packs"]  # isteğe bağlı: kendi <kod>.json paketlerin; aynı kod yerleşik paketin yerine geçer
+```
+
+Kendi dilini eklemek için `kokpit/modules/events/category_packs/en.json` dosyasını kopyala, anahtar kelimeleri çevir, klasörü ve kodu yukarıdaki gibi yaz. Format ve kurallar: [docs/category-packs.md](docs/category-packs.md) (İngilizce). Bozuk paket uyarı verir, hiçbir zaman çökertmez.
+
 ## Depo yapısı
 
 README.md içindeki tablo ile aynıdır; dokümanlar İngilizce yazılmıştır.

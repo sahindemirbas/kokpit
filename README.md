@@ -85,6 +85,18 @@ adapter_dirs = ["~/kokpit-adapters/events"] # optional: your own adapter folders
 
 `python -m kokpit adapters` lists what was found and whether it is on. The repository ships one offline template, [adapters/events/example-city/](adapters/events/example-city/); real city adapters are a separate step.
 
+### Category language
+
+Event categories have English ids and labels (food, concert, opera, theatre, ...). The keywords that pick them come from language packs; `en` is on by default, `it` ships with Kokpit but is off.
+
+```toml
+[events]
+category_languages = ["it", "en"]        # merged in this order; default ["en"]
+category_pack_dirs = ["~/kokpit-packs"]  # optional: your own <code>.json packs; same code wins over the built-in one
+```
+
+To add your language, copy `kokpit/modules/events/category_packs/en.json`, translate the keywords and list the folder and code as above. Format and rules: [docs/category-packs.md](docs/category-packs.md). A broken pack is a warning, never a crash.
+
 ## Repository layout
 
 ```
