@@ -12,7 +12,7 @@ Milestones are ordered; each one is usable on its own. No dates: the author work
 
 - Package layout `kokpit/` with `today`, `brain`, `events`, `health` modules and the single-page dashboard.
 - `kokpit init` (city, vault path, modules), `kokpit run`, `kokpit run-job <name>`.
-- Empty starter vault structure.
+- Empty starter vault structure and `docs/brain-protocol.md` conventions; packaged context hook script that any agent can call.
 - Health table and Connections screen (read-only view first).
 - Synthetic fixtures and tests for date detection, dedupe, category rules.
 
@@ -37,6 +37,8 @@ Milestones are ordered; each one is usable on its own. No dates: the author work
 ## M5: agenda, bot, Docker
 
 - Topic configuration for the digest; optional TTS.
+- Brain-driven agenda matching with a rule-based fallback and a model opt-in.
+- Night organiser as an opt-in module: categorise, link, conditions, enrich, sync; deterministic morning report.
 - Telegram bot as an optional module.
 - `docker compose up` path.
 

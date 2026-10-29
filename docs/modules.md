@@ -18,8 +18,10 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 - Starter structure: `Threads.md` (active threads with "where we left off" and open items tagged with who owes the next step), `To-Do.md` (`## Open` with checkbox lines, optional `due: YYYY-MM-DD`), `notes/` by area, `projects/<name>/`.
 - Dashboard: one card per thread, lanes "on you / on me / on someone else", session timeline, quick capture of a note or task.
 - Rules: the web app writes only through quick capture (append a line). It never rewrites or deletes notes. Date detection scans thread titles, open items, task text and the notes folders you choose, not whole logs.
-- Connections: a local folder path. Optional: the Hermes agent integration (see `integrations/hermes`) which can fill the same files; not required.
-- Status: working with the author's vault; the empty starter structure and the folder-path setting are **generalise**.
+- Agent protocol: several AI tools (reference: Hermes, Claude Code, Codex, Antigravity) share the same vault. A read-only context hook injects open threads and the last session into every agent; at the end of a work session the agent writes a `Last-Session.md` card, updates `Threads.md` and the relevant note, and leaves a receipt. Full contract in `docs/brain-protocol.md`.
+- Night organiser (**planned** module): scheduled job that files `inbox/` notes into folders, adds reciprocal links with a stated reason, appends dated status blocks when a condition in an older note has come true, folds new information into the note it belongs to, and separates ideas from projects. Uses a model, so it is opt-in and listed in Connections. A deterministic morning report (no model call) summarises the run.
+- Connections: a local folder path. Optional: the Hermes agent integration (see `integrations/hermes`) which can fill the same files; not required. Night organiser: model provider, opt-in.
+- Status: dashboard working with the author's vault; the empty starter structure and the folder-path setting are **generalise**; the hook scripts and the night organiser run in the reference instance but are not yet in this repository (**planned**).
 
 ## Career
 
@@ -62,8 +64,9 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 
 - Daily digest of items in the areas you follow (reference: AI/tech releases, repos, security notes). Each item has a one-sentence summary, a "why it matters" line and a score; the top item per section is the headline.
 - Optional audio summary (TTS) that keeps playing while you switch tabs.
-- Connections: a model API key for summaries (opt-in, stated), a TTS provider (optional).
-- Status: **working** for the author's topic set; topic configuration **planned**.
+- Brain-driven matching: active threads, project names and current blockers from the vault steer what is selected. Items that clearly relate to an active project are tagged with the project and a stated reason; tagged items come first in the digest and the audio summary. Only titles, tags and short summaries leave the vault. A rule-based fallback works without any model. Details in `docs/brain-protocol.md`, section 4.
+- Connections: a model API key for summaries (opt-in, stated), a TTS provider (optional), the brain vault (read-only).
+- Status: digest **working** for the author's topic set; brain-driven matching **working** in a first version tied to the author's vault paths (**generalise**); topic configuration **planned**.
 
 ## System health
 

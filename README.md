@@ -38,6 +38,7 @@ README.tr.md            Turkish version
 docs/
   architecture.md       runtime shape, data flow, storage
   modules.md            every module: purpose, inputs, connections, status
+  brain-protocol.md     one vault shared by several AI agents; night organiser; brain-driven agenda
   connections.md        the Connections screen, permissions, secrets handling
   privacy.md            what never enters this repo or leaves your device
   status.md             working / needs generalisation / planned

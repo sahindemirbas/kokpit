@@ -20,6 +20,13 @@ integrations/hermes/
   vault_conventions.md     file and heading conventions both sides agree on
 ```
 
+## Relation to the brain protocol
+
+Hermes is one of several agents that follow `docs/brain-protocol.md`. The
+reference instance runs the same hook script from Hermes, Claude Code, Codex
+and Antigravity; nothing here is Hermes-only except the `state.db` usage
+reader and the Kokpit skill.
+
 ## Boundaries
 
 - Kokpit opens `state.db` read-only and never modifies Hermes configuration.
