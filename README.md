@@ -38,7 +38,7 @@ Everything is a module. You enable what you want from a Connections screen; noth
 
 **One notes folder, many agents.** The second brain is a plain Markdown folder you own. Several AI tools can work in it under one contract: a read-only hook gives every agent the open threads and the last session; at the end of a session the agent writes a `Last-Session.md` card, updates `Threads.md` and leaves a receipt saying what it changed. You can switch tools mid-project without losing the thread, and you can audit what each agent did. The conventions come from [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) (MIT), run here as a modified local fork; the full contract is in [docs/brain-protocol.md](docs/brain-protocol.md).
 
-**Works without an AI key.** Every module has a rule-based path: keyword scoring for jobs, keyword rules for event categories, rule-based usage advice, a deterministic morning report. A model is an opt-in connection that improves a module, never a requirement to run it.
+**Works without an AI key.** Collection is plain code: scheduled fetchers pull known sources (job boards, event pages, RSS, official APIs), parse them and store rows; no model is involved in gathering data. On top of that each module has a rule-based path: keyword scoring for jobs, keyword rules for event categories, rule-based usage advice, a template morning report. A model is an opt-in connection that adds summaries, translation and richer matching; it is never a requirement to run a module. Where that rule path is still missing today is marked in [docs/status.md](docs/status.md).
 
 **Honest about what it does not know.** Unknown prices, unexposed quotas and failed measurements are shown as unknown. Empty results are visible. Features are labelled working, needs generalisation, or planned.
 
@@ -52,7 +52,7 @@ Everything is a module. You enable what you want from a Connections screen; noth
 4. **No silent AI calls.** If a module sends data to an external model, the data and the destination are stated and approved first. CV matching does not need your name, phone or e-mail.
 5. **Unknown is not zero.** A price we cannot determine, a quota a provider does not expose, a measurement that failed: these are shown as unknown, never as 0.
 6. **Honest labels.** Features are marked as working, needs generalisation, or planned. The docs never describe a command that does not exist as if it did.
-7. **No model required.** Every module runs on rules alone; models are optional connections, listed and approved like any other.
+7. **No model required.** Every module has a rule-based baseline that runs without a model; a model is an opt-in connection that improves it, listed and approved like any other. Which baselines exist today is tracked in [docs/status.md](docs/status.md).
 
 ## What you need, and who this is not for
 

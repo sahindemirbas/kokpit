@@ -16,6 +16,23 @@ Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQ
 - System health: per-job status, morning warnings.
 - Telegram bot: morning line, commands, approval buttons.
 
+## Rule-based baseline per module (no model key)
+
+Collection never uses a model in any module; fetch, parse and store are plain Python. This table is about the layer on top.
+
+| Module | Without a model today | Model adds | Baseline status |
+|---|---|---|---|
+| Today | Full: calendar, tasks, weather, counts, health | nothing | working |
+| Brain | Full: threads, lanes, timeline, capture | nothing (agents write to the vault, the tab only reads) | working |
+| Events | Collection, dedupe, keyword category rules, views, `.ics` | Turkish translation, "other" reclassification, description enrichment | working; untranslated items show the original text |
+| Career | Collection, keyword scoring with reasons, lifecycle, market view, CSV | translated titles for high-score jobs | working |
+| Social | Insights, approved publishing, calendar | caption/visual drafts | working for stats; drafting is model-only, no template path yet |
+| AI usage | Reader, per-model view, rule-based advice | nothing | working |
+| Agenda (digest) | Item scoring and listing | summary text, item selection, audio | scoring is rule-based; summary without a model falls back to the plain list, to be formalised |
+| Morning report | Template text with verified times and temperatures | free-form wording | working; the template is also the safety fallback when model output fails verification |
+| System health | Full | nothing | working |
+| Telegram bot | Full | nothing | working |
+
 ## Needs generalisation (hard-wired today)
 
 - City, country, neighbouring provinces, map centre, weather cities.

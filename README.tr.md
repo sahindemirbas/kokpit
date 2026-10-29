@@ -38,7 +38,7 @@ Her şey modüldür. Bağlantılar ekranından istediğini açarsın; gerisi ça
 
 **Tek not klasörü, çok ajan.** İkinci beyin senin sahip olduğun düz bir Markdown klasörüdür. Birden fazla AI aracı aynı klasörde tek sözleşmeyle çalışabilir: salt okunur bir hook her ajana açık işleri ve son oturumu verir; oturum sonunda ajan `Last-Session.md` kartını yazar, `Threads.md` dosyasını günceller ve neyi değiştirdiğini söyleyen bir makbuz bırakır. Proje ortasında araç değiştirsen de ipi kaybetmezsin; her ajanın ne yaptığını denetleyebilirsin. Bu düzen [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) (MIT) üzerine kuruludur; biz değiştirilmiş yerel bir çatal kullanıyoruz. Sözleşmenin tamamı: [docs/brain-protocol.md](docs/brain-protocol.md).
 
-**AI anahtarı olmadan çalışır.** Her modülün kural tabanlı bir yolu vardır: ilanlar için anahtar kelime puanı, etkinlik kategorileri için kelime kuralları, kural tabanlı kullanım tavsiyesi, deterministik sabah raporu. Model, bir modülü iyileştiren isteğe bağlı bir bağlantıdır; çalışması için şart değildir.
+**AI anahtarı olmadan çalışır.** Veri toplama düz koddur: zamanlanmış toplayıcılar bilinen kaynaklara gider (ilan siteleri, etkinlik sayfaları, RSS, resmi API'ler), ayrıştırır ve satır olarak kaydeder; toplamada model yoktur. Bunun üzerinde her modülün kural tabanlı bir yolu vardır: ilanlar için anahtar kelime puanı, etkinlik kategorileri için kelime kuralları, kural tabanlı kullanım tavsiyesi, şablon sabah raporu. Model; özet, çeviri ve daha zengin eşleştirme ekleyen isteğe bağlı bir bağlantıdır, modülün çalışması için şart değildir. Bu kural yolunun bugün hâlâ eksik olduğu yerler [docs/status.md](docs/status.md) içinde işaretlidir.
 
 **Bilmediğini söyler.** Belirlenemeyen fiyat, verilmeyen kota ve başarısız ölçüm "bilinmiyor" olarak görünür. Boş sonuç gizlenmez. Özellikler çalışıyor / genelleştirilecek / planlanan diye etiketlenir.
 
@@ -52,7 +52,7 @@ Her şey modüldür. Bağlantılar ekranından istediğini açarsın; gerisi ça
 4. **Sessiz AI çağrısı yok.** Bir modül dış modele veri gönderecekse veri ve hedef önce belirtilir ve onay alınır. CV eşleştirmesi için ad, telefon, e-posta gerekmez.
 5. **Bilinmeyen sıfır değildir.** Belirlenemeyen fiyat, sağlayıcının vermediği kota, başarısız ölçüm "bilinmiyor" olarak gösterilir, 0 olarak değil.
 6. **Dürüst etiket.** Özellikler çalışıyor / genelleştirilecek / planlanan diye işaretlenir. Olmayan bir komut varmış gibi yazılmaz.
-7. **Model şart değil.** Her modül yalnız kurallarla çalışır; modeller diğer bağlantılar gibi listelenen ve onaylanan isteğe bağlı bağlantılardır.
+7. **Model şart değil.** Her modülün model olmadan çalışan kural tabanlı bir temel yolu vardır; model o modülü iyileştiren, diğer bağlantılar gibi listelenen ve onaylanan isteğe bağlı bir bağlantıdır. Hangi temel yolların bugün var olduğu [docs/status.md](docs/status.md) içinde izlenir.
 
 ## Ne gerekir, kimin için değil
 
