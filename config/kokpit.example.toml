@@ -37,7 +37,8 @@ quick_capture = true          # allow appending notes/tasks from the dashboard
 sources = ["allevents", "eventbrite", "sagramap"]   # chosen by country; edit to taste
 allevents_slug = "lodi-it"    # confirm on the Connections screen
 eventbrite_slug = "italy--lodi"
-local_adapters = []           # e.g. ["events/cremona"] to enable the shipped example
+adapters = []                 # adapter ids to enable, e.g. ["example-city"]; all off by default
+adapter_dirs = []             # your own adapter folders, e.g. ["~/kokpit-adapters/events"]
 
 [career]
 cv_path = "~/Documents/cv.pdf"

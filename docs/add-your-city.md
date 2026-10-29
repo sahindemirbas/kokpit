@@ -22,7 +22,7 @@ Weather needs nothing: Open-Meteo takes the coordinates from `init`.
 
 If the generic slugs cover your town, you are done. Many towns under ~50k people have no AllEvents page; that is what level 2 is for.
 
-## 2. A local adapter (contract ready, loader lands in M2)
+## 2. A local adapter
 
 Theatres, municipalities and tourism offices have no city parameter, so each one is a small adapter:
 
@@ -34,11 +34,22 @@ adapters/events/<your-city>/
 
 `collect()` returns event records in the JSON contract in [adapters/README.md](../adapters/README.md): `source`, `source_id`, `title`, `start` (ISO 8601 with offset, or a plain date; never an invented time), `url`, `price` (`free | paid | unknown`), and the optional fields. `settings` already carries `lat`, `lon`, `country`, `province`, `radius_km`, so do not hard-code them.
 
-Status, honestly: the core shows adapters on the Connections tab but does not import them yet. `local_adapters = ["events/<your-city>"]` in `kokpit.toml` is accepted and ignored until the loader ships (roadmap, M2). You can still write and test an adapter now:
+Optional module constants: `NAME` (stored as `source`, defaults to the folder name), `CITY`, `COUNTRY`, `ENABLED_BY_DEFAULT = False`. `adapter.toml` is optional metadata; the loader does not read it yet.
+
+Enable and run it:
+
+```toml
+[events]
+adapters = ["<your-city>"]
+adapter_dirs = []   # or a folder of your own outside the repository
+```
 
 ```
-python -c "from adapters.events.yourcity.collect import collect; print(collect({'lat':45.26,'lon':9.49,'country':'IT','province':'LO','radius_km':40}))"
+python -m kokpit adapters
+python -m kokpit run-job events-collect
 ```
+
+A failing adapter shows up as a warning on the events-collect run in Health; the other sources keep working. Start from the offline template in `adapters/events/example-city/`.
 
 ## Contributing one
 
@@ -47,4 +58,3 @@ python -c "from adapters.events.yourcity.collect import collect; print(collect({
 - Return `[]` when the page is genuinely empty; raise on a broken selector so Health shows the failure instead of a silent zero.
 - Open a PR titled `adapter: events/<city> <source>` with one screenshot of the listing page the records came from. Tests are welcome but not required for a first adapter.
 
-The author's Cremona adapters will arrive as the first examples, disabled by default.

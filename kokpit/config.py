@@ -46,6 +46,7 @@ languages = {languages}       # keyword packs for event categories; first is the
 allevents_slug = "{allevents}"   # allevents.in/<slug>; empty disables the source. A wrong slug shows as 0 records.
 eventbrite_slug = "{eventbrite}" # eventbrite.<tld>/d/<slug>/; empty disables the source
 adapters = []                    # adapters/events/<name> directories to enable (all off by default)
+adapter_dirs = []                # extra folders holding your own <name>/collect.py adapters
 
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
@@ -72,7 +73,7 @@ class Config:
     host: str = "127.0.0.1"
     port: int = 8501
     place: dict = field(default_factory=dict)      # city, country, lat, lon, radius_km, languages
-    events: dict = field(default_factory=dict)     # allevents_slug, eventbrite_slug, adapters
+    events: dict = field(default_factory=dict)     # allevents_slug, eventbrite_slug, adapters, adapter_dirs
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
     @property
@@ -139,7 +140,8 @@ def load(path: str | Path) -> Config:
     cfg.events = {
         "allevents_slug": str(ev.get("allevents_slug", "")),
         "eventbrite_slug": str(ev.get("eventbrite_slug", "")),
-        "adapters": [str(x) for x in ev.get("adapters", [])],
+        "adapters": [str(x) for x in list(ev.get("adapters", [])) + list(ev.get("enabled_adapters", []))],
+        "adapter_dirs": [str(x) for x in ev.get("adapter_dirs", [])],
     }
     cfg.modules.setdefault("events", False)
     today = raw.get("today", {})

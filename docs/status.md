@@ -51,12 +51,13 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 - `kokpit context "<message>"` prints the read-only brain block (threads, last session, upcoming dates, related notes); `integrations/hermes/kokpit-brain/` wraps it as a Hermes `pre_llm_call` plugin. Tests: 18.
 - Freshness line on every data card (weather, calendar, tasks/brain-check, Events tab): last successful update, record count, "0 records", "never run" or "last run failed"; one `freshness` shape `{job, last_status, last_success, records}` from the health table. Tests: 44.
 - `kokpit place "<city>"`: Open-Meteo geocoder candidates, per-country event source table (unknown countries marked unverified), accent-free slugs kept as comments until `--confirm-slug`, `--write` edits `kokpit.toml` in place with a `.bak` copy and refuses if any other setting would change. Tests: 54.
+- Local event adapter loader: `adapters/events/<id>/collect.py` plus user folders from `[events] adapter_dirs`, imported only when listed in `[events] adapters`; import errors, missing `collect`, exceptions and wrong return types become short warnings on the `events-collect` run; records go through the same radius filter, categories and upsert with `source` = adapter name; `kokpit adapters` lists them; offline `example-city` template. Tests: 61.
 
 ## Planned, not started
 
 - `kokpit schedule` / `kokpit doctor` commands (`init --city` and `run` exist; init verifies the AllEvents/Eventbrite slugs live and prints the record count per source).
 - CV extraction and target-profile form.
-- Adapter contract and loader for `adapters/events/<city>/` and `adapters/jobs/<source>/`.
+- Adapter loader for `adapters/jobs/<source>/` (events loader is done).
 - Language packs.
 - Docker image.
 - Public release checklist (licence is MIT, see `LICENSE`).

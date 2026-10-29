@@ -1,7 +1,7 @@
 """Events module: collect job + read API.
 
 Collect: generic sources (allevents, eventbrite) chosen by the slugs in
-``[events]``, filtered to ``radius_km`` around ``[place]``, categorised by the
+``[events]`` plus the local adapters enabled in ``[events] adapters``, filtered to ``radius_km`` around ``[place]``, categorised by the
 configured language packs, upserted into the ``events`` table. Each source that
 fails is a warning, not a crash; a source that returns 0 records is reported
 as such (the silent-empty trap from docs/modules.md).
@@ -12,7 +12,7 @@ import sqlite3
 
 from ...config import Config
 from ..health import api as health_api
-from . import categories, sources, store
+from . import adapters, categories, sources, store
 
 
 def collect(cfg: Config, conn: sqlite3.Connection, fetchers: dict | None = None) -> tuple[int, dict, list[str]]:
@@ -30,13 +30,17 @@ def collect(cfg: Config, conn: sqlite3.Connection, fetchers: dict | None = None)
         plan.append(("allevents", lambda: fetchers["allevents"](ev["allevents_slug"], lang)))
     if ev.get("eventbrite_slug"):
         plan.append(("eventbrite", lambda: fetchers["eventbrite"](ev["eventbrite_slug"], place.get("country"), lang)))
+    plan.extend(adapters.plan(cfg))
+    for name in adapters.missing(cfg):
+        warnings.append(f"adapter {name}: enabled in kokpit.toml but not found (run `kokpit adapters`)")
     if not plan:
-        warnings.append("no source enabled: set allevents_slug or eventbrite_slug in kokpit.toml")
+        warnings.append("no source enabled: set allevents_slug, eventbrite_slug or [events] adapters in kokpit.toml")
     for name, fn in plan:
         try:
             got = fn()
         except Exception as exc:  # one broken source must not hide the others
-            warnings.append(f"{name}: {type(exc).__name__}: {str(exc)[:120]}")
+            reason = str(exc) if isinstance(exc, adapters.AdapterError) else f"{type(exc).__name__}: {str(exc)[:120]}"
+            warnings.append(f"{name}: {reason}")
             per_source[name] = 0
             continue
         kept = sources.within(got, place["lat"], place["lon"], place["radius_km"])

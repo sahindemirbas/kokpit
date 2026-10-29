@@ -71,7 +71,19 @@ Not for you if you want a hosted service, a phone app, cloud sync between device
 
 ## Add your city
 
-Generic sources (AllEvents, Eventbrite, Open-Meteo) work for any city once you enter its name. Local sources such as theatres, municipalities and tourism offices have no city parameter, so they live as small adapters under `adapters/events/<city>/` with a documented JSON contract. The author's Cremona adapters will ship as examples, disabled by default. Copying one and pointing it at your own town's agenda is the intended way to contribute; the step-by-step is in [docs/add-your-city.md](docs/add-your-city.md), the record contract in [adapters/README.md](adapters/README.md). The same contract applies to job sources under `adapters/jobs/`.
+Generic sources (AllEvents, Eventbrite, Open-Meteo) work for any city once you enter its name. Local sources such as theatres, municipalities and tourism offices have no city parameter, so they live as small adapters under `adapters/events/<city>/` with a documented JSON contract. Copying one and pointing it at your own town's agenda is the intended way to contribute; the step-by-step is in [docs/add-your-city.md](docs/add-your-city.md), the record contract in [adapters/README.md](adapters/README.md). The same contract applies to job sources under `adapters/jobs/`.
+
+### Local event adapters
+
+An adapter is a folder with `collect.py` exposing `collect(settings) -> list[dict]` (event records as in [adapters/README.md](adapters/README.md)). All adapters are off by default; only the ones you list are imported. A broken adapter becomes a warning on the `events-collect` run in Health and does not stop the other sources.
+
+```toml
+[events]
+adapters = ["example-city"]                 # ids (folder names) to enable
+adapter_dirs = ["~/kokpit-adapters/events"] # optional: your own adapter folders
+```
+
+`python -m kokpit adapters` lists what was found and whether it is on. The repository ships one offline template, [adapters/events/example-city/](adapters/events/example-city/); real city adapters are a separate step.
 
 ## Repository layout
 

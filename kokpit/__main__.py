@@ -1,4 +1,4 @@
-"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs"""
+"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters"""
 from __future__ import annotations
 
 import argparse
@@ -126,6 +126,23 @@ def cmd_jobs(args) -> int:
     return 0
 
 
+def cmd_adapters(args) -> int:
+    """List local event adapters found in adapters/events/ and [events] adapter_dirs, with on/off state."""
+    from .modules.events import adapters
+    cfg = _load(args)
+    found = adapters.discover(cfg)
+    if not found:
+        print("no event adapters found")
+    for a in found:
+        where = "user" if a["user"] else "repo"
+        city = f"{a['city']}, {a['country']}" if a["city"] and a["country"] else (a["city"] or "-")
+        print(f"{'on ' if a['enabled'] else 'off'}  {a['id']:24s} source={a['name']:24s} {city:20s} {where}: {a['path']}")
+    for name in adapters.missing(cfg):
+        print(f"missing  {name}: enabled in [events] adapters but no such directory")
+    print("\nenable with [events] adapters = [\"<id>\"] in kokpit.toml, then `kokpit run-job events-collect`")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="kokpit", description=f"Kokpit {__version__}")
     ap.add_argument("--config", help="path to kokpit.toml (default: ./kokpit.toml, then ~/.config/kokpit/)")
@@ -152,6 +169,8 @@ def main(argv=None) -> int:
     p.add_argument("--confirm-slug", action="store_true", help="make the proposed event slugs active")
     p.add_argument("--count", type=int, default=5, help="how many candidates to list (default 5)")
     p.set_defaults(fn=cmd_place)
+    p = sub.add_parser("adapters", help="list local event adapters and whether they are enabled")
+    p.set_defaults(fn=cmd_adapters)
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)
     args = ap.parse_args(argv)

@@ -8,7 +8,7 @@ adapters/
   jobs/<source>/             e.g. jobs/accenture/
 ```
 
-Each adapter directory contains `adapter.toml` (metadata) and `collect.py` exposing one function:
+Each adapter directory contains `collect.py` (required; the event loader imports it only when the id is listed in `[events] adapters`) and optionally `adapter.toml` (metadata, not read by the loader yet). `collect.py` may set `NAME` (becomes `source`; defaults to the folder name), `CITY`, `COUNTRY`, `ENABLED_BY_DEFAULT = False`, and exposes one function:
 
 ```python
 def collect(settings: dict) -> list[dict]:

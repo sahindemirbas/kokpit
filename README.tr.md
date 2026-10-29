@@ -71,7 +71,19 @@ Barındırılan servis, telefon uygulaması, cihazlar arası bulut eşitleme ya 
 
 ## Şehrini ekle
 
-Genel kaynaklar (AllEvents, Eventbrite, Open-Meteo) şehir adını girince her şehirde çalışır. Tiyatro, belediye, turizm ofisi gibi yerel kaynakların şehir parametresi yoktur; bunlar belgeli bir JSON sözleşmesiyle `adapters/events/<şehir>/` altında küçük adaptörler olarak yaşar. Yazarın Cremona adaptörleri varsayılan kapalı örnekler olarak gelecek. Birini kopyalayıp kendi kasabanın gündemine yöneltmek katkının amaçlanan yoludur; adım adım anlatım [docs/add-your-city.md](docs/add-your-city.md) içinde (İngilizce), kayıt sözleşmesi [adapters/README.md](adapters/README.md) içinde. Aynı sözleşme `adapters/jobs/` altındaki ilan kaynakları için de geçerlidir.
+Genel kaynaklar (AllEvents, Eventbrite, Open-Meteo) şehir adını girince her şehirde çalışır. Tiyatro, belediye, turizm ofisi gibi yerel kaynakların şehir parametresi yoktur; bunlar belgeli bir JSON sözleşmesiyle `adapters/events/<şehir>/` altında küçük adaptörler olarak yaşar. Birini kopyalayıp kendi kasabanın gündemine yöneltmek katkının amaçlanan yoludur; adım adım anlatım [docs/add-your-city.md](docs/add-your-city.md) içinde (İngilizce), kayıt sözleşmesi [adapters/README.md](adapters/README.md) içinde. Aynı sözleşme `adapters/jobs/` altındaki ilan kaynakları için de geçerlidir.
+
+### Yerel etkinlik adaptörleri
+
+Adaptör, `collect(settings) -> list[dict]` sunan bir `collect.py` içeren klasördür (kayıt alanları [adapters/README.md](adapters/README.md) içinde). Hepsi varsayılan kapalıdır; yalnız listelenenler yüklenir. Bozuk bir adaptör Health'te `events-collect` çalışmasına uyarı olarak düşer, diğer kaynakları durdurmaz.
+
+```toml
+[events]
+adapters = ["example-city"]                 # etkinleştirilecek klasör adları
+adapter_dirs = ["~/kokpit-adapters/events"] # isteğe bağlı: kendi adaptör klasörlerin
+```
+
+`python -m kokpit adapters` bulunanları ve açık/kapalı durumunu listeler. Depoda ağ kullanmayan tek bir şablon var: [adapters/events/example-city/](adapters/events/example-city/); gerçek şehir adaptörleri ayrı bir adım.
 
 ## Depo yapısı
 
