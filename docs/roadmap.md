@@ -46,6 +46,7 @@ Milestones are ordered; each one is usable on its own. No dates: the author work
 
 - [ ] Secret scan of the whole history.
 - [ ] Every fixture reviewed as synthetic.
-- [ ] Third-party code and data-source terms reviewed; licence chosen.
+- [ ] Third-party code and data-source terms reviewed; licence chosen (must be compatible with the MIT notice of Avenox Beyin).
+- [ ] Every file derived from Avenox Beyin carries the MIT copyright line and a header stating the modification.
 - [ ] Docs re-read for anything that describes a non-existent feature as existing.
 - [ ] Author's explicit go decision recorded.

@@ -65,8 +65,10 @@ These commands are a design target, not a current feature.
 
 ## Licence
 
-Not decided yet. The licence will be chosen after reviewing third-party code and data-source terms; until then the repository is private and all rights are reserved.
+Not decided yet. The licence will be chosen after reviewing third-party code and data-source terms; until then the repository is private and all rights are reserved. Any code derived from Avenox Beyin keeps its MIT notice regardless of the licence chosen here.
 
 ## Author
+
+The second-brain conventions build on [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) (MIT), run here as a modified local fork; see `docs/brain-protocol.md`, section 0.
 
 Built by [Sahin Demirbas](https://github.com/sahindemirbas), a data professional based in Italy, for his own daily use first.

@@ -11,6 +11,23 @@ Status: the conventions are in daily use in the reference instance; the
 packaged hook scripts and the night organiser are **planned** for this
 repository (see `docs/roadmap.md`).
 
+## 0. Origin and credit
+
+The vault conventions, the per-message context hook, the `Last-Session` card,
+receipts and the "update, never rewrite" rule come from **Avenox Beyin**
+(`github.com/avenoxai/avenoxbeyin`, MIT licence, copyright Avenox). The
+reference instance runs a local fork of Beyin 3.11.0 that has diverged since
+October 2026 (multi-agent hooks, Turkish-language rules, the night organiser,
+the agenda link). The night organiser and the brain-driven agenda are Kokpit
+additions, not part of upstream.
+
+What this means for the repository: this document is our own text and
+describes a contract, not Avenox's code. If a hook script or any other code
+derived from Beyin is packaged here (planned for M1), it ships with the
+original MIT copyright and licence text, and the derived files say so in their
+header. Kokpit's own licence is still undecided; it must be compatible with
+that obligation.
+
 ## 1. Vault layout (starter structure)
 
 Kokpit ships an empty starter vault. The author's own vault is never shipped.
