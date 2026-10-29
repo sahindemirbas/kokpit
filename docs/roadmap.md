@@ -8,7 +8,7 @@ Milestones are ordered; each one is usable on its own. No dates: the author work
 - Decision: repository first, Hermes integration optional (done).
 - Decision: city is a user setting, sources chosen by country, local adapters per city (done).
 
-## M1: core skeleton (in progress)
+## M1: core skeleton (done)
 
 Done:
 - Package layout `kokpit/` with `today`, `brain`, `health` modules; single static page over a JSON API; standard library only (`http.server`, `sqlite3`, `tomllib`).
@@ -16,15 +16,17 @@ Done:
 - Empty starter vault; brain reader for Threads / To-Do / Last-Session with the owner lanes (on you / on me / on someone else), upcoming dates from `due:` tags only, quick capture (append-only).
 - Health table (`runs`) with "0 records" and "did not run today" warnings; `heartbeat` and `brain-check` jobs.
 - Tests on synthetic fixtures (brain parsing, capture, health warnings) and one end-to-end test that starts the server.
-
-Open:
-- `events` module skeleton and `kokpit init` asking for the city.
+- `events` module skeleton; `kokpit init` asks for the city and geocodes it. `events` stays `false` in `[modules]` after init until a source is enabled.
 - Packaged context hook script that any agent can call (Beyin MIT notice).
 - Connections screen (read-only view).
-- Weather and calendar on the Today tab.
+- Weather on the Today tab: Open-Meteo, cached by the `weather` job, today plus the next 4 days, stale cache shown with its age.
+
+Moved to M2:
+- Calendar on the Today tab (ICS URL or Google read-only). The Today payload carries `calendar.status = "not connected"` until then.
 
 ## M2: events for any city
 
+- Calendar connection for Today (ICS URL first, Google read-only second), read-only scope only.
 - Geocode and place settings; country-based source enabling; slug confirmation.
 - Adapter loader for `adapters/events/<city>/`; Cremona examples ported and disabled by default.
 - Language pack for categories (Italian first, English second) and translation target setting.

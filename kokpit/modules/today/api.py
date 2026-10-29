@@ -34,7 +34,7 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
         out["sections"]["events"] = {"configured": e.get("configured", False), "next": e["events"][:5],
                                      "upcoming": e["counts"]["upcoming"], "reason": e.get("reason", "")}
     out["sections"]["weather"] = _weather(cfg)
-    out["sections"]["calendar"] = {"status": "planned", "note": "ICS / Google read-only connection"}
+    out["sections"]["calendar"] = {"status": "not connected", "note": "planned for M2: ICS URL or Google read-only, see docs/connections.md"}
     return out
 
 

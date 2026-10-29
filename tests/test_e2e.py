@@ -52,6 +52,8 @@ class EndToEnd(unittest.TestCase):
         self.assertEqual(today["sections"]["brain"]["open_tasks"], 2)
         self.assertTrue(today["sections"]["health"]["available"])
         self.assertEqual(today["sections"]["health"]["warnings"], [])
+        self.assertIn(today["sections"]["weather"]["status"], ("needs a place", "not fetched"))
+        self.assertEqual(today["sections"]["calendar"]["status"], "not connected")
         health = json.loads(self.get("/api/health")[1])
         self.assertEqual({r["job"] for r in health["runs"]}, {"heartbeat", "brain-check"})
         brain = json.loads(self.get("/api/brain")[1])

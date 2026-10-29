@@ -30,7 +30,7 @@ CODES = {0: "clear", 1: "mostly clear", 2: "partly cloudy", 3: "overcast", 45: "
 
 
 def parse(body: str) -> dict:
-    """Compact 3-day summary from an Open-Meteo answer."""
+    """Compact summary from an Open-Meteo answer: current conditions plus today and the next 4 days."""
     data = json.loads(body)
     daily = data.get("daily") or {}
     days = []
@@ -45,14 +45,14 @@ def parse(body: str) -> dict:
         })
     cur = data.get("current") or {}
     return {"current": {"temp": cur.get("temperature_2m"), "code": cur.get("weather_code"),
-                        "text": CODES.get(cur.get("weather_code"), "unknown")}, "days": days[:3],
+                        "text": CODES.get(cur.get("weather_code"), "unknown")}, "days": days[:5],
             "timezone": data.get("timezone")}
 
 
 def fetch_forecast(lat: float, lon: float) -> dict:
     q = urlencode({"latitude": lat, "longitude": lon, "current": "temperature_2m,weather_code",
                    "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max",
-                   "timezone": "auto", "forecast_days": 3})
+                   "timezone": "auto", "forecast_days": 5})
     return parse(fetch.get(API + q, timeout=20))
 
 
