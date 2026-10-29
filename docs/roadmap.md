@@ -26,7 +26,7 @@ Moved to M2:
 
 ## M2: events for any city
 
-- Calendar connection for Today (ICS URL first, Google read-only second), read-only scope only.
+- Calendar connection for Today (ICS URL first, Google read-only second), read-only scope only. Status: ICS URL done (`calendar_ics_urls`, `calendar` job); Google read-only still open.
 - Geocode and place settings; country-based source enabling; slug confirmation.
 - Adapter loader for `adapters/events/<city>/`; Cremona examples ported and disabled by default.
 - Language pack for categories (Italian first, English second) and translation target setting.

@@ -64,6 +64,30 @@ class EndToEnd(unittest.TestCase):
         self.assertIn("from the test", (self.cfg.vault / "To-Do.md").read_text())
         self.assertEqual(json.loads(self.get("/api/today")[1])["sections"]["brain"]["upcoming"][0]["text"], "from the test")
 
+    def test_calendar_connected_over_http_without_leaking_the_url(self):
+        from unittest import mock
+        secret = "https://calendar.example.org/feeds/synthetic-secret-4f1c9a/basic.ics"
+        text = self.cfg_path.read_text().replace("calendar_ics_urls = []", f'calendar_ics_urls = ["{secret}"]')
+        self.cfg_path.write_text(text)
+        self.srv.shutdown(); self.srv.server_close()
+        self.cfg = cfgmod.load(self.cfg_path)
+        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.cfg))
+        self.port = self.srv.server_address[1]
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.assertEqual(json.loads(self.get("/api/today")[1])["sections"]["calendar"]["status"], "not fetched")
+        day = date.today().strftime("%Y%m%d")
+        feed = ("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:1\r\nSUMMARY:Italian lesson\r\n"
+                f"DTSTART:{day}T120000\r\nDTEND:{day}T130000\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n")
+        with mock.patch("kokpit.fetch.get", return_value=feed):
+            self.assertTrue(jobs.run(self.cfg, "calendar"))
+        cal = json.loads(self.get("/api/today")[1])["sections"]["calendar"]
+        self.assertEqual(cal["status"], "connected")
+        self.assertEqual(cal["today"][0]["title"], "Italian lesson")
+        for path in ("/api/today", "/api/connections", "/api/health", "/"):
+            self.assertNotIn(b"synthetic-secret-4f1c9a", self.get(path)[1], path)
+        item = [c for c in json.loads(self.get("/api/connections")[1])["connections"] if c["id"] == "calendar"][0]
+        self.assertEqual(item["target"], "https://calendar.example.org/…")
+
     def test_tick_task_done(self):
         todo = self.cfg.vault / "To-Do.md"
         before = json.loads(self.get("/api/today")[1])["sections"]["brain"]["open_tasks"]

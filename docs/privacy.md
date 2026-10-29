@@ -15,6 +15,7 @@ Enforcement: `.gitignore` for the obvious patterns, a pre-commit secret scan bef
 - Any module that sends data to an external model or service lists the fields it sends on the Connections screen, and the switch is off by default.
 - CV matching needs skills, experience and targets. It does not need name, phone, e-mail or address, and these are never sent.
 - Publishing to a social platform happens only after an explicit approval per item.
+- A calendar ICS address is treated as a secret: it is never stored in the database, and API answers, the health log and error messages show it masked to scheme and host only.
 
 ## Demo content
 

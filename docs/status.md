@@ -45,6 +45,7 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 ## Working in the M1 skeleton (checked live on 29 Oct 2026, Cremona)
 
 - `kokpit init --city` geocodes via Nominatim, tries slug candidates against the real sites, writes `kokpit.toml` + starter vault. Events stay `false` in `[modules]` until you switch them on.
+- Calendar on Today: read-only ICS feeds (`calendar` job, today plus 6 days, recurring events, masked addresses). Google read-only calendar is still planned.
 - Jobs: `weather` (Open-Meteo), `events-collect` (AllEvents 24 + Eventbrite 18 rows for Cremona), `brain-check`.
 - Dashboard tabs: Today, Events (category chips, per-event `.ics`), Brain, Health, Connections (reads / writes / permission / last run per connection; a connection with 0 records today is flagged).
 - `kokpit context "<message>"` prints the read-only brain block (threads, last session, upcoming dates, related notes); `integrations/hermes/kokpit-brain/` wraps it as a Hermes `pre_llm_call` plugin. Tests: 18.

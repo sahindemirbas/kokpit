@@ -1,4 +1,9 @@
-"""Configuration: one TOML file, explicit defaults, no secrets.
+"""Configuration: one TOML file, explicit defaults, no secrets in the repository.
+
+The one secret-like value is ``[today] calendar_ics_urls``: secret ICS addresses
+live only in the local, git-ignored ``kokpit.toml`` (or in the
+``KOKPIT_CALENDAR_ICS_URLS`` environment variable, whitespace-separated, which
+wins when set). They are never printed; see ``modules/today/calendar.py``.
 
 Lookup order for the config file:
 1. ``KOKPIT_CONFIG`` environment variable
@@ -24,6 +29,10 @@ today = true
 brain = true
 health = true
 events = {events}
+
+[today]
+calendar_ics_urls = []        # read-only ICS feeds (e.g. Google's secret iCal address). SECRET: keep this file
+                              # out of git; or set KOKPIT_CALENDAR_ICS_URLS in the environment instead.
 
 [place]                       # set by `kokpit init --city "Lodi"`; geocoded once with OpenStreetMap
 city = "{city}"
@@ -64,6 +73,7 @@ class Config:
     port: int = 8501
     place: dict = field(default_factory=dict)      # city, country, lat, lon, radius_km, languages
     events: dict = field(default_factory=dict)     # allevents_slug, eventbrite_slug, adapters
+    calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
     @property
     def has_place(self) -> bool:
@@ -132,6 +142,12 @@ def load(path: str | Path) -> Config:
         "adapters": [str(x) for x in ev.get("adapters", [])],
     }
     cfg.modules.setdefault("events", False)
+    today = raw.get("today", {})
+    env_urls = os.environ.get("KOKPIT_CALENDAR_ICS_URLS", "").split()
+    urls = env_urls or today.get("calendar_ics_urls", [])
+    if isinstance(urls, str):
+        urls = [urls]
+    cfg.calendar_ics_urls = [str(u).strip() for u in urls if str(u).strip()]
     return cfg
 
 

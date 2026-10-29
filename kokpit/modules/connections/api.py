@@ -3,7 +3,7 @@
 Three facts per connection (docs/connections.md): what is read / what may be
 written, which permission, last successful update with record count. Values
 shown are names and counts only; paths are reduced to a file name, tokens never
-appear (none exist in this skeleton).
+appear. Calendar ICS addresses are secrets: only their host is shown.
 """
 from __future__ import annotations
 
@@ -76,7 +76,19 @@ def view(cfg: Config) -> dict:
         "reads": "forecast for the place", "writes": "nothing", "permission": "none (no key)", "target": place.get("city") or "-",
         "status": "ok" if cfg.has_place else "needs a place", "last": _last_run(cfg, "weather"),
     })
-    for name in ("Calendar", "CV file", "Job sources", "Instagram", "Telegram bot", "Model API"):
+    from ..today.calendar import mask
+    urls = cfg.calendar_ics_urls
+    cal_last = _last_run(cfg, "calendar")
+    items.append({
+        "id": "calendar", "name": "Calendar (ICS)", "module": "today", "kind": "ICS URL (secret)", "enabled": bool(urls),
+        "reads": "events today and the next 6 days", "writes": "nothing", "permission": "read-only",
+        "target": ", ".join(sorted({mask(u) for u in urls})) if urls else "-",
+        "status": ("ok" if cal_last and cal_last["ok"] else "error" if cal_last else "not run yet") if urls else "not set",
+        "last": cal_last,
+    })
+    items.append({"id": "google-calendar", "name": "Google Calendar (read-only)", "module": "planned", "kind": "planned",
+                  "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
+    for name in ("CV file", "Job sources", "Instagram", "Telegram bot", "Model API"):
         items.append({"id": name.lower().replace(" ", "-"), "name": name, "module": "planned", "kind": "planned",
                       "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
     return {"config": cfg.path.name, "connections": items}

@@ -12,7 +12,7 @@ from .db import connect
 from .modules.brain import reader
 from .modules.events import api as events_api
 from .modules.health import store
-from .modules.today import weather
+from .modules.today import calendar, weather
 
 Job = Callable[[Config], tuple[int, dict, list[str]]]
 
@@ -62,7 +62,33 @@ def weather_job(cfg: Config):
     return len(data["days"]), {"current": data["current"]}, []
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect}
+class CalendarError(RuntimeError):
+    """All calendar feeds failed. The message holds masked labels only, never an ICS address."""
+
+
+def calendar_job(cfg: Config):
+    """Fetches the read-only ICS feeds, expands today + 6 days and caches the result.
+
+    The addresses are secrets: info, warnings and errors carry only ``calendar N (scheme://host/…)``.
+    """
+    urls = cfg.calendar_ics_urls
+    if not urls:
+        return 0, {"feeds": 0}, ["no calendar configured ([today] calendar_ics_urls is empty)"]
+    data = calendar.collect(urls)
+    ok = data["feeds_ok"] > 0
+    conn = connect(cfg.db)
+    try:
+        calendar.save(conn, data, ok)
+    finally:
+        conn.close()
+    if not ok:
+        raise CalendarError("; ".join(data["errors"]) or "no feed could be read")
+    info = {"feeds": data["feeds"], "feeds_ok": data["feeds_ok"], "days": data["days"],
+            "unsupported_rrule": data["unsupported_rrule"]}
+    return len(data["events"]), info, data["errors"] + data["warnings"]
+
+
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect}
 
 
 def run(cfg: Config, name: str) -> bool:

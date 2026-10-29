@@ -23,6 +23,12 @@ ai_usage = false
 agenda = false
 bot = false
 
+[today]
+# Read-only calendar feeds (ICS). A Google "secret address in iCal format" is a
+# secret: put real addresses only in your local, git-ignored kokpit.toml, or in
+# the KOKPIT_CALENDAR_ICS_URLS environment variable (space-separated).
+calendar_ics_urls = []        # e.g. ["https://calendar.example.org/feeds/<secret>/basic.ics"]
+
 [brain]
 vault_path = "~/Notes"        # Markdown folder; starter structure created if empty
 quick_capture = true          # allow appending notes/tasks from the dashboard

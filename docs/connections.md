@@ -11,7 +11,7 @@ The Connections screen is where a user enables modules and links accounts. It is
 | Connection | Module | Kind | Read | Write/publish | Notes |
 |---|---|---|---|---|---|
 | Notes folder | Brain | local path | Markdown files | append-only quick capture | never deletes or rewrites |
-| Calendar | Today | OAuth (Google) or ICS URL | events of selected calendars | none | read-only scope only |
+| Calendar | Today | ICS URL (working); Google OAuth read-only (planned) | events of today plus the next 6 days | none | read-only scope only; ICS address is a secret |
 | City / place | Events, Today | setting | geocode once (Nominatim) | none | radius or neighbouring provinces |
 | AllEvents, Eventbrite, Sagramap | Events | public pages | listings | none | slug confirmed by user; rate limits respected |
 | Local event adapters | Events | per-city adapter | listings | none | shipped disabled; examples for Cremona |
@@ -30,6 +30,7 @@ The Connections screen is where a user enables modules and links accounts. It is
 
 - Stored in a local `.env` (or the OS keyring where available). Never in `kokpit.db`, never in the Markdown vault, never in logs.
 - The dashboard shows the account name and scope, never the token.
+- A calendar ICS address is a secret: anyone holding it can read the calendar. Keep it in your local `kokpit.toml` or `KOKPIT_CALENDAR_ICS_URLS`; API answers, the health log and error messages show only its scheme and host.
 - `kokpit doctor` (planned) checks that each enabled connection has its secret and that the secret still works, and reports the result as pass/fail without printing values.
 
 ## Permission separation

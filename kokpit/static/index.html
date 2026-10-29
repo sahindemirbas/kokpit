@@ -674,6 +674,14 @@ function afWx(w){const na=`<div class="na"><small>-</small><b>-</b><small>-</sma
  const fc=rest.map(d=>`<div><small>${DN[new Date(d.date+'T12:00').getDay()]}</small><b>${t(d.max)}</b><small>${t(d.min)}</small><small>${d.rain_pct!=null?d.rain_pct+'%':'-'}</small></div>`).join('')+na.repeat(Math.max(0,4-rest.length));
  return `<h4>Weather · connection</h4><div class="wxg"><div class="wxc"><div class="wxh"><div><b class="wxn">${esc(w.city||'Your city')}</b><span class="mono">${st}</span></div>${afIcon(afKind(d0.text),50)}</div><div class="wxtp"><div><b>${t(d0.max)}</b><span>high</span></div><div class="lo"><b>${t(d0.min)}</b><span>low</span></div></div><div class="wxd">${esc(d0.text||'')}${w.current&&w.current.temp!=null?` · now ${t(w.current.temp)}`:''}</div>${rain}<div class="fc">${fc}</div></div></div><div class="mono wxk">Open-Meteo, no API key. Cached by the weather job; a stale cache is shown with its age, never hidden.</div>`}
 
+function afCal(c){const st=c&&c.status?c.status:'not connected';
+ if(st!='connected'){return `<h4>Calendar · ${esc(st)}</h4><p>${esc(c&&c.note?c.note:'')}</p>${c&&c.error?`<p class="mono" style="font-size:11px">${esc(c.error)}</p>`:''}<p class="mono" style="font-size:10px;margin:8px 0 0">Read-only ICS. Nothing is fetched while the page loads: the calendar job fills a local cache.</p>`}
+ const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],tm=e=>e.all_day?'all day':esc(e.start||'')+(e.end?'–'+esc(e.end):'');
+ const row=e=>`<div class="af-dl"><span>${esc(e.title)}${e.location?` <small class="mono">· ${esc(e.location)}</small>`:''}</span><b class="mono" style="white-space:nowrap">${tm(e)}</b></div>`;
+ const age=c.stale?`stale · ${c.age_hours}h old`:`fetched ${esc((c.fetched||'').slice(11,16))}`;
+ const up=(c.upcoming||[]).map(g=>{const dt=new Date(g.date+'T12:00');return `<p class="mono" style="font-size:11px;margin:10px 0 2px">${DN[dt.getDay()]} ${dt.getDate()} ${ML[dt.getMonth()]}</p>${g.events.map(row).join('')}`}).join('');
+ return `<h4>Calendar · today <span class="af-st">${age}</span></h4>${c.today.length?`<div style="font:800 25px/1.02 var(--sans);margin:10px 0 6px">${c.today.length} today</div>${c.today.map(row).join('')}`:'<p>Nothing on the calendar today.</p>'}${up||'<p class="mono" style="font-size:11px;margin-top:10px">Nothing in the next 6 days.</p>'}${c.error?`<p class="mono" style="font-size:11px;margin:8px 0 0">${esc(c.error)}</p>`:''}${c.unsupported_rrule?`<p class="mono" style="font-size:10px;margin:6px 0 0">${c.unsupported_rrule} repeating event(s) shown once (rule not supported)</p>`:''}<p class="mono" style="font-size:10px;margin:8px 0 0">Read-only ICS, cached by the calendar job; a stale cache is shown with its age.</p>`}
+
 const afFail=f=>`${f.job}: failed ${f.streak} runs in a row${f.since?' since '+String(f.since).slice(0,16).replace('T',' '):''}${f.error?' · '+f.error:''}`;
 async function bugunView(){const v=$('view');if(!v.querySelector('.af'))v.innerHTML='<div class="empty">Loading...</div>';
  const d=await J('/api/today');if(S.view!='bg')return;
@@ -685,6 +693,7 @@ async function bugunView(){const v=$('view');if(!v.querySelector('.af'))v.innerH
  h+=`<div class="af-b af-hero s7" ${afD(i++)}>${ring}<h4>${DS[td.getDay()]} ${td.getDate()} ${ML[td.getMonth()]} · your day</h4><h2>${afSplit(afHi(),.25)}</h2>
   <div class="af-kp">${K(you.length,'waiting on you','data-bf="you"')}${K(T2,'open tasks','data-view="br"')}${K(b?b.threads:0,'active threads','data-view="br"')}${K(b?b.inbox:0,'in inbox','data-view="br"')}${hl&&hl.available?K(hl.jobs,'jobs last night','data-view="hl"'):''}</div></div>`;
  h+=`<div class="af-b af-wx s5" ${afD(i++)}>${afWx(d.sections.weather)}</div>`;
+ h+=`<div class="af-b s12${d.sections.calendar&&d.sections.calendar.status=='error'?' af-wr':''}" ${afD(i++)}>${afCal(d.sections.calendar)}</div>`;
  h+=`<div class="af-b s7" ${afD(i++)}><h4>Waiting on you · ${you.length}</h4>${you.length?you.map(y=>`<button type="button" class="af-row af-rl" data-view="br"><span class="tx">${y.text}</span><i style="background:${afTag(y.thread)}">${esc(y.thread)}</i></button>`).join(''):'<p>Nothing is waiting on you right now.</p>'}</div>`;
  const nd=DT[0],mx=Math.max(30,...DT.map(x=>x.days_left));
  h+=`<div class="af-b af-cd s5" ${afD(i++)}><h4>Upcoming dates</h4>${nd?`<div class="mono" style="margin-top:6px">${esc(nd.text)}</div><div class="n"><span data-c="${nd.days_left}">0</span><span style="font-size:32px;letter-spacing:-.02em"> days</span></div>`:''}
