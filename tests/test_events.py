@@ -111,6 +111,16 @@ def test_geocode_parse_and_slugs():
     assert geocode.parse("[]") is None and geocode.parse("nope") is None
 
 
+def test_readonly_reader_without_events_table():
+    """The web app opens the db read-only; if only another job created it, events must read as empty, not crash."""
+    import tempfile, pathlib
+    d = pathlib.Path(tempfile.mkdtemp()); db = d / "k.db"
+    sqlite3.connect(db).close()
+    ro = sqlite3.connect(f"file:{db}?mode=ro", uri=True); ro.row_factory = sqlite3.Row
+    assert store.upcoming(ro) == [] and store.counts(ro)["total"] == 0
+    ro.close()
+
+
 def test_weather_parse_and_cache():
     body = '{"timezone":"Europe/Rome","current":{"temperature_2m":12.3,"weather_code":61},' \
            '"daily":{"time":["2099-01-01","2099-01-02"],"weather_code":[61,0],"temperature_2m_max":[14,15],' \
@@ -121,7 +131,7 @@ def test_weather_parse_and_cache():
     assert weather.latest(conn) is None
     weather.save(conn, 45.0, 9.0, w, now="2000-01-01T00:00:00")
     got = weather.latest(conn)
-    assert got["stale"] is True and got["days"][0]["max"] == 14
+    assert got["stale"] is True and got["days"][0]["max"] == 14 and len(got["days"]) == 2
 
 
 if __name__ == "__main__":

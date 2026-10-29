@@ -11,7 +11,17 @@ FIELDS = ("source", "source_id", "title", "description", "start", "end", "venue"
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA)
+    """Create the table on a writable connection. On a read-only one (the web app)
+    the table may simply not exist yet: readers then see an empty list, not a 500."""
+    try:
+        conn.executescript(SCHEMA)
+    except sqlite3.OperationalError as e:
+        if "readonly" not in str(e):
+            raise
+
+
+def has_table(conn: sqlite3.Connection) -> bool:
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='events'").fetchone() is not None
 
 
 def upsert(conn: sqlite3.Connection, records: list[dict], now: str | None = None) -> int:
@@ -37,6 +47,8 @@ def upsert(conn: sqlite3.Connection, records: list[dict], now: str | None = None
 def upcoming(conn: sqlite3.Connection, days: int = 14, today: str | None = None, limit: int = 200) -> list[dict]:
     """Events whose start (or end, for multi-day ones) falls in [today, today+days]."""
     ensure_schema(conn)
+    if not has_table(conn):
+        return []
     t0 = today or date.today().isoformat()
     t1 = (date.fromisoformat(t0) + timedelta(days=days)).isoformat()
     rows = conn.execute(
@@ -49,6 +61,8 @@ def upcoming(conn: sqlite3.Connection, days: int = 14, today: str | None = None,
 
 def counts(conn: sqlite3.Connection, today: str | None = None) -> dict:
     ensure_schema(conn)
+    if not has_table(conn):
+        return {"total": 0, "upcoming": 0, "by_source": {}}
     t0 = today or date.today().isoformat()
     total = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
     future = conn.execute("SELECT COUNT(*) FROM events WHERE substr(COALESCE(end, start),1,10) >= ?", (t0,)).fetchone()[0]
