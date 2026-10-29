@@ -67,7 +67,8 @@ class Config:
 
     @property
     def has_place(self) -> bool:
-        return self.place.get("lat") is not None and self.place.get("lon") is not None
+        p = self.place
+        return bool(p.get("city")) and p.get("lat") is not None and p.get("lon") is not None and (p["lat"], p["lon"]) != (0.0, 0.0)
 
     @property
     def base_dir(self) -> Path:

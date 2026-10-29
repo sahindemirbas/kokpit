@@ -75,7 +75,9 @@ def test_collect_upsert_and_view():
         conn.close()
         v = api.view(cfg, days=14)
         assert v["enabled"] and v["configured"] and v["place"]["city"] == "Testville" and v["counts"]["total"] == 2
-        ev = api.one(cfg, v["events"][0]["id"]) if v["events"] else store.upcoming(sqlite3.connect(tmp / "k.db"), 99999, "2000-01-01")[0]
+        assert v["events"] == []  # 2099 is beyond the 14-day window; the table still has them
+        ev = api.one(cfg, 1)
+        assert ev and ev["title"] == "Sagra della zucca" and api.one(cfg, 999) is None
         text = store.ics(ev)
         assert "DTSTART;VALUE=DATE:20990110" in text and "DTEND;VALUE=DATE:20990112" in text
 
