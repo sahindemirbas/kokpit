@@ -24,6 +24,7 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
             "last_session": b["sessions"][0] if b["sessions"] else None,
             "inbox": len(b["inbox"]),
             "vault_exists": b["exists"],
+            "freshness": health_api.freshness(cfg, "brain-check"),
         }
     if cfg.modules.get("health", True):
         h = health_api.view(cfg)
@@ -33,9 +34,10 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
     if cfg.modules.get("events", False):
         e = events_api.view(cfg, days=3)
         out["sections"]["events"] = {"configured": e.get("configured", False), "next": e["events"][:5],
-                                     "upcoming": e["counts"]["upcoming"], "reason": e.get("reason", "")}
-    out["sections"]["weather"] = _weather(cfg)
-    out["sections"]["calendar"] = _calendar(cfg, now)
+                                     "upcoming": e["counts"]["upcoming"], "reason": e.get("reason", ""),
+                                     "freshness": e.get("freshness")}
+    out["sections"]["weather"] = {**_weather(cfg), "freshness": health_api.freshness(cfg, "weather")}
+    out["sections"]["calendar"] = {**_calendar(cfg, now), "freshness": health_api.freshness(cfg, "calendar")}
     return out
 
 

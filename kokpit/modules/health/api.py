@@ -6,6 +6,20 @@ from ...db import connect
 from . import store
 
 
+def freshness(cfg: Config, job: str) -> dict:
+    """``store.freshness`` for one job, or "never run" when there is no database yet."""
+    try:
+        conn = connect(cfg.db, readonly=True)
+    except FileNotFoundError:
+        return {"job": job, "last_status": "never run", "last_success": None, "records": None}
+    try:
+        return store.freshness(conn, job)
+    except Exception:  # read-only db without the runs table yet
+        return {"job": job, "last_status": "never run", "last_success": None, "records": None}
+    finally:
+        conn.close()
+
+
 def view(cfg: Config) -> dict:
     if not cfg.db.exists():
         return {"available": False, "reason": "no database yet; run `kokpit run-job heartbeat`",

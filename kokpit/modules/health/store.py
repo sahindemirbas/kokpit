@@ -64,6 +64,25 @@ def today_warnings(conn: sqlite3.Connection, expected: list[str] | tuple[str, ..
     return out
 
 
+def freshness(conn: sqlite3.Connection, job: str) -> dict:
+    """One shape for every data card: ``{job, last_status, last_success, records}``.
+
+    ``last_status`` is "never run", "ok" or "error"; on "error" ``error`` holds the short
+    recorded text and ``last_success``/``records`` still describe the last good run (or None).
+    A success with 0 rows keeps ``records = 0`` so the page can say so instead of looking empty.
+    """
+    ensure_schema(conn)
+    last = conn.execute("SELECT ok, finished, info FROM runs WHERE job=? ORDER BY id DESC LIMIT 1", (job,)).fetchone()
+    if not last:
+        return {"job": job, "last_status": "never run", "last_success": None, "records": None}
+    good = conn.execute("SELECT finished, rows FROM runs WHERE job=? AND ok=1 ORDER BY id DESC LIMIT 1", (job,)).fetchone()
+    out = {"job": job, "last_status": "ok" if last["ok"] else "error", "last_run": last["finished"],
+           "last_success": good["finished"] if good else None, "records": good["rows"] if good else None}
+    if not last["ok"]:
+        out["error"] = str((json.loads(last["info"] or "{}") or {}).get("error", ""))[:160]
+    return out
+
+
 def failing_jobs(conn: sqlite3.Connection, min_streak: int = 2) -> list[dict]:
     """Jobs whose most recent ``min_streak`` (or more) runs all failed, newest streak first.
 

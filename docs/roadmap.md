@@ -30,7 +30,7 @@ Moved to M2:
 - Geocode and place settings; country-based source enabling; slug confirmation.
 - Adapter loader for `adapters/events/<city>/`; Cremona examples ported and disabled by default.
 - Language pack for categories (Italian first, English second) and translation target setting.
-- "Last successful update: 0 records" surfaced everywhere.
+- "Last successful update: 0 records" surfaced everywhere. Status: done (`freshness` field on Today weather/calendar/brain/events and `/api/events`; never run, 0 records and last-run-failed shown on each card).
 
 ## M3: career
 

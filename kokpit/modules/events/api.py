@@ -11,6 +11,7 @@ from __future__ import annotations
 import sqlite3
 
 from ...config import Config
+from ..health import api as health_api
 from . import categories, sources, store
 
 
@@ -70,6 +71,11 @@ def _open(cfg: Config):
 
 
 def view(cfg: Config, days: int = 14) -> dict:
+    """Events payload plus the ``freshness`` of the events-collect job."""
+    return {**_view(cfg, days), "freshness": health_api.freshness(cfg, "events-collect")}
+
+
+def _view(cfg: Config, days: int = 14) -> dict:
     if not cfg.modules.get("events", False):
         return {"enabled": False, "configured": cfg.has_place, "events": [], "counts": {"total": 0, "upcoming": 0, "by_source": {}}}
     try:
