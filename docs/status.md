@@ -42,16 +42,18 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 - Flat code layout; no module boundaries; no `kokpit init`.
 - Scheduler lines written by hand.
 
-## Working in the M1 skeleton (checked live on 29 Oct 2026, Cremona)
+## Working in the M1 skeleton (checked live on 29 Oct 2026 on one configured Italian city)
 
 - `kokpit init --city` geocodes via Nominatim, tries slug candidates against the real sites, writes `kokpit.toml` + starter vault. Events stay `false` in `[modules]` until you switch them on.
 - Calendar on Today: read-only ICS feeds (`calendar` job, today plus 6 days, recurring events, masked addresses). Google read-only calendar is still planned.
-- Jobs: `weather` (Open-Meteo), `events-collect` (AllEvents 24 + Eventbrite 18 rows for Cremona), `brain-check`.
+- Jobs: `weather` (Open-Meteo), `events-collect` (AllEvents 24 + Eventbrite 18 rows for that city), `brain-check`.
 - Dashboard tabs: Today, Events (category chips, per-event `.ics`), Brain, Health, Connections (reads / writes / permission / last run per connection; a connection with 0 records today is flagged).
 - `kokpit context "<message>"` prints the read-only brain block (threads, last session, upcoming dates, related notes); `integrations/hermes/kokpit-brain/` wraps it as a Hermes `pre_llm_call` plugin. Tests: 18.
 - Freshness line on every data card (weather, calendar, tasks/brain-check, Events tab): last successful update, record count, "0 records", "never run" or "last run failed"; one `freshness` shape `{job, last_status, last_success, records}` from the health table. Tests: 44.
 - `kokpit place "<city>"`: Open-Meteo geocoder candidates, per-country event source table (unknown countries marked unverified), accent-free slugs kept as comments until `--confirm-slug`, `--write` edits `kokpit.toml` in place with a `.bak` copy and refuses if any other setting would change. Tests: 54.
 - Local event adapter loader: `adapters/events/<id>/collect.py` plus user folders from `[events] adapter_dirs`, imported only when listed in `[events] adapters`; import errors, missing `collect`, exceptions and wrong return types become short warnings on the `events-collect` run; records go through the same radius filter, categories and upsert with `source` = adapter name; `kokpit adapters` lists them; offline `example-city` template. Tests: 61.
+- Category language packs: JSON keyword packs, English ids and labels, `[events] category_languages = ["en"]` by default, `it` built in but off, own packs via `category_pack_dirs`. Tests: 67.
+- M2 (events for any city) complete on 29 Oct 2026. Moved out: translation target (M5, needs the model connection) and Google read-only calendar (Later; the secret ICS address already covers it). Tests: 76.
 
 ## Planned, not started
 

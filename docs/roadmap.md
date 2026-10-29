@@ -24,14 +24,19 @@ Done:
 Moved to M2:
 - Calendar on the Today tab (ICS URL or Google read-only). The Today payload carries `calendar.status = "not connected"` until then.
 
-## M2: events for any city
+## M2: events for any city (done)
 
-- Calendar connection for Today (ICS URL first, Google read-only second), read-only scope only. Status: ICS URL done (`calendar_ics_urls`, `calendar` job); Google read-only still open.
+Done:
+
+- Calendar connection for Today, read-only scope only. Status: done through ICS URLs (`calendar_ics_urls`, `calendar` job).
 - Geocode and place settings; country-based source enabling; slug confirmation. Status: done (`python -m kokpit place "<city>"`: Open-Meteo geocoder candidates, `--pick N` prints the `[place]`/`[events]` block with a per-country source table, `--write` edits kokpit.toml in place with a `.bak` copy, slugs stay commented until `--confirm-slug`).
 - Adapter loader for `adapters/events/<city>/`. Status: done (`collect.py` contract, off by default, `[events] adapters` and `adapter_dirs`, broken adapters isolated as Health warnings, `kokpit adapters` list; offline template `example-city` added, the author's city examples are a separate step).
 - Language pack for categories. Status: done (keyword packs as JSON in `kokpit/modules/events/category_packs/`, English ids and labels, `[events] category_languages = ["en"]` by default, `it` built in but off, own packs via `category_pack_dirs` override a built-in pack with the same code, broken packs and unknown ids are warnings; format in docs/category-packs.md).
-- Translation target setting. Status: open. Translation needs a model connection, which no module has yet; the setting lands with that connection so it is not a dead option.
 - "Last successful update: 0 records" surfaced everywhere. Status: done (`freshness` field on Today weather/calendar/brain/events and `/api/events`; never run, 0 records and last-run-failed shown on each card).
+
+Moved out of M2:
+- Translation target setting: moved to M5. Translation needs a model connection, which no module has yet; it lands with the model opt-in in M5 so the setting is not a dead option.
+- Google read-only calendar (OAuth): moved to Later. Every installer would need their own Google Cloud app; the secret ICS address already works for Google Calendar.
 
 ## M3: career
 
@@ -48,9 +53,14 @@ Moved to M2:
 
 - Topic configuration for the digest; optional TTS.
 - Brain-driven agenda matching with a rule-based fallback and a model opt-in.
+- Translation target setting for events (moved from M2), using the same model connection.
 - Night organiser as an opt-in module: categorise, link, conditions, enrich, sync; deterministic morning report.
 - Telegram bot as an optional module.
 - `docker compose up` path.
+
+## Later
+
+- Google read-only calendar through OAuth (moved from M2), if someone needs more than the ICS address.
 
 ## Pre-public checklist (blocks any visibility change)
 

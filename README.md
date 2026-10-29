@@ -2,7 +2,7 @@
 
 A self-hosted personal cockpit: one small web dashboard that gathers the things you check every morning, runs on your own device, and reads only the data you connect to it. A short Telegram message tells you in the morning whether anything needs you.
 
-**Status: M1 skeleton.** This repository contains the product design, module specifications, privacy model and roadmap, plus a runnable skeleton (`./run`: Today, Events, Brain, Health and Connections tabs over a starter vault; no package on PyPI yet). The design is extracted from a working single-user instance that has run daily on a Raspberry Pi since 2025; see [docs/status.md](docs/status.md) for what exists today, what still has to be generalised, and what is only planned.
+**Status: M2 done (events for any city).** This repository contains the product design, module specifications, privacy model and roadmap, plus a runnable skeleton (`./run`: Today, Events, Brain, Health and Connections tabs over a starter vault; no package on PyPI yet). The design is extracted from a working single-user instance that has run daily on a Raspberry Pi since 2025; see [docs/status.md](docs/status.md) for what exists today, what still has to be generalised, and what is only planned.
 
 Turkish version: [README.tr.md](README.tr.md)
 
@@ -135,7 +135,7 @@ cd kokpit
 
 What you get today: the Today, Events, Brain, Health and Connections tabs over a starter vault, a weather card (Open-Meteo, filled by the `weather` job), an events list for your city (AllEvents and Eventbrite, filled by `events-collect` once `events` is switched on in `kokpit.toml`) and a health table filled by the jobs (`heartbeat`, `brain-check`, `weather`, `events-collect`, `calendar`). The calendar card on Today connects read-only to one or more ICS addresses set in `calendar_ics_urls` (or the `KOKPIT_CALENDAR_ICS_URLS` environment variable, space-separated); the `calendar` job caches today plus the next 6 days. Treat an ICS address like a password: keep it only in your local `kokpit.toml` or in the environment variable. Point `vault_path` in `kokpit.toml` at your own Markdown folder to see your threads and tasks; quick capture appends to `inbox/` or `To-Do.md` and never rewrites a note. To set your city: `python -m kokpit place "Bergamo"` lists candidates (Open-Meteo geocoder, no key), `--pick 1` prints the `[place]` and `[events]` block with the event sources known for that country, `--write` updates `kokpit.toml` (a `.bak` copy is kept), and the derived AllEvents/Eventbrite slugs are written only with `--confirm-slug`, after you have opened them on the site. Other commands: `python -m kokpit jobs`, `python -m kokpit run-job <name>`. Tests: `python -m unittest discover -s tests`.
 
-Local event adapters, career, social, AI usage, agenda and the bot are not in the skeleton yet (see `docs/roadmap.md`). The eventual `pip install kokpit` and Docker paths are planned, not available.
+Career, social, AI usage, agenda and the bot are not in the skeleton yet (see `docs/roadmap.md`). The eventual `pip install kokpit` and Docker paths are planned, not available.
 
 ## Licence
 

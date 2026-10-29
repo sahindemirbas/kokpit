@@ -2,7 +2,7 @@
 
 Kendi cihazında çalışan kişisel kokpit: her sabah baktığın şeyleri tek bir küçük web sayfasında toplar, yalnız senin bağladığın verileri okur. Sabah kısa bir Telegram mesajı, seni bekleyen bir şey olup olmadığını söyler.
 
-**Durum: M1 iskelet.** Bu depo ürün tasarımını, modül tanımlarını, gizlilik modelini ve yol haritasını, ayrıca çalışan bir iskeleti içerir (`./run`: başlangıç vault'u üzerinde Today, Events, Brain, Health ve Connections sekmeleri; PyPI paketi henüz yok). Tasarım, 2025'ten beri bir Raspberry Pi üzerinde her gün çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Bugün ne var, ne genelleştirilecek, ne yalnız planda: [docs/status.md](docs/status.md).
+**Durum: M2 tamamlandı (her şehir için etkinlikler).** Bu depo ürün tasarımını, modül tanımlarını, gizlilik modelini ve yol haritasını, ayrıca çalışan bir iskeleti içerir (`./run`: başlangıç vault'u üzerinde Today, Events, Brain, Health ve Connections sekmeleri; PyPI paketi henüz yok). Tasarım, 2025'ten beri bir Raspberry Pi üzerinde her gün çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Bugün ne var, ne genelleştirilecek, ne yalnız planda: [docs/status.md](docs/status.md).
 
 İngilizce sürüm: [README.md](README.md)
 
@@ -113,7 +113,7 @@ cd kokpit
 
 Bugün çalışan: Today, Events, Brain, Health ve Connections sekmeleri; `weather` işinin doldurduğu hava kartı (Open-Meteo); `kokpit.toml` içinde `events` açılınca `events-collect` işinin doldurduğu şehir etkinlikleri (AllEvents, Eventbrite); işlerin (`heartbeat`, `brain-check`, `weather`, `events-collect`, `calendar`) doldurduğu sağlık tablosu. Today'deki takvim kartı `calendar_ics_urls` (ya da boşlukla ayrılmış `KOKPIT_CALENDAR_ICS_URLS` ortam değişkeni) ile bir veya daha fazla ICS adresine salt okunur bağlanır; `calendar` işi bugünü ve sonraki 6 günü önbelleğe alır. ICS adresini bir parola gibi sakla: yalnız yerel `kokpit.toml` dosyanda ya da ortam değişkeninde dursun. `kokpit.toml` içindeki `vault_path` değerini kendi Markdown klasörüne çevirince kendi thread ve görevlerin görünür; hızlı not `inbox/` veya `To-Do.md` dosyasına ekler, hiçbir notu yeniden yazmaz. Şehrini ayarlamak için: `python -m kokpit place "Bergamo"` adayları listeler (Open-Meteo geocoder, anahtarsız), `--pick 1` ülkeye göre bilinen etkinlik kaynaklarıyla `[place]` ve `[events]` bloğunu yazdırır, `--write` `kokpit.toml` dosyasını günceller (`.bak` yedeği kalır); şehir adından türetilen AllEvents/Eventbrite slug'ları ancak sitede açıp kontrol ettikten sonra `--confirm-slug` ile yazılır. Diğer komutlar: `python -m kokpit jobs`, `python -m kokpit run-job <ad>`. Testler: `python -m unittest discover -s tests`.
 
-Yerel etkinlik adaptörleri, kariyer, sosyal, AI kullanımı, gündem ve bot iskelette henüz yok (`docs/roadmap.md`). `pip install kokpit` ve Docker planlı, mevcut değil.
+Kariyer, sosyal, AI kullanımı, gündem ve bot iskelette henüz yok (`docs/roadmap.md`). `pip install kokpit` ve Docker planlı, mevcut değil.
 
 ## Lisans
 
