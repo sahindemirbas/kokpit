@@ -6,9 +6,9 @@ Kendi cihazında çalışan kişisel kokpit: her sabah baktığın şeyleri tek 
 
 İngilizce sürüm: [README.md](README.md)
 
-![Kokpit demo: Today, Brain ve hızlı kayıt, Health](docs/media/demo.gif)
+![Kokpit demo: canlı havalı Today, Events, hızlı kayıtlı Brain, Health, Connections](docs/media/demo.gif)
 
-Kayıt ve `docs/media/` altındaki ekran görüntüleri `docs/demo-vault/` içindeki sentetik örnek vault'tan alındı (sulama zamanlayıcısı, İtalyanca dersleri; gerçek veri yok). M1'in başında kaydedildi: üç sekme ve yer tutucu hava kartı görünür; bugünkü iskelette Events ve Connections sekmeleri ile canlı hava da var. Yeniden üretmek için: `python -m kokpit init --vault docs/demo-vault --db /tmp/demo.db`, `kokpit.toml` içinde `expected = ["heartbeat", "brain-check"]`, iki işi çalıştır, sonra `./run`.
+Kayıt ve `docs/media/` altındaki ekran görüntüleri `docs/demo-vault/` içindeki sentetik örnek vault'tan alındı (sulama zamanlayıcısı, İtalyanca dersleri; gerçek veri yok); şehir olarak Lodi, İtalya seçildi. Beş M1 sekmesi ve canlı Open-Meteo havası görünür. Yeniden üretmek için: `docs/demo-vault/` klasörünü bir yere kopyala, `python -m kokpit init --vault <kopya> --db /tmp/demo.db --city "Lodi, Italy"`, `kokpit.toml` içinde `events = true` ve `expected = ["heartbeat", "brain-check", "weather", "events-collect"]`, dört işi çalıştır, sonra `./run`.
 
 ## Sıradan bir gün
 
@@ -71,7 +71,7 @@ Barındırılan servis, telefon uygulaması, cihazlar arası bulut eşitleme ya 
 
 ## Şehrini ekle
 
-Genel kaynaklar (AllEvents, Eventbrite, Open-Meteo) şehir adını girince her şehirde çalışır. Tiyatro, belediye, turizm ofisi gibi yerel kaynakların şehir parametresi yoktur; bunlar belgeli bir JSON sözleşmesiyle `adapters/events/<şehir>/` altında küçük adaptörler olarak yaşar. Yazarın Cremona adaptörleri varsayılan kapalı örnekler olarak gelecek. Birini kopyalayıp kendi kasabanın gündemine yöneltmek katkının amaçlanan yoludur; bkz. [adapters/README.md](adapters/README.md). Aynı sözleşme `adapters/jobs/` altındaki ilan kaynakları için de geçerlidir.
+Genel kaynaklar (AllEvents, Eventbrite, Open-Meteo) şehir adını girince her şehirde çalışır. Tiyatro, belediye, turizm ofisi gibi yerel kaynakların şehir parametresi yoktur; bunlar belgeli bir JSON sözleşmesiyle `adapters/events/<şehir>/` altında küçük adaptörler olarak yaşar. Yazarın Cremona adaptörleri varsayılan kapalı örnekler olarak gelecek. Birini kopyalayıp kendi kasabanın gündemine yöneltmek katkının amaçlanan yoludur; adım adım anlatım [docs/add-your-city.md](docs/add-your-city.md) içinde (İngilizce), kayıt sözleşmesi [adapters/README.md](adapters/README.md) içinde. Aynı sözleşme `adapters/jobs/` altındaki ilan kaynakları için de geçerlidir.
 
 ## Depo yapısı
 

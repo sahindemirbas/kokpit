@@ -6,9 +6,9 @@ A self-hosted personal cockpit: one small web dashboard that gathers the things 
 
 Turkish version: [README.tr.md](README.tr.md)
 
-![Kokpit demo: Today, Brain with quick capture, Health](docs/media/demo.gif)
+![Kokpit demo: Today with live weather, Events, Brain with quick capture, Health, Connections](docs/media/demo.gif)
 
-The recording and the screenshots in `docs/media/` come from the synthetic sample vault in `docs/demo-vault/` (an irrigation timer, Italian lessons; nothing real). They were recorded at the start of M1 and show three tabs and a placeholder weather card; the current skeleton has Events and Connections too and live weather. To reproduce: `python -m kokpit init --vault docs/demo-vault --db /tmp/demo.db`, set `expected = ["heartbeat", "brain-check"]` in `kokpit.toml`, run both jobs, then `./run`.
+The recording and the screenshots in `docs/media/` come from the synthetic sample vault in `docs/demo-vault/` (an irrigation timer, Italian lessons; nothing real) with the city set to Lodi, Italy. They show the five M1 tabs and live Open-Meteo weather. To reproduce: copy `docs/demo-vault/` somewhere, `python -m kokpit init --vault <copy> --db /tmp/demo.db --city "Lodi, Italy"`, set `events = true` and `expected = ["heartbeat", "brain-check", "weather", "events-collect"]` in `kokpit.toml`, run the four jobs, then `./run`.
 
 ## A typical day
 
@@ -71,7 +71,7 @@ Not for you if you want a hosted service, a phone app, cloud sync between device
 
 ## Add your city
 
-Generic sources (AllEvents, Eventbrite, Open-Meteo) work for any city once you enter its name. Local sources such as theatres, municipalities and tourism offices have no city parameter, so they live as small adapters under `adapters/events/<city>/` with a documented JSON contract. The author's Cremona adapters will ship as examples, disabled by default. Copying one and pointing it at your own town's agenda is the intended way to contribute; see [adapters/README.md](adapters/README.md). The same contract applies to job sources under `adapters/jobs/`.
+Generic sources (AllEvents, Eventbrite, Open-Meteo) work for any city once you enter its name. Local sources such as theatres, municipalities and tourism offices have no city parameter, so they live as small adapters under `adapters/events/<city>/` with a documented JSON contract. The author's Cremona adapters will ship as examples, disabled by default. Copying one and pointing it at your own town's agenda is the intended way to contribute; the step-by-step is in [docs/add-your-city.md](docs/add-your-city.md), the record contract in [adapters/README.md](adapters/README.md). The same contract applies to job sources under `adapters/jobs/`.
 
 ## Repository layout
 
@@ -86,6 +86,7 @@ docs/
   privacy.md            what never enters this repo or leaves your device
   status.md             working / needs generalisation / planned
   roadmap.md            milestones and the pre-public checklist
+  add-your-city.md      generic sources today, local adapter contract for M2
 adapters/
   README.md             JSON contract for community data adapters (events, jobs)
 integrations/
