@@ -6,6 +6,10 @@ A self-hosted personal cockpit: one small web dashboard that gathers the things 
 
 Turkish version: [README.tr.md](README.tr.md)
 
+![Kokpit demo: Today, Brain with quick capture, Health](docs/media/demo.gif)
+
+The recording and the screenshots in `docs/media/` come from the synthetic sample vault in `docs/demo-vault/` (an irrigation timer, Italian lessons; nothing real). To reproduce: `python -m kokpit init --vault docs/demo-vault --db /tmp/demo.db`, set `expected = ["heartbeat", "brain-check"]` in `kokpit.toml`, run both jobs, then `./run`.
+
 ## A typical day
 
 This is how the reference instance is used today. Names and numbers below are illustrative.
@@ -110,7 +114,7 @@ Events, career, social, AI usage, agenda and the bot are not in the skeleton yet
 
 ## Licence
 
-Not decided yet. The licence will be chosen after reviewing third-party code and data-source terms; until then the repository is private and all rights are reserved. Any code derived from Avenox Beyin keeps its MIT notice regardless of the licence chosen here.
+MIT, see [LICENSE](LICENSE). The package depends only on the Python standard library. The second-brain conventions come from Avenox Beyin (MIT, copyright Avenox); no Beyin code is copied into this repository today, and any file derived from it later carries the original notice. Details in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The repository is still private; the licence choice does not change that.
 
 ## Author
 

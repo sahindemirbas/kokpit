@@ -52,8 +52,8 @@ Open:
 ## Pre-public checklist (blocks any visibility change)
 
 - [ ] Secret scan of the whole history.
-- [ ] Every fixture reviewed as synthetic.
-- [ ] Third-party code and data-source terms reviewed; licence chosen (must be compatible with the MIT notice of Avenox Beyin).
-- [ ] Every file derived from Avenox Beyin carries the MIT copyright line and a header stating the modification.
+- [ ] Every fixture reviewed as synthetic (`docs/demo-vault/` and `docs/media/` were written as synthetic on 2026-10-29; re-check before going public).
+- [x] Licence chosen: MIT (`LICENSE`), compatible with the MIT notice of Avenox Beyin; third-party review in `THIRD_PARTY_NOTICES.md`. Data-source terms are reviewed per module as modules land.
+- [ ] Every file derived from Avenox Beyin carries the MIT copyright line and a header stating the modification (none exist yet; re-check when the hook script is packaged).
 - [ ] Docs re-read for anything that describes a non-existent feature as existing.
 - [ ] Author's explicit go decision recorded.

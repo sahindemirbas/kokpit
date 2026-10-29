@@ -27,4 +27,4 @@ If screenshots or sample data are needed, they are generated from clearly fictio
 
 ## Licence and third-party rights
 
-The licence decision is open until third-party code, data-source terms and scraping targets have been reviewed. Until then the repository stays private and all rights are reserved. Going public needs the author's explicit decision; nobody else can flip that switch.
+Kokpit is MIT licensed (`LICENSE`). The review behind that choice: the package uses only the Python standard library, and the Beyin conventions it follows are MIT with no code copied (`THIRD_PARTY_NOTICES.md`). Data-source and scraping terms are reviewed per module when that module is added, not once for the whole project. The repository stays private for now. Going public needs the author's explicit decision; nobody else can flip that switch.

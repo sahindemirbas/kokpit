@@ -6,6 +6,10 @@ Kendi cihazında çalışan kişisel kokpit: her sabah baktığın şeyleri tek 
 
 İngilizce sürüm: [README.md](README.md)
 
+![Kokpit demo: Today, Brain ve hızlı kayıt, Health](docs/media/demo.gif)
+
+Kayıt ve `docs/media/` altındaki ekran görüntüleri `docs/demo-vault/` içindeki sentetik örnek vault'tan alındı (sulama zamanlayıcısı, İtalyanca dersleri; gerçek veri yok). Yeniden üretmek için: `python -m kokpit init --vault docs/demo-vault --db /tmp/demo.db`, `kokpit.toml` içinde `expected = ["heartbeat", "brain-check"]`, iki işi çalıştır, sonra `./run`.
+
 ## Sıradan bir gün
 
 Referans kurulum bugün böyle kullanılıyor. Aşağıdaki isimler ve sayılar örnektir.
@@ -89,4 +93,4 @@ Etkinlik, kariyer, sosyal, AI kullanımı, gündem ve bot iskelette henüz yok (
 
 ## Lisans
 
-Henüz kararlaştırılmadı. Üçüncü taraf kod ve veri kaynağı koşulları incelendikten sonra seçilecek; o zamana kadar depo private ve tüm haklar saklı. Avenox Beyin'den türeyen kod, burada seçilecek lisanstan bağımsız olarak MIT bildirimini korur.
+MIT, bkz. [LICENSE](LICENSE). Paket yalnız Python standart kütüphanesine dayanır. İkinci beyin düzeni Avenox Beyin'den gelir (MIT, telif Avenox); bugün depoda Beyin'den kopyalanmış kod yok, ileride türetilen her dosya özgün bildirimi taşır. Ayrıntı: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Depo hâlâ private; lisans seçimi bunu değiştirmez.
