@@ -59,20 +59,23 @@ Rules: `start` is ISO 8601 with offset; a date without time is `YYYY-MM-DD` (nev
 
 ## Job record
 
+Job adapters live in `adapters/jobs/<source>/collect.py` (or in a folder listed in `[career] adapter_dirs`) and are loaded like event adapters: off until the id is listed in `[career] adapters`, discovery imports nothing, a broken adapter becomes a Health warning and never stops the others, `kokpit adapters` lists them. `settings` carries the profile targets: `target_roles`, `locations`, `remote_pref`, `languages`, `country`. The offline template is `adapters/jobs/example-careers/` (fictional company, fixed data).
+
 ```json
 {
-  "source": "accenture",
-  "source_id": "stable id",
+  "external_id": "stable id inside the source",
   "title": "string",
   "company": "string",
   "location": "string or null",
   "remote": "remote | hybrid | onsite | unknown",
-  "posted": "2026-10-28",
   "url": "https://...",
+  "posted_at": "2026-10-28",
   "description": "string or null",
   "language": "en"
 }
 ```
+
+`source` is set by the loader from `NAME`. Only `title` is required; a record without one is dropped. `posted_at` is `YYYY-MM-DD` or null when the source gives no date (never invent one). `remote` unknown stays `unknown`. A listing is identified by `source` plus `external_id`; the same company and normalised title from two sources is kept as one row.
 
 ## Health
 

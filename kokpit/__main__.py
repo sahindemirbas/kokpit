@@ -127,7 +127,8 @@ def cmd_jobs(args) -> int:
 
 
 def cmd_adapters(args) -> int:
-    """List local event adapters found in adapters/events/ and [events] adapter_dirs, with on/off state."""
+    """List local event and job adapters (adapters/events, adapters/jobs and the adapter_dirs), with on/off state."""
+    from .modules.career import adapters as job_adapters
     from .modules.events import adapters
     cfg = _load(args)
     found = adapters.discover(cfg)
@@ -140,6 +141,14 @@ def cmd_adapters(args) -> int:
     for name in adapters.missing(cfg):
         print(f"missing  {name}: enabled in [events] adapters but no such directory")
     print("\nenable with [events] adapters = [\"<id>\"] in kokpit.toml, then `kokpit run-job events-collect`")
+    jfound = job_adapters.discover(cfg)
+    print("\njob adapters:" if jfound else "\nno job adapters found")
+    for a in jfound:
+        print(f"{'on ' if a['enabled'] else 'off'}  {a['id']:24s} source={a['name']:24s} {a['company'] or '-':20s} {'user' if a['user'] else 'repo'}: {a['path']}")
+    for name in job_adapters.missing(cfg):
+        print(f"missing  {name}: enabled in [career] adapters but no such directory")
+    if jfound:
+        print("enable with [career] adapters = [\"<id>\"] in kokpit.toml (and jobs = true under [modules]), then `kokpit run-job career`")
     return 0
 
 

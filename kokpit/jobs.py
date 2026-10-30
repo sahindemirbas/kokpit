@@ -10,6 +10,7 @@ from collections.abc import Callable
 from .config import Config
 from .db import connect
 from .modules.brain import reader
+from .modules.career import collect as career_collect
 from .modules.events import api as events_api
 from .modules.health import store
 from .modules.today import calendar, weather
@@ -45,6 +46,15 @@ def events_collect(cfg: Config):
     conn = connect(cfg.db)
     try:
         return events_api.collect(cfg, conn)
+    finally:
+        conn.close()
+
+
+def career(cfg: Config):
+    """Collects job listings from the enabled sources (adapters, optional LinkedIn guest) and scores them."""
+    conn = connect(cfg.db)
+    try:
+        return career_collect.collect(cfg, conn)
     finally:
         conn.close()
 
@@ -88,7 +98,7 @@ def calendar_job(cfg: Config):
     return len(data["events"]), info, data["errors"] + data["warnings"]
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect}
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career}
 
 
 def run(cfg: Config, name: str) -> bool:

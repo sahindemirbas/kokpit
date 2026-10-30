@@ -88,7 +88,32 @@ def view(cfg: Config) -> dict:
     })
     items.append({"id": "google-calendar", "name": "Google Calendar (read-only)", "module": "planned", "kind": "planned",
                   "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
-    for name in ("CV file", "Job sources", "Instagram", "Telegram bot", "Model API"):
+    items.extend(_career_items(cfg))
+    for name in ("CV file", "Instagram", "Telegram bot", "Model API"):
         items.append({"id": name.lower().replace(" ", "-"), "name": name, "module": "planned", "kind": "planned",
                       "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
     return {"config": cfg.path.name, "connections": items}
+
+
+def _career_items(cfg: Config) -> list[dict]:
+    from ..career import adapters as job_adapters, linkedin
+    on = cfg.modules.get("jobs", False)
+    run = _last_run(cfg, "career")
+    per = (run or {}).get("info", {}).get("sources", {}) if run else {}
+    names = job_adapters.enabled_names(cfg)
+    out = [{
+        "id": "job-adapters", "name": "Job adapters", "module": "jobs", "kind": "per-source adapter", "enabled": bool(names) and on,
+        "reads": ", ".join(sorted(names)) if names else "none enabled", "writes": "nothing", "permission": "none",
+        "target": f"{len(names)} enabled", "status": "ok" if names and on else "off",
+        "last": {**run, "rows": sum(per.get(n, 0) for n in per if n != linkedin.SOURCE)} if run and names else None,
+    }]
+    li = bool(cfg.career.get("linkedin_guest"))
+    out.append({
+        "id": "linkedin-guest", "name": "LinkedIn guest search", "module": "jobs", "kind": "public pages (no login)", "enabled": li and on,
+        "reads": "LinkedIn's public guest job pages, 7-day window, keywords and places from your profile" if li else "nothing (off)",
+        "writes": "nothing", "permission": "none (public pages)", "target": "linkedin.com",
+        "detail": "Off by default. LinkedIn's User Agreement restricts automated access; use is at your own risk, it can break or be blocked at any time, and Kokpit does not bypass blocks.",
+        "status": ("ok" if per.get(linkedin.SOURCE) else "0 records") if (li and run and linkedin.SOURCE in per) else ("not run yet" if li else "off"),
+        "last": {**run, "rows": per.get(linkedin.SOURCE)} if run and linkedin.SOURCE in per else None,
+    })
+    return out

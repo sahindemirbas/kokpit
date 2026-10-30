@@ -31,7 +31,7 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 - Lifecycle: a listing not seen in search is not closed; closure is read from the posting page. Career-site listings close after 3 days absent and reopen if seen again. Weekly trend from listing dates.
 - Market view: company cards, weekly counts, CSV export.
 - Privacy: matching uses skills and targets only; name, phone, e-mail are not needed and are not sent anywhere. Any external model call for CV parsing is opt-in with the exact text shown first.
-- Status: profile form, local CV extraction (pdftotext, .txt, .md; CLI `kokpit career profile`) and scoring with reasons **working** (M3 step 1); listings, lifecycle, market view and CSV **planned** (M3 steps 2 and 3).
+- Status: profile form, local CV extraction (pdftotext, .txt, .md; CLI `kokpit career profile`) and scoring with reasons **working** (M3 step 1); listings (job adapters, optional LinkedIn guest search, the `career` job, dedupe, freshness) **working** (M3 step 2); lifecycle, market view and CSV **planned** (M3 step 3).
 
 ## Events
 

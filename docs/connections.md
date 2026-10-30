@@ -17,7 +17,8 @@ The Connections screen is where a user enables modules and links accounts. It is
 | Local event adapters | Events | per-city adapter | listings | none | shipped disabled; offline `example-city` template |
 | Weather | Today, Events | public API (Open-Meteo) | forecast | none | no key |
 | CV file | Career | local path | text of the CV | none | parsing is local; model-assisted parsing opt-in |
-| Job sources | Career | public pages, adapters | listings | none | LinkedIn guest search without login |
+| Job adapters | Career | per-source adapter | listings | none | shipped disabled; offline `example-careers` template |
+| LinkedIn guest search | Career | public guest pages, no login | listings of the last 7 days | none | OFF by default; see the notice below |
 | Instagram | Social | user's own Meta app, Instagram Login | insights, media | publish only with the publish toggle and an approval | token stored locally; separate toggles |
 | TikTok stats | Social | local analytics DB | statistics | none | optional, browser-based collector |
 | Telegram bot | all | bot token | commands from the owner chat only | sends messages to the owner | single allowed chat id |
@@ -25,6 +26,14 @@ The Connections screen is where a user enables modules and links accounts. It is
 | TTS provider | Agenda | API key | n/a | sends summary text | optional |
 | AI tool logs | AI usage | local paths | usage rows | none | Hermes `state.db`, Claude Code, Codex |
 | Hermes agent | Brain, AI usage | local | vault files, usage rows | may append notes if enabled | not required; see `integrations/hermes` |
+
+## LinkedIn guest search (off by default)
+
+`[career] linkedin_guest = true` makes the `career` job read LinkedIn's public guest job pages (no login, no account) using the target roles and locations of your profile, with a 7-day window, a pause between requests and a small cap on queries. Read this before switching it on:
+
+- LinkedIn's User Agreement restricts automated access. Use is at your own risk.
+- It can break or be blocked at any time. On the first HTTP 429 Kokpit stops, records a warning in Health and keeps what it already fetched. Kokpit makes no promise to bypass blocks and does not try.
+- Nothing is sent to LinkedIn except the search words and places from your profile.
 
 ## Secrets
 

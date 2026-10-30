@@ -53,6 +53,11 @@ category_pack_dirs = []          # folders with your own <code>.json packs; same
 
 [career]
 profile_path = "data/career-profile.json"   # local profile (skills, targets); never in the vault, never sent anywhere
+adapters = []                 # adapters/jobs/<name> directories to enable (all off by default)
+adapter_dirs = []             # extra folders holding your own <name>/collect.py job adapters
+linkedin_guest = false        # OFF. Reads LinkedIn's public guest job pages; see docs/connections.md before enabling
+linkedin_pages = 2            # result pages (25 each) per search; 7-day window
+close_after_days = 3          # adapter listings missing this many days are marked closed (LinkedIn is never closed this way)
 
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
@@ -155,7 +160,14 @@ def load(path: str | Path) -> Config:
     cfg.modules.setdefault("events", False)
     cfg.modules.setdefault("jobs", False)
     car = raw.get("career", {})
-    cfg.career = {"profile_path": str(car.get("profile_path", "data/career-profile.json"))}
+    cfg.career = {
+        "profile_path": str(car.get("profile_path", "data/career-profile.json")),
+        "adapters": [str(x) for x in car.get("adapters", [])],
+        "adapter_dirs": [str(x) for x in car.get("adapter_dirs", [])],
+        "linkedin_guest": bool(car.get("linkedin_guest", False)),
+        "linkedin_pages": max(1, min(5, _int(car.get("linkedin_pages"), 2))),
+        "close_after_days": max(1, min(60, _int(car.get("close_after_days"), 3))),
+    }
     today = raw.get("today", {})
     env_urls = os.environ.get("KOKPIT_CALENDAR_ICS_URLS", "").split()
     urls = env_urls or today.get("calendar_ics_urls", [])
@@ -170,6 +182,13 @@ def _str_list(v, default: list[str]) -> list[str]:
         v = [v]
     out = [str(x).strip() for x in (v or []) if str(x).strip()] if isinstance(v, list) else []
     return out or list(default)
+
+
+def _int(v, default: int) -> int:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
 
 
 def _float_or_none(v) -> float | None:

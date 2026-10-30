@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import shutil
+import sqlite3
 
 from ...config import Config
-from . import cv, profile, scoring
+from ..health import api as health_api
+from . import cv, profile, scoring, store
 
 
 def view(cfg: Config) -> dict:
@@ -12,7 +14,7 @@ def view(cfg: Config) -> dict:
     if not cfg.modules.get("jobs", False):
         return {"enabled": False, "profile": None}
     prof = profile.load(cfg)
-    return {"enabled": True, "profile": prof, "profile_saved": profile.exists(cfg), "profile_empty": profile.is_empty(prof),
+    return {**_listings(cfg), "freshness": health_api.freshness(cfg, "career"), "enabled": True, "profile": prof, "profile_saved": profile.exists(cfg), "profile_empty": profile.is_empty(prof),
             "pdftotext": bool(shutil.which("pdftotext")),
             "options": {"remote_pref": list(profile.REMOTE_PREFS), "seniority": list(profile.SENIORITY), "levels": list(profile.LEVELS)}}
 
@@ -40,3 +42,19 @@ def score_preview(cfg: Config, listing: dict) -> dict:
     if isinstance(remote, str):
         remote = {"yes": True, "true": True, "no": False, "false": False}.get(remote.lower())
     return scoring.score(profile.load(cfg), {**listing, "remote": remote})
+
+
+def _listings(cfg: Config, limit: int = 300) -> dict:
+    """Stored listings (best score first) and counts. Never fetches; reads the table the career job fills."""
+    from ...db import connect
+    empty = {"listings": [], "counts": {"total": 0, "open": 0, "closed": 0, "by_source": {}}}
+    try:
+        conn = connect(cfg.db, readonly=True)
+    except FileNotFoundError:
+        return {**empty, "reason": "no database yet: run `kokpit run-job career`"}
+    try:
+        return {"listings": store.listings(conn, "open", limit), "counts": store.counts(conn)}
+    except sqlite3.OperationalError:
+        return empty
+    finally:
+        conn.close()
