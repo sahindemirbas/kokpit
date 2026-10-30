@@ -7,6 +7,7 @@ Kokpit does not depend on the [Hermes agent](https://hermes-agent.nousresearch.c
 | Direction | What | Module |
 |---|---|---|
 | Hermes -> Kokpit | Hermes writes to the same Markdown vault (threads, to-do, session logs); Kokpit renders it | Brain |
+| Hermes -> Kokpit | `kokpit brain receipt` at session close (run by the agent by hand; no hook yet) | Brain |
 | Hermes -> Kokpit | Kokpit reads `state.db` usage rows (tool, model, tokens per session) | AI usage |
 | Kokpit -> Hermes | A Hermes skill that lets the agent query the dashboard API ("what is on today", "events this weekend", "open tasks") | all |
 | Kokpit -> Hermes | Model calls via `hermes chat --oneshot` when `[model] provider = "hermes"`; Hermes's connected accounts answer, no API key in Kokpit | all model uses |

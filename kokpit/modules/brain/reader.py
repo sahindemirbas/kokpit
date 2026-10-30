@@ -39,6 +39,7 @@ CLOSED_HEADINGS = ("## Closed Threads", "## Closed threads", "## Kapanan")
 OPEN_MARKERS = ("Open:", "Açık:")
 STATUS_MARKERS = ("Where we left off", "Nerede kaldık")
 SOURCE_MARKERS = ("Source:", "Kaynak:")
+EARLIER_HEADINGS = ("## Earlier sessions", "## Önceki oturumlar")  # below this, Last-Session.md is history
 
 
 def _read(p: Path) -> str:
@@ -146,7 +147,8 @@ def parse_todo(text: str, today: date | None = None) -> list[dict]:
 
 
 def parse_sessions(text: str, limit: int = 8) -> list[dict]:
-    text = text.split("## Earlier sessions", 1)[0].split("## Önceki oturumlar", 1)[0]
+    for h in EARLIER_HEADINGS:
+        text = text.split(h, 1)[0]
     out = []
     for block in re.split(r"^## ", text, flags=re.M)[1:]:
         head, _, body = block.partition("\n")

@@ -153,7 +153,8 @@ def build_context(vault: Path, message: str = "", max_chars: int = DEFAULT_MAX_C
     if not parts:
         return ""
     if message and DONE_WORDS.search(message):
-        parts.append("Reminder: if a piece of work just finished, update Last-Session.md and the thread "
+        parts.append("Reminder: if a piece of work just finished, update Last-Session.md and the thread, "
+                     "then run `kokpit brain receipt` with the files you touched "
                      "(see docs/brain-protocol.md). The hook writes nothing itself.")
 
     text = f"[{label} · read-only context]\n" + "\n\n".join(parts)

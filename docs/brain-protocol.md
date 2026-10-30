@@ -77,11 +77,58 @@ When a meaningful piece of work ends, the agent writes without asking:
    Only items under the open heading reach the Kokpit "waiting on you" lane.
 3. The project or topic note the work belongs to: dated paragraph, sources
    named.
-4. A receipt line (session id, files touched). Receipts let a later agent see
-   what an earlier one did.
+4. A receipt: which session changed which files. Receipts let a later agent
+   see what an earlier one did.
 
-Size limits for `Last-Session.md` and `Threads.md` are shared constants between
-the hook and the Kokpit reader. If one changes, the other changes.
+   ```
+   kokpit brain receipt --event-id 2026-01-05-garden-timer --harness codex \
+       [--session S] --summary "Added the timer note; sensor still open." \
+       --ref notes/garden-timer.md --ref Last-Session.md
+   ```
+
+   `--summary-file PATH` can replace `--summary`. Output is JSON with
+   `status`, `path`, `event_id` and `missing_refs`. Exit code 0 for
+   `succeeded` or `unchanged`, 3 for `conflict`, 2 for invalid input.
+
+Size limits for `Last-Session.md` (3000 characters) and `Threads.md` (8000)
+are shared constants between the hook and the Kokpit reader. If one changes,
+the other changes. When a file is over its limit, `kokpit brain compact`
+moves old entries out:
+
+- `Last-Session.md`: text under `## Earlier sessions` moves first, then whole
+  cards from the oldest (by the date and time in the heading), until the file
+  fits. The newest card always stays.
+- `Threads.md`: only `### ` blocks under `## Closed Threads` move. The active
+  part is never touched.
+- Moved text is appended to `archive/<file>-<YYYY-MM>.md` in the vault, and
+  the live file keeps one pointer line, ``Archived text: `archive/...` ``,
+  under `## Earlier sessions` (Last-Session) or `## Closed Threads` (Threads).
+- Text is never cut, summarised or deleted. The archive is written before the
+  live file, so a crash can leave a duplicate but never loses text.
+- `needs_rewrite`: the newest card alone, or the active threads alone, is over
+  the limit. Nothing is moved; the agent has to shorten that text itself.
+  `needs_attention`: the file is not valid UTF-8 and is left as it is.
+- `--dry-run` writes nothing and reports what would move (`would_move_entries`,
+  `chars_after`).
+
+### Receipts
+
+One file per event: `receipts/<sha256 of the event id>.md`, a `---` block with
+JSON (`kind`, `event_id`, `harness`, `refs`, `created_at` in UTC, optional
+`session`) and the summary below it. Refs are vault-relative paths; a ref that
+does not exist yet is reported in `missing_refs` but does not block the write.
+
+- Idempotent: the same event id with the same summary and refs returns
+  `unchanged` and does not touch the file.
+- The same event id with different content returns `conflict`; the existing
+  receipt stays as it is. Pick a new event id for new work.
+- A summary that looks like it contains a key or token is refused. This check
+  is best effort (a few obvious patterns), not a secret scanner.
+- `kokpit brain receipts [--limit N]` lists the newest ones; unreadable files
+  are skipped, never deleted.
+
+Receipts are an audit trail for the user and the next agent. They are not
+context: the context hook never reads `receipts/` or `archive/`.
 
 ### Dates
 

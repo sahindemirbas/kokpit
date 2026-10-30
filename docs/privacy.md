@@ -17,6 +17,11 @@ Enforcement: `.gitignore` for the obvious patterns, a pre-commit secret scan bef
 - Publishing to a social platform happens only after an explicit approval per item.
 - A calendar ICS address is treated as a secret: it is never stored in the database, and API answers, the health log and error messages show it masked to scheme and host only.
 
+## Receipts and archive
+
+- Session receipts (`receipts/`) and compacted text (`archive/`) stay inside the user's vault. Kokpit sends neither anywhere, and the context hook does not read them.
+- Before a receipt is written, its summary is checked for a few obvious key and token patterns. This is best effort, not a guarantee; summaries should not contain secrets in the first place.
+
 ## Demo content
 
 If screenshots or sample data are needed, they are generated from clearly fictional data and labelled "example". No real account, person or message appears in them.

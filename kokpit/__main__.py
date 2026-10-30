@@ -1,4 +1,4 @@
-"""Command line: kokpit init | run | run-job <name> | schedule | context | place <city> | jobs | adapters | career | ai-usage summary | instagram collect|summary|refresh-token | bot poll [--once] | bot send-test"""
+"""Command line: kokpit init | run | run-job <name> | schedule | context | brain receipt|receipts|compact | place <city> | jobs | adapters | career | ai-usage summary | instagram collect|summary|refresh-token | bot poll [--once] | bot send-test"""
 from __future__ import annotations
 
 import argparse
@@ -80,6 +80,41 @@ def cmd_context(args) -> int:
     if text:
         print(text)
     return 0
+
+
+def cmd_brain(args) -> int:
+    """brain receipt | receipts | compact [--dry-run]. Receipts and compact write only inside the vault."""
+    import json
+    from .modules.brain import compact, receipt
+    cfg = _load(args)
+    if args.brain_cmd == "context":
+        return cmd_context(args)
+    if args.brain_cmd == "compact":
+        print(json.dumps(compact.compact(cfg.vault, dry_run=args.dry_run), indent=2, ensure_ascii=False))
+        return 0
+    if args.brain_cmd == "receipts":
+        res = receipt.scan_receipts(cfg.vault, limit=args.limit)
+        if not res["receipts"]:
+            print("no receipts yet")
+        for r in res["receipts"]:
+            first = r["refs"][0] if r["refs"] else "-"
+            more = f" (+{len(r['refs']) - 1})" if len(r["refs"]) > 1 else ""
+            print(f"{r['created_at'][:16].replace('T', ' ')}  {r['harness']:12s} {r['event_id']:40s} {first}{more}")
+        if res["skipped"]:
+            print(f"{res['skipped']} unreadable receipt file(s) skipped (left in place)")
+        return 0
+    try:
+        if args.summary_file:
+            summary = Path(args.summary_file).read_text(encoding="utf-8")
+        else:
+            summary = args.summary
+        res = receipt.write_receipt(cfg.vault, args.event_id, summary, args.ref, harness=args.harness,
+                                    session=args.session)
+    except (ValueError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(res, indent=2, ensure_ascii=False))
+    return 3 if res["status"] == "conflict" else 0
 
 
 def cmd_place(args) -> int:
@@ -312,6 +347,24 @@ def main(argv=None) -> int:
     p.add_argument("message", nargs="*", help="the user's message, used only to pick related notes")
     p.add_argument("--max-chars", type=int, default=3500)
     p.set_defaults(fn=cmd_context)
+    p = sub.add_parser("brain", help="session receipts and companion compact (writes only inside the vault)")
+    bsub = p.add_subparsers(dest="brain_cmd", required=True)
+    q = bsub.add_parser("receipt", help="record which files a session changed (idempotent per event id)")
+    q.add_argument("--event-id", required=True, help="stable id for this piece of work, e.g. 2026-01-05-garden-timer")
+    q.add_argument("--harness", default="manual", help="which tool wrote it: hermes, claude, codex, antigravity, manual")
+    q.add_argument("--session", help="optional session id")
+    g = q.add_mutually_exclusive_group(required=True)
+    g.add_argument("--summary", help="short summary (max 4000 characters)")
+    g.add_argument("--summary-file", help="file with the summary")
+    q.add_argument("--ref", action="append", required=True, help="vault-relative file the session touched (repeat)")
+    q = bsub.add_parser("receipts", help="list the newest receipts")
+    q.add_argument("--limit", type=int, default=20)
+    q = bsub.add_parser("compact", help="move old cards of Last-Session.md / Threads.md to the archive when over the limit")
+    q.add_argument("--dry-run", action="store_true", help="report only, write nothing")
+    q = bsub.add_parser("context", help="same as `kokpit context`")
+    q.add_argument("message", nargs="*")
+    q.add_argument("--max-chars", type=int, default=3500)
+    p.set_defaults(fn=cmd_brain)
     p = sub.add_parser("place", help="find your city (Open-Meteo geocoder), show event sources, set [place]")
     p.add_argument("query", help='city name, e.g. "Bergamo"')
     p.add_argument("--pick", type=int, help="number of the candidate to use (from the list)")

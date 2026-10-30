@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 from ...config import Config
-from . import capture, reader
+from . import capture, reader, receipt
 
 STARTER = Path(__file__).parent / "starter"
 
@@ -13,6 +13,8 @@ STARTER = Path(__file__).parent / "starter"
 def view(cfg: Config) -> dict:
     data = reader.read_vault(cfg.vault)
     data["quick_capture"] = cfg.quick_capture
+    data["receipts"] = receipt.read_receipts(cfg.vault, limit=8)
+    data["limits"] = {f["file"]: {"chars": f["chars"], "limit": f["limit"], "over": f["over"]} for f in data["files"]}
     return data
 
 
