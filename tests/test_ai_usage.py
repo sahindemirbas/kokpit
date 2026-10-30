@@ -151,6 +151,8 @@ class ReaderTests(Base):
         r = readers.read_codex(self.tmp / "codex")[0][0]
         # input excludes the cached subset, reasoning stays inside output (not added again), no cache write
         self.assertEqual((r["input_tokens"], r["cache_read_tokens"], r["output_tokens"], r["cache_write_tokens"]), (5000, 15000, 405, 0))
+        # stored tokens add up to the log's own total_tokens (20405 = input 20000 + output 405), so reasoning is not counted twice
+        self.assertEqual(r["input_tokens"] + r["cache_read_tokens"] + r["output_tokens"], 20000 + 405)
 
     def test_codex_counter_reset_counts_new_usage(self):
         write_jsonl(self.tmp / "codex" / "a.jsonl", codex_events("C1", "gpt-x", [(1000, 0, 10), (200, 0, 5)]))
