@@ -13,6 +13,7 @@ from .modules.brain import reader
 from .modules.ai_usage import collect as ai_usage_collect
 from .modules.career import collect as career_collect
 from .modules.events import api as events_api
+from .modules.instagram import collect as instagram_collect
 from .modules.health import store
 from .modules.today import calendar, weather
 
@@ -69,6 +70,15 @@ def ai_usage(cfg: Config):
         conn.close()
 
 
+def instagram(cfg: Config):
+    """Reads Instagram account, media and story insights through the official API (GET only); run twice a day."""
+    conn = connect(cfg.db)
+    try:
+        return instagram_collect.collect(cfg, conn)
+    finally:
+        conn.close()
+
+
 def weather_job(cfg: Config):
     """Fetches a 3-day Open-Meteo forecast for the configured place (no key) and caches it."""
     if not cfg.has_place:
@@ -108,7 +118,7 @@ def calendar_job(cfg: Config):
     return len(data["events"]), info, data["errors"] + data["warnings"]
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "ai_usage": ai_usage}
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "ai_usage": ai_usage, "instagram": instagram}
 
 
 def run(cfg: Config, name: str) -> bool:

@@ -90,7 +90,8 @@ def view(cfg: Config) -> dict:
                   "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
     items.extend(_career_items(cfg))
     items.extend(_ai_usage_items(cfg))
-    for name in ("CV file", "Instagram", "Telegram bot", "Model API"):
+    items.append(_instagram_item(cfg))
+    for name in ("CV file", "Telegram bot", "Model API"):
         items.append({"id": name.lower().replace(" ", "-"), "name": name, "module": "planned", "kind": "planned",
                       "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
     return {"config": cfg.path.name, "connections": items}
@@ -118,6 +119,35 @@ def _career_items(cfg: Config) -> list[dict]:
         "last": {**run, "rows": per.get(linkedin.SOURCE)} if run and linkedin.SOURCE in per else None,
     })
     return out
+
+
+def _instagram_item(cfg: Config) -> dict:
+    from ..instagram import api as ig_api, token as ig_token
+    module_on = cfg.modules.get("instagram", False)
+    on = module_on and cfg.instagram["analyse"]
+    has = ig_token.configured(cfg)
+    run = _last_run(cfg, "instagram")
+    d = ig_api.view(cfg) if module_on else {}
+    ok = bool(d.get("last_success"))
+    if not on:
+        status = "off"
+    elif not has:
+        status = "no token"
+    elif ok and run and run["ok"] and not run["warnings"]:
+        status = "ok"
+    elif ok or (run and run["warnings"]):
+        status = "warning"
+    else:
+        status = "not run yet"
+    return {
+        "id": "instagram", "name": "Instagram (official API)", "module": "instagram", "kind": "API with token", "enabled": on,
+        "reads": "account fields, account insights, media and story insights" if on else "nothing (off)",
+        "writes": "nothing (publishing is a separate switch, not part of the analysis)",
+        "permission": "read-only (instagram_business_basic, instagram_business_manage_insights)",
+        "target": "graph.instagram.com",
+        "detail": f"Token configured: {'yes' if has else 'no'}. Last success: {d.get('last_success') or 'never'}. Metric errors in the last run: {len(d.get('errors') or [])}. The token is stored locally and never shown.",
+        "status": status, "last": run,
+    }
 
 
 def _ai_usage_items(cfg: Config) -> list[dict]:

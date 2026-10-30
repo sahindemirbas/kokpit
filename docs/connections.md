@@ -45,6 +45,29 @@ The Connections screen is where a user enables modules and links accounts. It is
 
 Message text, prompts, file contents and project names are never read into Kokpit's database. Session ids are stored as a 12 character sha256 prefix. Nothing leaves the device. The only network request is the opt-in `[ai_usage] price_refresh = true`: one GET of `https://models.dev/api.json` at most every 24 hours, with no user data sent. A missing or unreadable file becomes a Health warning and the other readers still run.
 
+## Instagram analysis (off by default)
+
+Kokpit reads your own account through the official Instagram API with Instagram Login (`graph.instagram.com`, GET requests only). It never publishes from this job.
+
+Setup, once:
+
+1. You need an Instagram business or creator account (a personal account has no insights API).
+2. In the Meta developer portal create an app, add the product "Instagram" with "API setup with Instagram login", and add your account as an Instagram tester or app role holder (development mode is enough for your own account).
+3. Request two permissions: `instagram_business_basic` and `instagram_business_manage_insights`.
+4. Generate a token for the account in the portal and exchange it for a long-lived token (valid 60 days).
+5. Give the token to Kokpit in one of these ways (first match wins): the token file written by `python -m kokpit instagram refresh-token`, the environment variable `KOKPIT_INSTAGRAM_TOKEN`, or `token = "..."` under `[instagram]` in `kokpit.toml`. The environment variable is preferred; `kokpit.toml`, the token file and `data/` are git-ignored. The token is never printed, logged or shown on the dashboard, and it is removed from every error message.
+6. Set `instagram = true` under `[modules]` and `analyse = true` under `[instagram]`. `publish` is a separate switch, off by default, and unused by the analysis job.
+
+What is read: account fields (follower and media count), account insights (views, reach, profile views, accounts engaged, interactions), recent posts and reels (up to `media_limit`) with views, reach, likes, comments, saves, shares, interactions and, for reels, average watch time, and active stories with views, reach, replies, shares, interactions. Captions, usernames and media files are not stored; the table keeps the media type, time, link and numbers.
+
+Schedule: stories expire after 24 hours, so run the job twice a day, for example `0 7,19 * * * cd /path/to/kokpit && python -m kokpit instagram collect`. Snapshots are kept per account and day, per media and day; a second run on the same day updates that day's row.
+
+Errors: every call is separate. A metric the API rejects for a media type (unsupported, deprecated) is stored in the errors table and shown on the Social tab; the rest of the run continues. An authentication error (expired token, missing permission), a rate limit or a network error stops that run at once, with no retry loop, keeps what was already stored, and appears as a warning in Health and Connections.
+
+Token refresh: `python -m kokpit instagram refresh-token` calls the `refresh_access_token` endpoint only when you run it, writes the new token to the token file (mode 600) and prints the new expiry date, not the token. The API refuses tokens younger than 24 hours or already expired; then the old token stays in place. Refresh before day 60.
+
+Commands: `python -m kokpit instagram collect`, `python -m kokpit instagram summary` (counts and totals only, no media ids or links).
+
 ## Secrets
 
 - Stored in a local `.env` (or the OS keyring where available). Never in `kokpit.db`, never in the Markdown vault, never in logs.

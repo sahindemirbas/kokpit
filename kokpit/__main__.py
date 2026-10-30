@@ -1,4 +1,4 @@
-"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters | career | ai-usage summary"""
+"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters | career | ai-usage summary | instagram collect|summary|refresh-token"""
 from __future__ import annotations
 
 import argparse
@@ -242,6 +242,25 @@ def cmd_ai_usage(args) -> int:
     return 0
 
 
+def cmd_instagram(args) -> int:
+    """instagram collect | summary | refresh-token. None of them prints the token or media details."""
+    from .modules.instagram import api as ig_api, token as ig_token
+    from .modules.instagram.client import ApiError
+    cfg = _load(args)
+    if args.ig_cmd == "summary":
+        print(ig_api.summary_text(cfg))
+        return 0
+    if args.ig_cmd == "collect":
+        return 0 if jobs.run(cfg, "instagram") else 1
+    try:
+        res = ig_token.refresh(cfg)
+    except ApiError as exc:
+        print(f"error: token refresh failed ({exc.kind}): {exc}", file=sys.stderr)
+        return 3
+    print(f"token refreshed, stored in {res['stored']}; valid until {res['expires_at']} ({res['expires_in_days']} days). The token is not printed.")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="kokpit", description=f"Kokpit {__version__}")
     ap.add_argument("--config", help="path to kokpit.toml (default: ./kokpit.toml, then ~/.config/kokpit/)")
@@ -298,6 +317,12 @@ def main(argv=None) -> int:
     asub = p.add_subparsers(dest="ai_cmd", required=True)
     q = asub.add_parser("summary", help="totals for today, 7 and 30 days, per tool, readers, limits and advice ids")
     q.set_defaults(fn=cmd_ai_usage)
+    p = sub.add_parser("instagram", help="Instagram analysis (read-only API)")
+    isub = p.add_subparsers(dest="ig_cmd", required=True)
+    isub.add_parser("collect", help="read account, media and story insights now (run twice a day)")
+    isub.add_parser("summary", help="aggregates from the local tables: followers, 30-day totals, errors")
+    isub.add_parser("refresh-token", help="exchange the long-lived token for a fresh one (explicit only); prints the expiry date, never the token")
+    p.set_defaults(fn=cmd_instagram)
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)
     args = ap.parse_args(argv)

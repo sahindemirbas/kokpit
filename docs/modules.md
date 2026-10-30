@@ -51,7 +51,8 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 - TikTok: read-only statistics from a local analytics database produced by a separate collector (no official analytics API for personal accounts; the reference uses a browser-based collector). Marked as **generalise**, likely to remain optional.
 - Content calendar: planned slots with due time, kind (story/post/reel), who prepares it, caption, media link; reminders through the bot; a daily guard warns when nothing is planned.
 - Permissions: analysis and publishing are separate toggles. A publish failure stores the platform's message and never retries silently.
-- Status: Instagram stats and approved publishing **working**; TikTok **generalise**; a generic "add a platform" interface **planned**.
+- Instagram analysis in this repository (M4 step 2a): account fields and insights, recent posts and reels with their insights, stories with theirs, stored as snapshots per day in SQLite; per-metric errors recorded and shown; token refresh on demand; `instagram collect` and `instagram summary` commands; a Social tab (follower trend, latest posts, reels and stories, best by reach in 30 days, last collect, errors); a Connections entry. Setup and schedule: `docs/connections.md`.
+- Status: Instagram analysis **working** here and covered by synthetic tests (stubbed HTTP, no network); publishing, content calendar and bot approval are **planned** for this repository; TikTok **generalise**; a generic "add a platform" interface **planned**.
 
 ## AI usage
 

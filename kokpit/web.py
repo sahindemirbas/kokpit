@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 from . import __version__
 from .config import Config
 from .modules.ai_usage import api as ai_usage_api
+from .modules.instagram import api as instagram_api
 from .modules.brain import api as brain_api
 from .modules.career import api as career_api
 from .modules.events import api as events_api
@@ -107,6 +108,8 @@ def make_handler(cfg: Config):
                     if sub in views:
                         return self._json(views[sub](cfg))
                     return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+                if path == "/api/instagram":
+                    return self._json(instagram_api.view(cfg))
                 if path == "/api/career":
                     return self._json(career_api.view(cfg))
                 if path == "/api/connections":

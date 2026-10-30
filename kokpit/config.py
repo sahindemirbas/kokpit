@@ -31,6 +31,7 @@ health = true
 events = {events}
 jobs = false                  # career: profile, scoring, listings (off until you set it up)
 ai_usage = false              # reads local usage logs of AI tools (off until you set it up)
+instagram = false             # Instagram analysis through the official API (off until you add a token)
 
 [today]
 calendar_ics_urls = []        # read-only ICS feeds (e.g. Google's secret iCal address). SECRET: keep this file
@@ -74,6 +75,13 @@ currency = "USD"              # currency of the two numbers you enter below
 long_session_tokens = 2000000 # advice: sessions with more fresh tokens than this are listed
 stale_days = 3                # advice: a reader whose newest data is older than this is flagged
 
+[instagram]
+analyse = false                # read-only insights (needs a token, see docs/connections.md)
+publish = false                # separate switch; publishing is not part of the analysis job
+token_file = "data/instagram-token"   # written by `kokpit instagram refresh-token`; keep out of git
+# token = ""                   # or set KOKPIT_INSTAGRAM_TOKEN in the environment (preferred over writing it here)
+media_limit = 30               # recent posts and reels read per run (1 to 100)
+
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
 quick_capture = true          # allow appending a note or task from the dashboard
@@ -102,6 +110,7 @@ class Config:
     events: dict = field(default_factory=dict)     # allevents_slug, eventbrite_slug, adapters, adapter_dirs
     career: dict = field(default_factory=dict)     # profile_path
     ai_usage: dict = field(default_factory=dict)   # readers, paths, prices, limits, advice thresholds
+    instagram: dict = field(default_factory=lambda: _instagram({}), repr=False)  # switches, token_file, media_limit; token is secret
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
     @property
@@ -186,6 +195,8 @@ def load(path: str | Path) -> Config:
     }
     cfg.modules.setdefault("ai_usage", False)
     cfg.ai_usage = _ai_usage(raw.get("ai_usage", {}))
+    cfg.modules.setdefault("instagram", False)
+    cfg.instagram = _instagram(raw.get("instagram", {}))
     today = raw.get("today", {})
     env_urls = os.environ.get("KOKPIT_CALENDAR_ICS_URLS", "").split()
     urls = env_urls or today.get("calendar_ics_urls", [])
@@ -232,6 +243,16 @@ def _ai_usage(a: dict) -> dict:
         "background_places": _str_list(a.get("background_places"), ["cron"]),
         "premium_output_price": _float_or_none(a.get("premium_output_price")) or 10.0,
         "stale_days": max(1, _int(a.get("stale_days"), 3)),
+    }
+
+
+def _instagram(a: dict) -> dict:
+    return {
+        "analyse": bool(a.get("analyse", False)),
+        "publish": bool(a.get("publish", False)),
+        "token_file": str(a.get("token_file", "data/instagram-token")),
+        "token": str(a.get("token", "")).strip(),
+        "media_limit": max(1, min(100, _int(a.get("media_limit"), 30))),
     }
 
 
