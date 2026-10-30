@@ -92,6 +92,7 @@ poll_timeout = 120             # publishing: give up waiting for a container aft
 chat_id = ""                  # the one chat the bot answers; every other chat is ignored
 morning_time = "07:30"        # used by `kokpit bot poll` to send the morning line once a day; cron can use the bot-morning job instead
 poll_timeout = 25             # long poll seconds for `kokpit bot poll` (1 to 50)
+remind_hours = 24             # job bot-instagram-remind: remind about Instagram slots due within this many hours (1 to 168)
 
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
@@ -281,6 +282,7 @@ def _bot(a: dict) -> dict:
         "chat_id": str(a.get("chat_id", "")).strip(),
         "morning_time": f"{int(m.group(1)):02d}:{m.group(2)}" if m else "07:30",
         "poll_timeout": max(1, min(50, _int(a.get("poll_timeout"), 25))),
+        "remind_hours": max(1, min(168, _int(a.get("remind_hours"), 24))),
     }
 
 

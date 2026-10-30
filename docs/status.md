@@ -10,11 +10,11 @@ Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQ
 - Brain tab over a local Markdown vault: threads, lanes, timeline, quick capture.
 - Events: multi-source collection, dedupe, category rules, translation, list/calendar/map views, `.ics` per event, optional public static page.
 - Career: LinkedIn guest search plus three company-site adapters, rule-based scoring with reasons, lifecycle tracking, market view, CSV export.
-- Social: Instagram analysis (account, posts, reels, stories insights) through the official API, working; content calendar with a Health guard and approved publishing (Approve button, publish switch, limit check) working, reminders through the bot planned; TikTok read-only stats from a local collector generalise.
+- Social: Instagram analysis (account, posts, reels, stories insights) through the official API, working; content calendar with a Health guard and approved publishing (Approve button, publish switch, limit check) working, approval and reminders through the bot working (synthetic tests); TikTok read-only stats from a local collector generalise.
 - AI usage: Hermes `state.db` reader, per-model/session view, rule-based advice.
 - Agenda: daily digest with scored items and audio summary.
 - System health: per-job status, morning warnings.
-- Telegram bot: morning line, commands, approval buttons. In this repository (M5 step 1a): bot core with one allowed chat, `/help /today /health /plan`, morning line job, poll runner and callback registry, synthetic tests only; approval buttons come in step 1b.
+- Telegram bot: morning line, commands, approval buttons. In this repository (M5 step 1a): bot core with one allowed chat, `/help /today /health /plan`, morning line job, poll runner and callback registry, synthetic tests only; Instagram approval buttons and reminders in step 1b.
 
 ## Rule-based baseline per module (no model key)
 

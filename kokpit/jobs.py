@@ -14,7 +14,7 @@ from .modules.ai_usage import collect as ai_usage_collect
 from .modules.career import collect as career_collect
 from .modules.events import api as events_api
 from .modules.instagram import collect as instagram_collect, planapi as instagram_planapi
-from .modules.bot import runner as bot_runner
+from .modules.bot import instagram as bot_instagram, runner as bot_runner
 from .modules.health import store
 from .modules.today import calendar, weather
 
@@ -94,6 +94,11 @@ def bot_poll(cfg: Config):
     return bot_runner.job_poll(cfg)
 
 
+def bot_instagram_remind(cfg: Config):
+    """Telegram bot: one reminder per Instagram slot due soon; ready slots get Approve and Not now buttons."""
+    return bot_instagram.job_remind(cfg)
+
+
 def bot_morning(cfg: Config):
     """Telegram bot: sends the morning line to the allowed chat."""
     return bot_runner.job_morning(cfg)
@@ -138,7 +143,7 @@ def calendar_job(cfg: Config):
     return len(data["events"]), info, data["errors"] + data["warnings"]
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan, "bot-poll": bot_poll, "bot-morning": bot_morning}
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan, "bot-poll": bot_poll, "bot-morning": bot_morning, "bot-instagram-remind": bot_instagram_remind}
 
 
 def run(cfg: Config, name: str) -> bool:

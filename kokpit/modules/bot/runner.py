@@ -7,7 +7,7 @@ from datetime import datetime
 from ...config import Config
 from ...db import connect
 from ..health import store as health_store
-from . import callbacks, commands, store
+from . import callbacks, commands, instagram, store
 from .client import BotApiError, Client
 from .token import chat_id, missing, resolve
 
@@ -36,7 +36,10 @@ def handle_update(cfg: Config, conn, client, upd: dict) -> str:
         if not cid or cid != allowed:
             store.bump(conn, "foreign")
             return "foreign"
-        client.send_message(cid, commands.reply(cfg, str(msg.get("text") or "")))
+        text = str(msg.get("text") or "")
+        client.send_message(cid, commands.reply(cfg, text))
+        if commands.command(text) == "/plan":
+            instagram.send_ready_cards(cfg, conn, client, cid)
         return "handled"
     return "skipped"
 

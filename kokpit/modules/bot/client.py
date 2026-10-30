@@ -88,3 +88,8 @@ class Client:
     def edit_message_reply_markup(self, chat_id, message_id: int, reply_markup: dict | None = None):
         return self.call("editMessageReplyMarkup", {"chat_id": chat_id, "message_id": message_id,
                                                     "reply_markup": reply_markup or {"inline_keyboard": []}})
+
+    def edit_message_text(self, chat_id, message_id: int, text: str, reply_markup: dict | None = None):
+        """Replaces the text; with no markup the inline buttons are removed."""
+        return self.call("editMessageText", {"chat_id": chat_id, "message_id": message_id, "text": str(text)[:MAX_TEXT],
+                                             "reply_markup": reply_markup or {"inline_keyboard": []}})

@@ -72,9 +72,13 @@ def plan_text(cfg: Config, now: datetime | None = None) -> str:
     return "Next slots (UTC):\n" + "\n".join(f"- {x['due_at'].replace('T', ' ')[:16]} {x['kind']} ({x['status']})" for x in slots[:5])
 
 
-def reply(cfg: Config, text: str) -> str:
+def command(text: str) -> str:
     cmd = (text or "").strip().split(maxsplit=1)[0].lower() if (text or "").strip() else ""
-    cmd = cmd.split("@", 1)[0]
+    return cmd.split("@", 1)[0]
+
+
+def reply(cfg: Config, text: str) -> str:
+    cmd = command(text)
     if cmd in ("/help", "/start"):
         return HELP
     if cmd == "/today":
