@@ -41,21 +41,35 @@ def enrich(rows: list[dict], prices: dict) -> list[dict]:
 
 
 def totals(rows: list[dict]) -> dict:
+    """Sums for a set of rows. ``estimate_usd`` is the sum of the priced rows only; ``estimate_state`` says how far to trust it:
+    'known' (every token priced, or no tokens at all), 'partial' (some tokens unpriced) or 'unknown' (tokens exist, none priced;
+    then ``estimate_usd`` is None, never 0)."""
     t = {"sessions": len({(r["tool"], r["session_hash"]) for r in rows}), "input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0,
-         "cache_write_tokens": 0, "estimate_usd": 0.0, "unpriced_tokens": 0}
-    models = set()
+         "cache_write_tokens": 0, "estimate_usd": 0.0, "priced_tokens": 0, "unpriced_tokens": 0}
+    unpriced: dict[str, int] = {}
     for r in rows:
         for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens"):
             t[k] += r[k]
         if r["cost"] is None:
             t["unpriced_tokens"] += r["all_tokens"]
-            models.add(r["model"])
+            unpriced[r["model"]] = unpriced.get(r["model"], 0) + r["all_tokens"]
         else:
+            t["priced_tokens"] += r["all_tokens"]
             t["estimate_usd"] += r["cost"]
     t["tokens"] = t["input_tokens"] + t["output_tokens"] + t["cache_read_tokens"] + t["cache_write_tokens"]
-    t["estimate_usd"] = round(t["estimate_usd"], 4)
-    t["unpriced_models"] = sorted(models)
+    t["estimate_state"] = "known" if not t["unpriced_tokens"] else ("partial" if t["priced_tokens"] else "unknown")
+    t["estimate_usd"] = None if t["estimate_state"] == "unknown" else round(t["estimate_usd"], 4)
+    t["unpriced_models"] = sorted(unpriced)
+    t["unpriced_by_model"] = dict(sorted(unpriced.items()))
     return t
+
+
+def money(t: dict) -> str:
+    """Text form of a totals dict for the CLI: '12.34 USD', '12.34 USD (partial, N unpriced tokens)' or 'unknown'."""
+    if t["estimate_state"] == "unknown":
+        return "unknown"
+    s = f"{t['estimate_usd']:.2f} USD"
+    return s + f" (partial, {t['unpriced_tokens']:,} unpriced tokens)".replace(",", " ") if t["estimate_state"] == "partial" else s
 
 
 def _in_window(rows: list[dict], since: str) -> list[dict]:
@@ -115,8 +129,9 @@ def numbers(cfg: Config, windows: dict) -> dict:
         "subscription_fee": {"configured": bool(sub), "currency": cur, "monthly_by_tool": sub, "total_monthly": round(sum(sub.values()), 2) if sub else None,
                              "note": "what you enter per month"},
         "list_price_equivalent": {"label": LABEL, "currency": "USD", **{k: windows[k]["estimate_usd"] for k in windows},
+                                  "state": {k: windows[k]["estimate_state"] for k in windows},
                                   "unpriced_tokens_30d": windows["30d"]["unpriced_tokens"], "unpriced_models": windows["30d"]["unpriced_models"],
-                                  "note": "usage at published per-token prices; unknown prices are left out and counted separately"},
+                                  "note": "usage at published per-token prices; null means no token had a price (unknown, not zero); partial means unpriced tokens are left out and counted separately"},
     }
 
 
@@ -172,7 +187,7 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
     in_win = {k: _in_window(rows, s) for k, s in starts.items()}
     windows = {k: totals(v) for k, v in in_win.items()}
     for k, v in in_win.items():
-        windows[k]["by_tool"] = {x["name"]: {kk: x[kk] for kk in ("tokens", "estimate_usd", "unpriced_tokens", "sessions")} for x in _group(v, lambda r: r["tool"])}
+        windows[k]["by_tool"] = {x["name"]: {kk: x[kk] for kk in ("tokens", "estimate_usd", "estimate_state", "unpriced_tokens", "unpriced_models", "sessions")} for x in _group(v, lambda r: r["tool"])}
     d30 = in_win["30d"]
     return {"enabled": True, "generated": _stamp(now), "label": LABEL, "freshness": health_api.freshness(cfg, "ai_usage"),
             "readers": reader_status(cfg, stored), "windows": windows, "numbers": numbers(cfg, windows),
@@ -227,10 +242,10 @@ def summary_text(cfg: Config, now: datetime | None = None) -> str:
     n = lambda x: f"{x:,}".replace(",", " ")
     for k, label in (("today", "today"), ("7d", "7 days"), ("30d", "30 days")):
         w = v["windows"][k]
-        lines.append(f"{label:8s} {w['sessions']:5d} sessions  {n(w['tokens']):>16s} tokens  list price {w['estimate_usd']:.2f} USD  unpriced tokens {n(w['unpriced_tokens'])}")
+        lines.append(f"{label:8s} {w['sessions']:5d} sessions  {n(w['tokens']):>16s} tokens  list price {money(w)}  unpriced tokens {n(w['unpriced_tokens'])}")
     lines.append("\nper tool, 30 days:")
     for t in v["by_tool"]:
-        lines.append(f"  {t['name']:12s} {n(t['tokens']):>16s} tokens  list price {t['estimate_usd']:.2f} USD  unpriced {n(t['unpriced_tokens'])}")
+        lines.append(f"  {t['name']:12s} {n(t['tokens']):>16s} tokens  list price {money(t)}  unpriced {n(t['unpriced_tokens'])}")
     nm = v["numbers"]
     lines.append("\nreal API spend: " + (f"{nm['real_api_spend']['total_monthly']} {nm['real_api_spend']['currency']} per month (entered)" if nm["real_api_spend"]["configured"] else "not configured"))
     lines.append("subscription fee: " + (f"{nm['subscription_fee']['total_monthly']} {nm['subscription_fee']['currency']} per month (entered)" if nm["subscription_fee"]["configured"] else "not configured"))

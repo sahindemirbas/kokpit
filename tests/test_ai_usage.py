@@ -51,11 +51,13 @@ def claude_line(mid, model, sess, i, o, cr, cw, hours=1.0, req=None, entry="cli"
             "message": {"id": mid, "model": model, "usage": {"input_tokens": i, "output_tokens": o, "cache_read_input_tokens": cr, "cache_creation_input_tokens": cw}}}
 
 
-def codex_events(sid, model, totals, hours=1.0):
+def codex_events(sid, model, totals, hours=1.0, reasoning=0):
+    """totals: (input incl. cached, cached subset, output incl. reasoning). Mirrors the real structure: total_tokens = input + output."""
     ev = [{"type": "session_meta", "payload": {"id": sid, "source": "exec"}}, {"type": "turn_context", "payload": {"model": model}}]
     for k, (i, c, o) in enumerate(totals):
         ev.append({"type": "event_msg", "timestamp": ts(hours - k * 0.01), "payload": {"type": "token_count", "info": {
-            "total_token_usage": {"input_tokens": i, "cached_input_tokens": c, "output_tokens": o, "cache_write_input_tokens": 0}}}})
+            "total_token_usage": {"input_tokens": i, "cached_input_tokens": c, "cache_write_input_tokens": 0, "output_tokens": o,
+                                                                                                    "reasoning_output_tokens": min(reasoning, o), "total_tokens": i + o}}}})
     ev.insert(2, {"type": "event_msg", "payload": {"type": "token_count", "info": None}})
     return ev
 
@@ -142,6 +144,12 @@ class ReaderTests(Base):
         r = rows[0]
         # final totals: input 3000 of which 2000 cached, output 35; repeated events add nothing
         self.assertEqual((r["input_tokens"], r["cache_read_tokens"], r["output_tokens"]), (1000, 2000, 35))
+
+    def test_codex_cache_and_reasoning_split(self):
+        write_jsonl(self.tmp / "codex" / "a.jsonl", codex_events("C1", "gpt-x", [(14139, 12288, 5), (20000, 15000, 405)], reasoning=300))
+        r = readers.read_codex(self.tmp / "codex")[0][0]
+        # input excludes the cached subset, reasoning stays inside output (not added again), no cache write
+        self.assertEqual((r["input_tokens"], r["cache_read_tokens"], r["output_tokens"], r["cache_write_tokens"]), (5000, 15000, 405, 0))
 
     def test_codex_counter_reset_counts_new_usage(self):
         write_jsonl(self.tmp / "codex" / "a.jsonl", codex_events("C1", "gpt-x", [(1000, 0, 10), (200, 0, 5)]))
@@ -234,6 +242,27 @@ class JobAndApiTests(Base):
         self.assertEqual(v["by_tool"][0]["name"], "hermes")
         self.assertEqual(len(v["top_sessions"]), 3)
         self.assertTrue(all(len(s["session"]) == 12 for s in v["top_sessions"]))
+
+    def test_unknown_partial_known_estimates(self):
+        self.populate()
+        self.run_job(self.cfg())
+        v = api.view(self.cfg(), NOW)
+        w = v["windows"]["7d"]
+        self.assertEqual((w["estimate_state"], w["unpriced_models"]), ("partial", ["gpt-x"]))
+        self.assertEqual(v["numbers"]["list_price_equivalent"]["state"]["7d"], "partial")
+        self.assertIn("partial", api.money(w))
+        codex = next(x for x in v["by_tool"] if x["name"] == "codex")
+        self.assertEqual((codex["estimate_state"], codex["estimate_usd"]), ("unknown", None))
+        self.assertEqual(api.money(codex), "unknown")
+        claude = next(x for x in v["by_tool"] if x["name"] == "claude_code")
+        self.assertEqual(claude["estimate_state"], "known")
+        self.assertEqual(api.money(claude), "0.01 USD")
+        self.assertTrue(all(s["estimate_state"] == "unknown" for s in v["top_sessions"] if s["tool"] == "codex"))
+        # nothing priced at all: null, never 0
+        (self.tmp / "prices.json").write_text(json.dumps({"models": {}}))
+        v = api.view(self.cfg(), NOW)
+        self.assertEqual((v["windows"]["30d"]["estimate_state"], v["windows"]["30d"]["estimate_usd"]), ("unknown", None))
+        self.assertIsNone(v["numbers"]["list_price_equivalent"]["30d"])
 
     def test_three_numbers_stay_apart(self):
         self.populate()

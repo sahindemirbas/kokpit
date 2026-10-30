@@ -180,11 +180,14 @@ def read_claude_code(root: Path) -> tuple[list[dict], dict]:
 def read_codex(root: Path) -> tuple[list[dict], dict]:
     """token_count events carry ``info.total_token_usage``, a running total for the session. Only the growth
     since the previous event is counted, so repeated events add nothing; a total that drops (counter reset)
-    counts as new usage. Codex reports cached input inside input_tokens, so cache reads are subtracted from it."""
+    counts as new usage. Field notes (checked against real token_count events: total_tokens == input_tokens + output_tokens and
+    cached_input_tokens <= input_tokens): cached input is a subset of input_tokens, so it is subtracted from input and stored as
+    cache reads; reasoning_output_tokens is part of output_tokens and is not added again. OpenAI has no cache write charge, so
+    cache_write is always 0 (the log carries a cache_write_input_tokens field, always 0 in the samples; it is deliberately ignored)."""
     files = _files(root, "Codex sessions")
     acc: dict = {}
     for f in files:
-        sid, model, place, prev = f.stem, "unknown", "", dict.fromkeys(("input", "cached", "output", "write"), 0)
+        sid, model, place, prev = f.stem, "unknown", "", dict.fromkeys(("input", "cached", "output"), 0)
         for o in _jsonl(f):
             p = o.get("payload") if isinstance(o.get("payload"), dict) else {}
             kind = o.get("type")
@@ -198,13 +201,13 @@ def read_codex(root: Path) -> tuple[list[dict], dict]:
                 if not isinstance(tot, dict):
                     continue
                 cur = {"input": _n(tot.get("input_tokens")), "cached": _n(tot.get("cached_input_tokens")),
-                       "output": _n(tot.get("output_tokens")), "write": _n(tot.get("cache_write_input_tokens"))}
+                       "output": _n(tot.get("output_tokens"))}
                 delta = {k: (cur[k] - prev[k]) if cur[k] >= prev[k] else cur[k] for k in cur}
                 prev = cur
                 if not any(delta.values()):
                     continue
                 tokens = {"input_tokens": max(0, delta["input"] - delta["cached"]), "output_tokens": delta["output"],
-                          "cache_read_tokens": delta["cached"], "cache_write_tokens": delta["write"]}
+                          "cache_read_tokens": delta["cached"], "cache_write_tokens": 0}
                 ts = iso(o.get("timestamp"))
                 base = {"tool": "codex", "model_raw": model, "session_hash": session_hash(sid), "place": place}
                 _merge(acc, (sid, model), base, tokens, ts, ts)

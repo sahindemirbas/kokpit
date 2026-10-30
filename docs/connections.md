@@ -41,7 +41,7 @@ The Connections screen is where a user enables modules and links accounts. It is
 
 - `hermes`: the SQLite file `state.db` of the Hermes agent (opened with `mode=ro`); tables `sessions` and `session_model_usage`.
 - `claude_code`: `*.jsonl` logs under the Claude Code projects folder; only the model name, token counters, time and session id of assistant messages.
-- `codex`: `*.jsonl` logs under the Codex sessions folder; only the model, the cumulative `token_count` totals, time and session id.
+- `codex`: `*.jsonl` logs under the Codex sessions folder; only the model, the cumulative `token_count` totals, time and session id. Field notes: `cached_input_tokens` is a subset of `input_tokens` (checked: `total_tokens` = input + output), so Kokpit stores input minus cached as input and the cached part as cache reads; reasoning tokens are treated as part of output and not added again; cache write is always 0 (OpenAI has no cache write charge, the log's `cache_write_input_tokens` is ignored).
 
 Message text, prompts, file contents and project names are never read into Kokpit's database. Session ids are stored as a 12 character sha256 prefix. Nothing leaves the device. The only network request is the opt-in `[ai_usage] price_refresh = true`: one GET of `https://models.dev/api.json` at most every 24 hours, with no user data sent. A missing or unreadable file becomes a Health warning and the other readers still run.
 
