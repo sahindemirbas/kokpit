@@ -24,3 +24,18 @@ CREATE TABLE IF NOT EXISTS job_listings (
 );
 CREATE INDEX IF NOT EXISTS idx_job_norm ON job_listings(norm_key);
 CREATE INDEX IF NOT EXISTS idx_job_status ON job_listings(status);
+CREATE TABLE IF NOT EXISTS career_weekly (   -- one market note per ISO week, written by the career job when [model.uses] career_weekly is on
+    week TEXT PRIMARY KEY,       -- YYYY-Www
+    start TEXT NOT NULL,
+    end TEXT NOT NULL,
+    created TEXT NOT NULL,
+    model TEXT,
+    stats TEXT NOT NULL DEFAULT '{}',
+    text TEXT NOT NULL DEFAULT '{}'
+);
+CREATE TABLE IF NOT EXISTS career_skills (   -- the user's mark per skill gap: learning | known | skip
+    skill TEXT PRIMARY KEY,
+    status TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+);

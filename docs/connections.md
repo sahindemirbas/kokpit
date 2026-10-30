@@ -29,7 +29,7 @@ The Connections screen is where a user enables modules and links accounts. It is
 
 ## Model API (off by default)
 
-Any OpenAI-compatible chat-completions endpoint. In `kokpit.toml` set `[model] enabled = true`, `base_url`, `model`, and switch on single uses under `[model.uses]` (`events_translate`, `events_classify`, `digest`, `night`; all false by default). The key is read from the environment variable named by `key_env` (default `KOKPIT_MODEL_API_KEY`) and is never written to the toml, the database or the screen. A use that is off, or a missing key, stops the call before any network traffic. The Connections row shows which uses are on, the fields each one sends, the host, and the last successful call; every call (and failure) is a row in the `runs` table under `model:<use>`, so Health shows it.
+Any OpenAI-compatible chat-completions endpoint. In `kokpit.toml` set `[model] enabled = true`, `base_url`, `model`, and switch on single uses under `[model.uses]` (`events_translate`, `events_classify`, `digest`, `night`, `career_weekly`; all false by default). The key is read from the environment variable named by `key_env` (default `KOKPIT_MODEL_API_KEY`) and is never written to the toml, the database or the screen. A use that is off, or a missing key, stops the call before any network traffic. The Connections row shows which uses are on, the fields each one sends, the host, and the last successful call; every call (and failure) is a row in the `runs` table under `model:<use>`, so Health shows it.
 
 Events translation: `[events] translate_to = "en"` (empty = off) translates title and description when `events_translate` is on. Only those two fields are sent; translations are cached per event, and the original text is kept if the call fails.
 

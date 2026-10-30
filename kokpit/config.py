@@ -108,6 +108,7 @@ events_translate = false
 events_classify = false
 digest = false
 night = false
+career_weekly = false         # weekly job-market note in the Career tab; without it the tab shows numbers only
 
 [briefing]                      # digest topics: you choose them, nothing is built in. Example (remove the leading # to use):
 # max_per_topic = 5           # items kept per topic (1 to 20)
@@ -358,7 +359,7 @@ def _model(a: dict) -> dict:
         "model": str(a.get("model", "")).strip(),
         "key_env": str(a.get("key_env", "KOKPIT_MODEL_API_KEY")).strip() or "KOKPIT_MODEL_API_KEY",
         "timeout": max(1, min(300, _int(a.get("timeout"), 30))),
-        "uses": {k: bool(uses.get(k, False)) for k in ("events_translate", "events_classify", "digest", "night")},
+        "uses": {k: bool(uses.get(k, False)) for k in ("events_translate", "events_classify", "digest", "night", "career_weekly")},
     }
 
 
