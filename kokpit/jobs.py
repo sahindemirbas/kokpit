@@ -13,7 +13,7 @@ from .modules.brain import reader
 from .modules.ai_usage import collect as ai_usage_collect
 from .modules.career import collect as career_collect
 from .modules.events import api as events_api
-from .modules.instagram import collect as instagram_collect
+from .modules.instagram import collect as instagram_collect, planapi as instagram_planapi
 from .modules.health import store
 from .modules.today import calendar, weather
 
@@ -79,6 +79,15 @@ def instagram(cfg: Config):
         conn.close()
 
 
+def instagram_plan(cfg: Config):
+    """Daily guard for the Instagram content calendar: warns when nothing is planned or a post failed. Never publishes."""
+    conn = connect(cfg.db)
+    try:
+        return instagram_planapi.guard(cfg, conn)
+    finally:
+        conn.close()
+
+
 def weather_job(cfg: Config):
     """Fetches a 3-day Open-Meteo forecast for the configured place (no key) and caches it."""
     if not cfg.has_place:
@@ -118,7 +127,7 @@ def calendar_job(cfg: Config):
     return len(data["events"]), info, data["errors"] + data["warnings"]
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "ai_usage": ai_usage, "instagram": instagram}
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan}
 
 
 def run(cfg: Config, name: str) -> bool:

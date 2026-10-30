@@ -126,6 +126,7 @@ def _instagram_item(cfg: Config) -> dict:
     module_on = cfg.modules.get("instagram", False)
     on = module_on and cfg.instagram["analyse"]
     has = ig_token.configured(cfg)
+    pub = module_on and cfg.instagram["publish"]
     run = _last_run(cfg, "instagram")
     d = ig_api.view(cfg) if module_on else {}
     ok = bool(d.get("last_success"))
@@ -142,8 +143,8 @@ def _instagram_item(cfg: Config) -> dict:
     return {
         "id": "instagram", "name": "Instagram (official API)", "module": "instagram", "kind": "API with token", "enabled": on,
         "reads": "account fields, account insights, media and story insights" if on else "nothing (off)",
-        "writes": "nothing (publishing is a separate switch, not part of the analysis)",
-        "permission": "read-only (instagram_business_basic, instagram_business_manage_insights)",
+        "writes": "a post, reel, carousel or story to your account, only after you press Approve on that slot (publish switch is on)" if pub else "nothing (publishing is a separate switch and is off)",
+        "permission": "instagram_business_basic, instagram_business_manage_insights" + ("; publishing: instagram_business_content_publish" if pub else " (read-only)"),
         "target": "graph.instagram.com",
         "detail": f"Token configured: {'yes' if has else 'no'}. Last success: {d.get('last_success') or 'never'}. Metric errors in the last run: {len(d.get('errors') or [])}. The token is stored locally and never shown.",
         "status": status, "last": run,

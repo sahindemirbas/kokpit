@@ -1,4 +1,5 @@
-"""Minimal Instagram API (Instagram Login) client over urllib. GET only in this module.
+"""Minimal Instagram API (Instagram Login) client over urllib. ``get`` serves the analysis job; ``post`` is used only by the
+approved publishing path (publish.py).
 
 The token is sent as a query parameter (the API's own convention). It is removed from every error message
 and never printed or logged. ``opener`` is any callable ``opener(url, timeout=...)`` returning a file-like
@@ -52,12 +53,21 @@ class Client:
             text = text.replace(self.token, "***")
         return text
 
+    def _url(self, path: str) -> str:
+        return path if path.startswith("http") else BASE + path.lstrip("/")
+
     def get(self, path: str, **params) -> dict:
-        url = path if path.startswith("http") else BASE + path.lstrip("/")
-        url += "?" + urllib.parse.urlencode({**params, "access_token": self.token})
+        return self._send(self._url(path) + "?" + urllib.parse.urlencode({**params, "access_token": self.token}))
+
+    def post(self, path: str, **params) -> dict:
+        """Form-encoded POST; the token travels in the body, not in the URL."""
+        body = urllib.parse.urlencode({**params, "access_token": self.token}).encode("utf-8")
+        return self._send(urllib.request.Request(self._url(path), data=body, method="POST"))
+
+    def _send(self, target) -> dict:
         self.calls += 1
         try:
-            with self.opener(url, timeout=TIMEOUT) as r:
+            with self.opener(target, timeout=TIMEOUT) as r:
                 data = json.load(r)
         except urllib.error.HTTPError as e:
             code, msg = None, ""

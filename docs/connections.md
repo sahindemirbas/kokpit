@@ -68,6 +68,19 @@ Token refresh: `python -m kokpit instagram refresh-token` calls the `refresh_acc
 
 Commands: `python -m kokpit instagram collect`, `python -m kokpit instagram summary` (counts and totals only, no media ids or links).
 
+## Instagram publishing (off by default)
+
+Publishing is a separate switch from the analysis: `publish = true` under `[instagram]` (and `instagram = true` under `[modules]`). It needs one more permission on the same token, `instagram_business_content_publish`; generate the token again with it ticked. Without the switch, the Approve button is disabled and the API answers 403.
+
+How it works: you add a slot in the Social tab (content calendar), mark it ready, and press Approve. Only then Kokpit reads `content_publishing_limit`, creates a media container, polls its status every `poll_seconds` (default 3) until FINISHED or `poll_timeout` (default 120 seconds), and calls `media_publish`. Nothing publishes from a timer; the daily job `instagram-plan` (`python -m kokpit run-job instagram-plan`) only warns. If something goes wrong (platform error, container error, timeout, quota used up) the slot becomes failed with the platform's message; Kokpit never retries by itself, and Retry is another approval. After a timeout check the account before retrying, because the platform may still finish the container.
+
+Media must be a public URL that Instagram's servers can fetch (JPEG for images; MP4 or MOV for video). Where you host it is your choice: any file host, a bucket, or a tunnel such as cloudflared to a folder on your own machine. Kokpit does not host or upload media and does not require any particular service. Collaborators (up to 3 usernames) are sent in the `collaborators` field for posts, reels and carousels; the invitees still have to accept.
+
+What the API cannot do, so Kokpit does not pretend to: add library music to a reel or story, add stickers (polls, questions, links, countdowns), pin a post or a comment, edit the caption or media of a post after publishing, post to a personal account, schedule on Instagram's side (Kokpit keeps the plan and you approve it), and some story features such as interactive elements. Posts are limited per 24 hours (the quota is read before each publish). A reel is posted with `share_to_feed`.
+
+Test it first on a spare account: the first real publish is the only way to confirm your app role, permission and media URL work together.
+
+
 ## Secrets
 
 - Stored in a local `.env` (or the OS keyring where available). Never in `kokpit.db`, never in the Markdown vault, never in logs.

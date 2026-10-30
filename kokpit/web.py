@@ -1,6 +1,7 @@
 """The web app: one static page plus a small JSON API. Standard library only.
 
-Reads: everything. Writes: quick capture into the vault and the local career profile file, nothing else.
+Reads: everything. Writes: quick capture into the vault, the local career profile file and the Instagram content calendar (publishing only
+through the Approve action of one slot), nothing else.
 Binds to localhost unless the config says otherwise.
 """
 from __future__ import annotations
@@ -14,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 from . import __version__
 from .config import Config
 from .modules.ai_usage import api as ai_usage_api
-from .modules.instagram import api as instagram_api
+from .modules.instagram import api as instagram_api, planapi as instagram_plan
 from .modules.brain import api as brain_api
 from .modules.career import api as career_api
 from .modules.events import api as events_api
@@ -108,6 +109,8 @@ def make_handler(cfg: Config):
                     if sub in views:
                         return self._json(views[sub](cfg))
                     return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+                if path == "/api/instagram/plan":
+                    return self._json(instagram_plan.view(cfg))
                 if path == "/api/instagram":
                     return self._json(instagram_api.view(cfg))
                 if path == "/api/career":
@@ -138,8 +141,39 @@ def make_handler(cfg: Config):
             except (ValueError, json.JSONDecodeError) as exc:
                 return self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
+        def _plan_post(self, path: str):
+            """Content calendar writes. JSON content type is required, so a page on another site cannot trigger them."""
+            try:
+                if not (self.headers.get("Content-Type") or "").startswith("application/json"):
+                    return self._json({"error": "Content-Type must be application/json"}, HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > 100_000:
+                    return self._json({"error": "request too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(data, dict):
+                    raise ValueError("JSON object expected")
+                parts = path.split("/")[4:]  # /api/instagram/plan[/<id>[/<action>]]
+                if not parts:
+                    return self._json(instagram_plan.create(cfg, data))
+                slot_id, action = int(parts[0]), (parts[1] if len(parts) > 1 else "update")
+                if action == "update":
+                    return self._json(instagram_plan.update(cfg, slot_id, data))
+                if action == "delete":
+                    return self._json(instagram_plan.delete(cfg, slot_id))
+                if action == "approve":
+                    return self._json(instagram_plan.approve(cfg, slot_id))
+                return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
+            except PermissionError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.FORBIDDEN)
+            except LookupError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+            except (ValueError, json.JSONDecodeError) as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+
         def do_POST(self):
             path = urlparse(self.path).path
+            if path == "/api/instagram/plan" or path.startswith("/api/instagram/plan/"):
+                return self._plan_post(path)
             if path in ("/api/career/profile", "/api/career/cv", "/api/career/score"):
                 return self._career_post(path)
             if path not in ("/api/brain/capture", "/api/brain/done"):

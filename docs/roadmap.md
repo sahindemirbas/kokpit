@@ -44,9 +44,10 @@ Moved out of M2:
 - LinkedIn guest search and the adapter contract for `adapters/jobs/`.
 - Scoring with reasons, lifecycle, market view, CSV export.
 
-## M4: social and AI usage (AI usage and Instagram analysis done, publishing open)
+## M4: social and AI usage (AI usage, Instagram analysis, calendar and approved publishing done; bot approval open)
 
-- Instagram connection flow with separate analyse/publish switches; content calendar; approval through the bot. (open)
+- Instagram separate analyse/publish switches, content calendar and web Approve publishing. (done)
+- Approval through the bot. (open)
 - AI usage readers (Hermes, Claude Code, Codex) and the limits panel; advice rules with evidence. (done)
 
 ## M5: agenda, bot, Docker

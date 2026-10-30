@@ -81,6 +81,9 @@ publish = false                # separate switch; publishing is not part of the 
 token_file = "data/instagram-token"   # written by `kokpit instagram refresh-token`; keep out of git
 # token = ""                   # or set KOKPIT_INSTAGRAM_TOKEN in the environment (preferred over writing it here)
 media_limit = 30               # recent posts and reels read per run (1 to 100)
+plan_guard_days = 3            # Health warning when nothing is planned for the next N days (0 = off)
+poll_seconds = 3               # publishing: wait between container status checks
+poll_timeout = 120             # publishing: give up waiting for a container after this many seconds
 
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
@@ -253,6 +256,9 @@ def _instagram(a: dict) -> dict:
         "token_file": str(a.get("token_file", "data/instagram-token")),
         "token": str(a.get("token", "")).strip(),
         "media_limit": max(1, min(100, _int(a.get("media_limit"), 30))),
+        "plan_guard_days": max(0, min(60, _int(a.get("plan_guard_days"), 3))),
+        "poll_seconds": max(1, min(30, _int(a.get("poll_seconds"), 3))),
+        "poll_timeout": max(5, min(600, _int(a.get("poll_timeout"), 120))),
     }
 
 
