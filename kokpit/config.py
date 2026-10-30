@@ -30,6 +30,7 @@ brain = true
 health = true
 events = {events}
 jobs = false                  # career: profile, scoring, listings (off until you set it up)
+ai_usage = false              # reads local usage logs of AI tools (off until you set it up)
 
 [today]
 calendar_ics_urls = []        # read-only ICS feeds (e.g. Google's secret iCal address). SECRET: keep this file
@@ -59,6 +60,20 @@ linkedin_guest = false        # OFF. Reads LinkedIn's public guest job pages; se
 linkedin_pages = 3            # result pages (10 each) per search; 7-day window
 close_after_days = 3          # adapter listings missing this many days are marked closed (LinkedIn is never closed this way)
 
+[ai_usage]
+readers = []                  # which local logs to read: "hermes", "claude_code", "codex" (each one is separate; all off by default)
+hermes_db = "~/.hermes/state.db"
+claude_dir = "~/.claude/projects"
+codex_dir = "~/.codex/sessions"
+prices_path = "data/ai-usage-prices.json"   # your per-model prices per 1M tokens: {{"models": {{"<id>": {{"input": 3, "output": 15, "cache_read": 0.3, "cache_write": 3.75}}}}}}
+price_refresh = false         # opt in: one GET of https://models.dev/api.json at most every 24 h, nothing is sent
+currency = "USD"              # currency of the two numbers you enter below
+# [ai_usage.subscriptions]    # monthly fee per tool, e.g. claude_code = 20
+# [ai_usage.api_spend]        # real API spend per month per tool, entered by you
+# [[ai_usage.limits]]         # tool = "codex", name = "5 hour", window_hours = 5, tokens = 2000000, resets_at = "2026-11-01T10:00:00Z"
+long_session_tokens = 2000000 # advice: sessions with more fresh tokens than this are listed
+stale_days = 3                # advice: a reader whose newest data is older than this is flagged
+
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
 quick_capture = true          # allow appending a note or task from the dashboard
@@ -86,6 +101,7 @@ class Config:
     place: dict = field(default_factory=dict)      # city, country, lat, lon, radius_km, languages
     events: dict = field(default_factory=dict)     # allevents_slug, eventbrite_slug, adapters, adapter_dirs
     career: dict = field(default_factory=dict)     # profile_path
+    ai_usage: dict = field(default_factory=dict)   # readers, paths, prices, limits, advice thresholds
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
     @property
@@ -168,6 +184,8 @@ def load(path: str | Path) -> Config:
         "linkedin_pages": max(1, min(5, _int(car.get("linkedin_pages"), 3))),
         "close_after_days": max(1, min(60, _int(car.get("close_after_days"), 3))),
     }
+    cfg.modules.setdefault("ai_usage", False)
+    cfg.ai_usage = _ai_usage(raw.get("ai_usage", {}))
     today = raw.get("today", {})
     env_urls = os.environ.get("KOKPIT_CALENDAR_ICS_URLS", "").split()
     urls = env_urls or today.get("calendar_ics_urls", [])
@@ -175,6 +193,46 @@ def load(path: str | Path) -> Config:
         urls = [urls]
     cfg.calendar_ics_urls = [str(u).strip() for u in urls if str(u).strip()]
     return cfg
+
+
+def _num_map(v) -> dict[str, float]:
+    out = {}
+    for k, x in (v.items() if isinstance(v, dict) else []):
+        try:
+            if float(x) >= 0:
+                out[str(k)] = float(x)
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
+def _ai_usage(a: dict) -> dict:
+    limits = []
+    for x in a.get("limits", []) if isinstance(a.get("limits"), list) else []:
+        if not isinstance(x, dict) or not x.get("tool"):
+            continue
+        hours, tokens = _int(x.get("window_hours"), 0), _int(x.get("tokens"), 0)
+        if hours > 0 and tokens > 0:
+            limits.append({"tool": str(x["tool"]), "name": str(x.get("name") or f"{hours} hour"), "window_hours": hours, "tokens": tokens,
+                           "resets_at": str(x.get("resets_at") or "")})
+    return {
+        "readers": _str_list(a.get("readers"), []),
+        "hermes_db": str(a.get("hermes_db", "~/.hermes/state.db")),
+        "claude_dir": str(a.get("claude_dir", "~/.claude/projects")),
+        "codex_dir": str(a.get("codex_dir", "~/.codex/sessions")),
+        "prices_path": str(a.get("prices_path", "data/ai-usage-prices.json")),
+        "price_refresh": bool(a.get("price_refresh", False)),
+        "currency": str(a.get("currency", "USD"))[:8] or "USD",
+        "subscriptions": _num_map(a.get("subscriptions")),
+        "api_spend": _num_map(a.get("api_spend")),
+        "limits": limits,
+        "long_session_tokens": max(1, _int(a.get("long_session_tokens"), 2_000_000)),
+        "cache_write_ratio": max(0.0, _float_or_none(a.get("cache_write_ratio")) or 0.5),
+        "cache_write_min_tokens": max(0, _int(a.get("cache_write_min_tokens"), 1_000_000)),
+        "background_places": _str_list(a.get("background_places"), ["cron"]),
+        "premium_output_price": _float_or_none(a.get("premium_output_price")) or 10.0,
+        "stale_days": max(1, _int(a.get("stale_days"), 3)),
+    }
 
 
 def _str_list(v, default: list[str]) -> list[str]:

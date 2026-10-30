@@ -10,6 +10,7 @@ from collections.abc import Callable
 from .config import Config
 from .db import connect
 from .modules.brain import reader
+from .modules.ai_usage import collect as ai_usage_collect
 from .modules.career import collect as career_collect
 from .modules.events import api as events_api
 from .modules.health import store
@@ -59,6 +60,15 @@ def career(cfg: Config):
         conn.close()
 
 
+def ai_usage(cfg: Config):
+    """Reads the enabled local AI usage logs (Hermes, Claude Code, Codex) into the usage table; read-only."""
+    conn = connect(cfg.db)
+    try:
+        return ai_usage_collect.collect(cfg, conn)
+    finally:
+        conn.close()
+
+
 def weather_job(cfg: Config):
     """Fetches a 3-day Open-Meteo forecast for the configured place (no key) and caches it."""
     if not cfg.has_place:
@@ -98,7 +108,7 @@ def calendar_job(cfg: Config):
     return len(data["events"]), info, data["errors"] + data["warnings"]
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career}
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "ai_usage": ai_usage}
 
 
 def run(cfg: Config, name: str) -> bool:
