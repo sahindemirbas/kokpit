@@ -26,6 +26,7 @@ from .modules.events import api as events_api
 from .modules.connections import api as connections_api
 from .modules.health import api as health_api
 from .modules.today import api as today_api
+from .modules.today import summary as today_summary
 
 STATIC = Path(__file__).parent / "static"
 _RANGE = re.compile(r"bytes=(\d*)-(\d*)")
@@ -121,6 +122,8 @@ def make_handler(cfg: Config):
                     return self._file("index.html", "text/html; charset=utf-8")
                 if path == "/api/today":
                     return self._json(today_api.view(cfg))
+                if path == "/api/summary":
+                    return self._json(today_summary.view(cfg))
                 if path == "/api/brain":
                     return self._json(brain_api.view(cfg))
                 if path == "/api/brain/meetings":

@@ -80,6 +80,10 @@ body{overflow-x:clip}/* entrance animations overshoot by a subpixel */
 .mp .mi{min-width:0;flex:1}.mp .mt{display:block;font:700 13px/1.2 var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.mp .mm{font:500 11px var(--mono)}
 .mp input[type=range]{width:100%;margin:4px 0 0;accent-color:#ff6b4a;height:14px}
 @media(max-width:700px){.mp{right:12px;bottom:12px}}
+.mp .x{flex:none;align-self:flex-start}.mp .mi{overflow:hidden}
+.apc{display:flex;align-items:center;gap:12px;min-width:0}.apc .af-pl{width:38px;height:38px;font-size:14px}.apc input[type=range]{flex:1;min-width:0;accent-color:#ff6b4a}.apc .mono{font-size:11px;white-space:nowrap}
+.af-top>.sr{flex:0 1 360px;min-width:0}
+@media(max-width:700px){.af-top>.sr{order:9;flex:1 1 100%;max-width:none}}
 .af-tema{margin-left:auto;font:700 12px var(--mono);text-transform:uppercase;color:var(--ink);background:var(--card);border:2px solid var(--ink);border-radius:99px;padding:5px 12px;cursor:pointer;box-shadow:3px 3px 0 var(--shd,var(--ink));display:inline-flex;align-items:center;gap:7px}.af-tema svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 html[data-tema=dark]{color-scheme:dark;--bg:#1d1b18;--card:#27241f;--ink:#e6dfcd;--w:#2f2b25;--w2:#2b2823;--w3:#34302a;--shd:#0b0a09}
 html[data-tema=dark] .fx-d{--ink:#161412;color:#161412}
@@ -623,7 +627,7 @@ html[data-tema=dark] .bm-st.err{color:#ff8a7a}html[data-tema=dark] .bm-st.ok{col
 </style><style>
 </style>
 </head><body>
-<div class="af-top"><div class="af-logo" data-view="bg">Kokpit</div><div class="af-clk" id="afclk">--:--<small id="afdt"></small></div><button type="button" class="af-tema" id="aftema" aria-label="Toggle dark mode"></button><div id="agp" class="agp" hidden></div><div id="tag" hidden></div><div id="sr" hidden></div></div>
+<div class="af-top"><div class="af-logo" data-view="bg">Kokpit</div><div id="sr" hidden></div><div class="af-clk" id="afclk">--:--<small id="afdt"></small></div><button type="button" class="af-tema" id="aftema" aria-label="Toggle dark mode"></button><div id="agp" class="agp" hidden></div><div id="tag" hidden></div></div>
 <div class="nav" id="nav" role="navigation" aria-label="Sections"></div><div class="subnav" id="subnav" role="navigation" aria-label="Subsections" hidden></div><div id="afhd" hidden></div><div class="ctl" id="ctl"></div><div id="view"></div>
 <div class="ov" id="ov"><div class="tk" id="tk"></div></div>
 <script>
@@ -660,7 +664,11 @@ b.addEventListener('click',function(){var n=h.dataset.tema=='dark'?'light':'dark
 <script>
 const $=s=>document.getElementById(s),esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const base=p=>String(p||"").replace(/\/+$/,"").split("/").pop()||p;
-const J=async(p,opt)=>{const r=await fetch(p,opt);const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j};
+/* Tab race guard: a GET answer that arrives after the user moved to another view never settles,
+   so a slow view cannot draw over the new one. Shared endpoints (meta, summary) and writes always settle. */
+const J=async(p,opt)=>{const at=navCur(),own=!(opt&&opt.method&&opt.method!='GET')&&!/^\/api\/(meta|summary)\b/.test(p),stale=()=>own&&navCur()!==at;
+ let r,j;try{r=await fetch(p,opt);j=await r.json()}catch(e){if(stale())return new Promise(()=>{});throw e}
+ if(stale())return new Promise(()=>{});if(!r.ok)throw new Error(j.error||r.status);return j};
 const DS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],DSK=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],ML=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const ND=s=>new Date(s+'T00:00:00');
@@ -680,14 +688,29 @@ function afIcon(k,sz){const C='<path d="M20 62a18 18 0 0 1 10-33 24 24 0 0 1 46-
  return `<svg class="ic" width="${sz}" height="${sz}" viewBox="0 0 120 110" aria-hidden="true">${g}</svg>`}
 function afScroll(id){const e=$(id);if(e){e.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});e.focus({preventScroll:true})}}
 function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){const p=document.createElement('i');p.className='af-bu';const a=k/14*6.283;p.style.cssText=`left:${b.left+b.width/2-4}px;top:${b.top+b.height/2-4}px;background:${['#ffc21a','#ff5a3c','#4a9dff','#2fbf71'][k%4]};--x:${Math.cos(a)*56}px;--y:${Math.sin(a)*56}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),700)}}
-const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['ai','AI usage'],['so','Social'],['br','Brain'],['hl','Health'],['bi','Briefing'],['og','Organiser'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',ai_usage:'ai',social:'so',brain:'br',health:'hl',briefing:'bi',organiser:'og',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',bi:'briefing',og:'organiser',cn:'connections'};
+/* Grouped navigation. A leaf is a view id, optionally with a sub view ('br/meetings'); view ids never change. */
+const NAVT=[['bg','Today'],['bi','Briefing'],['ev','Events'],['@career'],['@social'],['@brain'],['ai','AI usage'],['hl','Health'],['og','Organiser'],['cn','Connections']];
+const NAVG={career:{l:'Career',k:[['jb','Jobs']]},social:{l:'Social',k:[['so','Instagram']]},brain:{l:'Brain',k:[['br','Threads'],['br/meetings','Meetings']]}};
+const HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',bi:'briefing',og:'organiser',cn:'connections'};
+const NAVH={today:'bg',briefing:'bi',events:'ev',career:'@career',jobs:'jb',market:'jb',social:'@social',instagram:'so',brain:'br',threads:'br','brain/meetings':'br/meetings',meetings:'br/meetings',ai_usage:'ai',ai:'ai',usage:'ai',health:'hl',organiser:'og',connections:'cn'};
+const NAVM={bg:'today',ev:'events',jb:'jobs',ai:'ai_usage',so:'instagram',br:'brain',hl:'health',bi:'briefing',og:'organiser'};/* view -> [modules] key; missing = always shown */
 function legacyHash(){if(location.hash=='#agenda')history.replaceState(null,'','#briefing')}/* old name of the briefing tab */
-legacyHash();try{const o=localStorage.getItem('kokpit_agenda_read');if(o!==null){if(localStorage.getItem('kokpit_briefing_read')===null)localStorage.setItem('kokpit_briefing_read',o);localStorage.removeItem('kokpit_agenda_read')}}catch(e){}
-const hashParts=()=>{const p=location.hash.replace('#','').split('/');return [HASH[p[0]]||'bg',p[1]||'']};
-const S={hn:{},view:hashParts()[0],sub:hashParts()[1]};
-function nav(){$('nav').innerHTML=NAVT.map(([k,l])=>`<button type="button" class="btn${k==S.view?' on':''}" data-view="${k}">${l}</button>`).join('')}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;S.sub='';location.hash=HASHR[S.view];render()}
- const sb=e.target.closest('[data-sub]');if(sb){S.sub=sb.dataset.sub;location.hash=HASHR[S.view]+(S.sub?'/'+S.sub:'');render()}
+legacyHash();try{let o=localStorage.getItem('kokpit_briefing_read');if(o!==null){if(localStorage.getItem('kokpit_read')===null)localStorage.setItem('kokpit_read',o);localStorage.removeItem('kokpit_briefing_read')}o=localStorage.getItem('kokpit_agenda_read');if(o!==null){if(localStorage.getItem('kokpit_read')===null)localStorage.setItem('kokpit_read',o);localStorage.removeItem('kokpit_agenda_read')}}catch(e){}
+const S={hn:{},gl:{},mods:null,view:'bg',sub:''};
+const navCur=()=>S.view+(S.sub?'/'+S.sub:'');
+function navOn(leaf){const m=NAVM[leaf.split('/')[0]];return !S.mods||!m||S.mods[m]!==false}
+function navGrp(leaf){return Object.keys(NAVG).find(g=>NAVG[g].k.some(x=>x[0]==leaf))||''}
+function navLeaf(t){if(t[0]!='@')return t;const g=t.slice(1),k=NAVG[g].k.filter(x=>navOn(x[0])),r=S.gl[g];return r&&k.some(x=>x[0]==r)?r:(k[0]||NAVG[g].k[0])[0]}
+const hashParts=()=>{let h=location.hash.slice(1);try{h=decodeURIComponent(h)}catch(_){}const p=h.toLowerCase().split('/'),t=NAVH[p.slice(0,2).join('/')]||NAVH[p[0]];if(!t)return ['bg',''];const l=navLeaf(t).split('/');return [l[0],l[1]||'']};
+{const n=hashParts();S.view=n[0];S.sub=n[1]}
+function nav(){const cur=navCur(),cg=navGrp(cur);if(cg)S.gl[cg]=cur;const nb=$('nav'),sl=nb.scrollLeft;
+ nb.innerHTML=NAVT.map(([k,l])=>{if(k[0]=='@'){const g=k.slice(1);if(!NAVG[g].k.some(x=>navOn(x[0])))return '';const on=cg==g;return `<button type="button" class="btn${on?' on':''}" data-leaf="${navLeaf(k)}" data-grp="${g}"${on?' aria-current="page"':''}>${NAVG[g].l}</button>`}
+  if(!navOn(k))return '';const on=S.view==k;return `<button type="button" class="btn${on?' on':''}" data-leaf="${k}"${on?' aria-current="page"':''}>${l}</button>`}).join('');nb.scrollLeft=sl;
+ const sn=$('subnav'),ks=cg?NAVG[cg].k.filter(x=>navOn(x[0])):[];if(ks.length<2){sn.hidden=true;sn.innerHTML='';return}
+ sn.hidden=false;sn.innerHTML=ks.map(([k,l])=>{const on=k==cur;return `<button type="button" class="btn${on?' on':''}" data-leaf="${k}" aria-current="${on?'page':'false'}">${l}</button>`}).join('')}
+function go(leaf){const p=leaf.split('/');S.view=p[0];S.sub=p[1]||'';location.hash=HASHR[S.view]+(S.sub?'/'+S.sub:'');render()}
+document.addEventListener('click',e=>{const n=e.target.closest('[data-leaf]');if(n){go(n.dataset.leaf);return}
+ const b=e.target.closest('[data-view]');if(b){if(b.dataset.bf&&b.closest('#sr'))S.bf=b.dataset.bf;go(b.dataset.view)}
  const s=e.target.closest('[data-scroll]');if(s)afScroll(s.dataset.scroll)});
 function afCount(root,ms=1000){root.querySelectorAll('[data-c]').forEach(e=>{const t=+e.dataset.c,s0=performance.now();if(!t||RM){e.textContent=String(t||0);return}const f=p=>{const r=Math.min(1,(p-s0)/ms);e.textContent=Math.round(t*(1-Math.pow(1-r,3)));if(r<1)requestAnimationFrame(f)};requestAnimationFrame(f)})}
 const counts=v=>afCount(v,1100);
@@ -775,7 +798,7 @@ async function bmSave(){const b=$('bmsave'),m=$('bmmsg');b.disabled=true;m.textC
 function bmDiff(cur){if(!cur||!cur.groups)return;const mine=bmBody();let i=0,n=0;cur.groups.forEach(g=>g.questions.forEach(q=>{const t=document.querySelector(`[data-bmq="${q.n}"]`);if(t&&mine.answers[i]!==(q.a||'')){t.classList.add('mt-ch');t.title='Saved version: '+(q.a||'(none)');n++}i++}));
  const g=$('bmgen');if(g&&mine.general!==(cur.general||'')){g.classList.add('mt-ch');g.title='Saved version: '+(cur.general||'(none)');n++}
  if(n)$('bmmsg').insertAdjacentHTML('beforeend',` ${n} field${n==1?'':'s'} differ from the saved version (outlined).`)}
-async function bmView(){const v=$('view');brSub();bmSt.dirty=false;v.innerHTML='<div class="empty">Loading...</div>';
+async function bmView(){const v=$('view');bmSt.dirty=false;v.innerHTML='<div class="empty">Loading...</div>';
  const list=await J('/api/brain/meetings');if(S.view!='br'||S.sub!='meetings')return;bmSt.write=list.write!==false;
  if(!list.meetings.length){v.innerHTML=`<div class="af"><div class="af-b s12"><h4>Meetings</h4><div class="empty">No meetings configured. Add [[brain.meetings]] to kokpit.toml.</div><pre class="mt-ex">${esc(BM_EX)}</pre></div></div>`;return}
  if(bmSt.id){try{bmSt.d=await J('/api/brain/meetings?id='+encodeURIComponent(bmSt.id));bmDraw();return}catch(e){v.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}}
@@ -785,8 +808,7 @@ async function bmView(){const v=$('view');brSub();bmSt.dirty=false;v.innerHTML='
 async function bwNote(){const t=$('bnote'),b=$('bnoteb'),s=$('bnotes'),val=t.value.trim();if(!val)return;b.disabled=t.disabled=true;s.textContent='Saving...';
  try{const r=await J('/api/brain/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'note',text:val})});s.textContent='saved '+base(r.path);t.value='';afBurst(b)}catch(e){s.textContent=e.message}b.disabled=t.disabled=false}
 
-function brSub(){const sn=$('subnav');sn.hidden=false;sn.innerHTML=[['','Overview'],['meetings','Meetings']].map(([k,l])=>`<button type="button" class="btn${k==(S.sub||'')?' on':''}" data-sub="${k}" aria-current="${k==(S.sub||'')?'page':'false'}">${l}</button>`).join('')}
-async function brView(){const v=$('view');brSub();v.innerHTML='<div class="empty">Loading...</div>';const [d,hh]=await Promise.all([J('/api/brain'),J('/api/health').catch(()=>null)]);if(S.view!='br'||S.sub)return;d.hwarn=hh&&hh.available?(hh.failing||[]).length+(hh.warnings||[]).length:0;
+async function brView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const [d,hh]=await Promise.all([J('/api/brain'),J('/api/health').catch(()=>null)]);if(S.view!='br'||S.sub)return;d.hwarn=hh&&hh.available?(hh.failing||[]).length+(hh.warnings||[]).length:0;
  S.hn.br=d.exists?[[d.lanes.on_you.length,'on you'],[d.todo.length,'tasks'],[d.threads.length,'threads']]:[];
  if(!d.exists){v.innerHTML=`<div class="empty">Vault not found: ${esc(base(d.vault))}</div>`;return}
  S._bd=d;S.bf=S.bf||'all';brDraw()}
@@ -928,8 +950,7 @@ async function cnView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
 const AGP={on:false};
 function agPlayer(d){const p=$('agp');if(!d||!d.enabled||(!d.audio&&!d.speech)){return}
  p.hidden=false;
- if(d.audio){if(!p.querySelector('audio')){p.innerHTML='<audio controls preload="none" aria-label="Digest audio"></audio>'}
-  const a=p.querySelector('audio');if(a.dataset.src!=d.audio+'?'+d.day){const was=!a.paused;a.dataset.src=d.audio+'?'+d.day;if(!was){a.src=d.audio+'?'+d.day}}return}
+ if(d.audio){p.hidden=true;p.innerHTML='';AGP.src=d.audio+'?'+d.day;if(window.AP)AP.add(AGP.src,'bi','Digest audio');return}
  if(!window.speechSynthesis){p.hidden=true;return}
  if(!p.querySelector('[data-agsay]')){p.innerHTML='<button type="button" class="btn" data-agsay="1">Read digest aloud</button>'}
  p.querySelector('[data-agsay]').textContent=speechSynthesis.speaking?'Stop reading':'Read digest aloud';AGP.text=d.speech}
@@ -946,9 +967,9 @@ async function ogView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
  v.innerHTML=h+'</div>'}
 /* ag-*: Briefing visual cards (card system ported from the reference design; measured numbers only) */
 const AGC=['#ff6b4a','#5bb6ff','#3ecf8e','#e0457b','#b48cff','#2fbf71'],AGK={'Matches your projects':'#ffc21a','GitHub':'#3ecf8e','Hugging Face':'#ffc21a'};let AGD=null;
-const agRD=()=>{try{return new Set(JSON.parse(localStorage.getItem('kokpit_briefing_read')||'[]'))}catch(e){return new Set()}};
+const agRD=()=>{try{return new Set(JSON.parse(localStorage.getItem('kokpit_read')||'[]'))}catch(e){return new Set()}};
 function agKey(u){u=String(u||'').toLowerCase().trim().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/[?#].*$/,'').replace(/\/+$/,'');if(u.startsWith('github.com/'))u=u.split('/').slice(0,3).join('/');return u}
-function agRead(g){const r=agRD(),k=agKey(g.url);r.delete(k);r.add(k);try{localStorage.setItem('kokpit_briefing_read',JSON.stringify([...r].slice(-600)))}catch(e){}document.querySelectorAll(`[data-ag="${g.id}"]`).forEach(e=>{const c=e.closest('.gv-c');if(c)c.classList.add('rd')})}
+function agRead(g){const r=agRD(),k=agKey(g.url);r.delete(k);r.add(k);try{localStorage.setItem('kokpit_read',JSON.stringify([...r].slice(-600)))}catch(e){}document.querySelectorAll(`[data-ag="${g.id}"]`).forEach(e=>{const c=e.closest('.gv-c');if(c)c.classList.add('rd')})}
 function agCut(s,n){s=String(s||'').replace(/\s+/g,' ').trim();if(s.length<=n)return s;return s.slice(0,n).replace(/\s+\S*$/,'')+'...'}
 function agSent(s,k){const text=String(s||'').replace(/\s+/g,' ').trim(),m=text.match(/.+?(?:[.!?]+(?=\s|$)|$)/g);return m?m.slice(0,k).join('').trim():text}
 function agSpons(g){const x=g.extra||{};return !!(x.sponsored||x.sponsor||/\/spons(ored)?\//i.test(String(g.url||'')))}
@@ -1001,16 +1022,17 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-ag]');if(b
  if(e.target.closest('[data-x]')||e.target.id=='ov'){agClose();return}
  const f=e.target.closest('[data-agf]');if(f){S.agUnread=!S.agUnread;agRender();return}
  const j=e.target.closest('[data-agj]');if(j){const t=$(j.dataset.agj);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return}
- const p=e.target.closest('[data-agplay]');if(p){const a=$('agp').querySelector('audio');if(a){a.paused?a.play():a.pause()}else{const s=$('agp').querySelector('[data-agsay]');if(s)s.click()}agWave()}});
+ const p=e.target.closest('[data-agplay]');if(p){const a=agAud();if(a){a.paused?a.play():a.pause()}else{const s=$('agp').querySelector('[data-agsay]');if(s)s.click()}agWave()}});
 document.addEventListener('keydown',e=>{if(e.key=='Escape'&&$('ov').classList.contains('on'))agClose()});
-function agWave(){const w=$('agwv');if(!w)return;const a=$('agp').querySelector('audio');
+const agAud=()=>window.AP&&AGP.src?AP.find(AGP.src):null;
+function agWave(){const w=$('agwv');if(!w)return;const a=agAud();
  if(a&&!a._w){a._w=1;['play','pause','ended'].forEach(ev=>a.addEventListener(ev,agWave))}
  const on=a?!a.paused:!!(window.speechSynthesis&&speechSynthesis.speaking);w.classList.toggle('on',on);const b=document.querySelector('[data-agplay]');if(b)b.textContent=on?'❚❚':'▶';
  if(!a&&on){clearTimeout(agWave.t);agWave.t=setTimeout(agWave,700)}}
 function agRender(){const v=$('view'),d=AGD;if(!d||S.view!='bi')return;const RD=agRD();
  const secs=d.secs.map(s=>({...s,items:S.agUnread?s.items.filter(i=>!RD.has(agKey(i.url))):s.items})).filter(s=>s.items.length),items=secs.flatMap(s=>s.items);
  const unread=d.items.filter(i=>!RD.has(agKey(i.url))).length;let h='';
- if(d.audio||d.speech)h+=`<div class="gd-au"><div class="af-wv" id="agwv">${Array.from({length:44},(_,j)=>`<i style="animation-delay:${((j*.07)%1).toFixed(2)}s"></i>`).join('')}</div><div style="display:flex;gap:14px;align-items:center"><button type="button" class="af-pl" data-agplay="1" aria-label="Play or pause the digest">▶</button><div><div class="mono">${d.audio?'Digest audio':'Digest, read by your browser'}</div><span style="font:600 14px var(--sans)">${d.items.length} items · ${esc(d.day||'')} · also in the top bar player</span></div></div></div>`;
+ if(d.audio||d.speech)h+=`<div class="gd-au"><div class="af-wv" id="agwv">${Array.from({length:44},(_,j)=>`<i style="animation-delay:${((j*.07)%1).toFixed(2)}s"></i>`).join('')}</div><div style="display:flex;gap:14px;align-items:center"><button type="button" class="af-pl" data-agplay="1" aria-label="Play or pause the digest">▶</button><div><div class="mono">${d.audio?'Digest audio':'Digest, read by your browser'}</div><span style="font:600 14px var(--sans)">${d.items.length} items · ${esc(d.day||'')} · keeps playing on other tabs</span></div></div></div>`;
  if(d.podcast&&d.podcast.url){const pc=d.podcast;h+=`<div class="gd-au"><div class="af-wv" id="pcwv">${Array.from({length:44},(_,j)=>`<i style="animation-delay:${((j*.07)%1).toFixed(2)}s"></i>`).join('')}</div><div class="mono">Podcast · ${esc(String(pc.minutes||1))} min · ${esc(pc.day||d.day||'')}</div><audio controls preload="metadata" src="${esc(pc.url)}" style="width:100%" onplay="$('pcwv').classList.add('on')" onpause="$('pcwv').classList.remove('on')" onended="$('pcwv').classList.remove('on')" aria-label="Briefing podcast"></audio></div>`}
  const L=agLayout(items,secs,RD);
  h+=`<div class="gd-jump"><span class="mono">${d.items.length} items · ${unread} unread</span><button type="button" class="chip${S.agUnread?' on':''}" style="--c:#ffc21a" data-agf="1" aria-pressed="${!!S.agUnread}"><span class="dot"></span>Unread only</button>${L.rest.map(s=>`<button type="button" class="chip" style="--c:${s.col}" data-agj="ags-${s.i}"><span class="dot"></span>${esc(s.name)} · ${s.items.filter(i=>!RD.has(agKey(i.url))).length}/${s.items.length}</button>`).join('')}</div><div class="gv-w">${afFresh(d.freshness)}</div>`;
@@ -1180,9 +1202,61 @@ function afDecor(){const v=$('view'),key=S.view;
  v.querySelectorAll('.kpi b').forEach(b=>{const m=b.textContent.trim().match(/^(\d{1,7})$/);if(m)b.dataset.c=m[1]});afCount(v);
  clearTimeout(afT);afT=setTimeout(()=>v.classList.remove('afa'),2500)}
 new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
-async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;const sn=$('subnav');sn.hidden=true;sn.innerHTML='';window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:S.sub=='meetings'?bmView:brView,hl:hlView,bi:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:S.sub=='meetings'?bmView:brView,hl:hlView,bi:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 window.addEventListener('hashchange',()=>{legacyHash();const n=hashParts(),s=n[1];if(n[0]!=S.view||s!=S.sub){S.view=n[0];S.sub=s;render()}});
-J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`}).catch(()=>{});
-afClock();setInterval(afClock,15000);render();
+J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`;
+ if(m.modules&&typeof m.modules=='object'){S.mods=m.modules;nav()}}).catch(()=>{});
+/* Header summary card: date, today's weather, next calendar event, task and on-you counts (null = not shown). */
+function srDraw(d){const e=$('sr');if(!d||!d.date){e.hidden=true;return}
+ const dt=ND(d.date),dl=x=>{const t=ND(x);return `${DSK[t.getDay()]} ${t.getDate()} ${ML[t.getMonth()]}`},n=x=>x==null?'?':Math.round(x);
+ let h=`<div class="d">${dl(d.date)}</div>`;
+ if(d.weather){const w=d.weather;h+=`<div>${w.city?esc(w.city)+': ':''}${n(w.max)}° / ${n(w.min)}°${w.rain_pct!=null?`, rain ${n(w.rain_pct)}%`:''}</div>`}
+ if(d.event){const v=d.event,tm=fmt(new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()+1)),day=v.date==d.date?'Today':v.date==tm?'Tomorrow':dl(v.date);
+  h+=`<div>${day}${v.start&&v.start!='…'?' '+esc(v.start):''}: ${esc(v.title)}</div>`}
+ const c=[];if(d.tasks!=null)c.push(`<button type="button" class="ln" data-view="bg">Tasks: ${n(d.tasks)}</button>`);
+ if(d.on_you!=null)c.push(`<button type="button" class="ln" data-view="br" data-bf="you">On you: ${n(d.on_you)}</button>`);
+ if(c.length)h+=`<div class="mo">${c.join(' · ')}</div>`;e.className='sr';e.innerHTML=h;e.hidden=false}
+function srLoad(){J('/api/summary').then(srDraw).catch(()=>{})}
+afClock();setInterval(afClock,15000);render();srLoad();setInterval(srLoad,300000);
+</script>
+<div id="apool" hidden></div>
+<div class="mp" id="mp" role="region" aria-label="Audio player"><button type="button" id="mpb" aria-label="Play or pause">▶</button><div class="mi"><span class="mt" id="mpt" role="link" tabindex="0" title="Open the view this audio belongs to">Audio</span><span class="mm" id="mpm">0:00 / 0:00</span><input type="range" id="mps" min="0" max="1000" value="0" aria-label="Seek"></div><button type="button" class="x" id="mpx" aria-label="Stop and close" title="Stop and close">×</button></div>
+<script>
+/* Persistent audio. An <audio> rendered into #view moves into the hidden #apool and a small control takes its
+   place, so re-rendering a view or switching tabs never stops playback. A re-rendered copy with the same src is
+   dropped and the pooled one (maybe playing) is reused. Pooled elements are never removed from the document. */
+(function(){const pool=$('apool'),v=$('view'),mp=$('mp');let cur=null,drag=false;
+ const src=a=>a.getAttribute('src')||'',auds=()=>[...pool.querySelectorAll('audio')],find=k=>auds().find(a=>src(a)==k);
+ const tf=x=>isFinite(x)?Math.floor(x/60)+':'+String(Math.floor(x%60)).padStart(2,'0'):'-';
+ const setT=(e,t)=>{if(e.firstChild)e.firstChild.nodeValue=t;else e.textContent=t};
+ const live=a=>!a.paused||(a.currentTime>0&&!a.ended);
+ function bind(a){if(a._ap)return;a._ap=1;['play','pause','ended','timeupdate','loadedmetadata','seeked'].forEach(ev=>a.addEventListener(ev,()=>{if(ev=='play'){cur=a;if(!a._mp)a._home=navCur();a._mp=0;auds().forEach(o=>{if(o!==a&&!o.paused)o.pause()})}sync()}))}
+ function ctl(a){const c=document.createElement('div');c.className='apc';c.dataset.asrc=src(a);
+  c.innerHTML=`<button type="button" class="af-pl" data-apc="1" aria-label="Play or pause ${esc(a.getAttribute('aria-label')||'audio')}">▶</button><input type="range" min="0" max="1000" value="0" aria-label="Seek"><span class="mono">0:00 / 0:00</span>`;return c}
+ window.AP={find,add(k,home,lab){let a=find(k);if(!a){a=document.createElement('audio');a.preload='none';a.src=k;a.setAttribute('aria-label',lab);pool.appendChild(a);bind(a)}a._home=a._home||home;a._lab=a._lab||lab;sync();return a}};
+ function adopt(){const list=v.querySelectorAll('audio');if(!list.length)return;
+  list.forEach(a=>{const k=src(a);if(!k)return;let o=find(k);const c=ctl(a);
+   if(o)a.replaceWith(c);else{a.replaceWith(c);for(const at of [...a.attributes])if(/^on/i.test(at.name))a.removeAttribute(at.name);a.removeAttribute('controls');pool.appendChild(a);o=a;bind(o)}
+   o._home=o._home||navCur();o._lab=o._lab||o.getAttribute('aria-label')||'Audio'});sync()}
+ function draw(c,a){const b=c.querySelector('[data-apc]'),r=c.querySelector('input'),m=c.querySelector('.mono');
+  setT(b,a.paused?'▶':'❚❚');if(!drag&&isFinite(a.duration)&&a.duration>0)r.value=Math.round(a.currentTime/a.duration*1000);setT(m,tf(a.currentTime)+' / '+tf(a.duration));
+  const w=c.closest('.af-b,.gd-au');const wv=w&&w.querySelector('.af-wv');if(wv)wv.classList.toggle('on',!a.paused)}
+ function sync(){document.querySelectorAll('#view .apc').forEach(c=>{const a=find(c.dataset.asrc);if(a)draw(c,a)});
+  const pl=auds().filter(a=>!a.paused);if(pl.length)cur=pl[0];else if(cur&&!pool.contains(cur))cur=null;
+  const a=cur&&live(cur)?cur:auds().find(live)||null;if(a)cur=a;
+  const own=a&&a._home==navCur();/* on its own tab the inline control is enough */
+  const show=!!a&&!own;mp.classList.toggle('on',show);if(!show)return;
+  setT($('mpb'),a.paused?'▶':'❚❚');setT($('mpt'),a._lab||'Audio');setT($('mpm'),tf(a.currentTime)+' / '+tf(a.duration));
+  if(!drag&&isFinite(a.duration)&&a.duration>0)$('mps').value=Math.round(a.currentTime/a.duration*1000)}
+ const seek=(a,r)=>{if(a&&isFinite(a.duration)&&a.duration>0)a.currentTime=r.value/1000*a.duration};
+ const toggle=a=>{if(!a)return;if(a.paused)a.play().catch(()=>{});else a.pause()};
+ document.addEventListener('click',e=>{const b=e.target.closest('[data-apc]');if(b){toggle(find(b.closest('.apc').dataset.asrc));return}});
+ document.addEventListener('input',e=>{const r=e.target;if(r.id=='mps'){seek(cur,r);return}const c=r.closest&&r.closest('.apc');if(c)seek(find(c.dataset.asrc),r)});
+ document.addEventListener('pointerdown',e=>{if(e.target.matches&&e.target.matches('#mps,.apc input'))drag=true});
+ document.addEventListener('pointerup',()=>{if(drag){drag=false;sync()}});
+ $('mpb').onclick=()=>{if(cur)cur._mp=1;toggle(cur)};/* resuming here keeps the audio's home view */
+ $('mpx').onclick=()=>{const a=cur;if(a){a.pause();a.currentTime=0}mp.classList.remove('on')};
+ const home=()=>{if(cur&&cur._home)go(cur._home)};$('mpt').onclick=home;$('mpt').onkeydown=e=>{if(e.key=='Enter'||e.key==' '){e.preventDefault();home()}};
+ new MutationObserver(adopt).observe(v,{childList:true,subtree:true});window.addEventListener('hashchange',()=>setTimeout(sync,0));adopt()})();
 </script>
 </body></html>
