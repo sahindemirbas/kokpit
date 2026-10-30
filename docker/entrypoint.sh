@@ -5,6 +5,6 @@ DATA="${KOKPIT_DATA:-/data}"
 CONF="${KOKPIT_CONFIG:-$DATA/kokpit.toml}"
 if [ ! -f "$CONF" ]; then
     echo "kokpit: first start, writing $CONF and the starter vault"
-    kokpit --config "$CONF" init --vault "$DATA/vault" --db "$DATA/kokpit.db"
+    kokpit --config "$CONF" init --yes --vault "$DATA/vault" --db "$DATA/kokpit.db"
 fi
 exec "$@"

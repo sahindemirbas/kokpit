@@ -1,7 +1,7 @@
 """The web app: one static page plus a small JSON API. Standard library only.
 
 Reads: everything. Writes: quick capture and the marked meeting-notes section into the vault, the local career profile file and the Instagram content calendar (publishing only
-through the Approve action of one slot), nothing else.
+through the Approve action of one slot), the setup answers (kokpit.toml, and a key into .env next to it), nothing else.
 Binds to localhost unless the config says otherwise.
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import __version__
+from . import __version__, wizard
 from .config import Config
 from .modules.briefing import api as briefing_api, podcast as briefing_podcast
 from .modules.ai_usage import api as ai_usage_api
@@ -119,7 +119,20 @@ def make_handler(cfg: Config):
             path = urlparse(self.path).path
             try:
                 if path in ("/", "/index.html"):
+                    if not cfg.setup_done:  # first run: the setup screen until it is finished
+                        self.send_response(HTTPStatus.FOUND)
+                        self.send_header("Location", "/setup")
+                        self.send_header("Content-Length", "0")
+                        self.end_headers()
+                        return
                     return self._file("index.html", "text/html; charset=utf-8")
+                if path in ("/setup", "/setup/"):
+                    return self._file("setup.html", "text/html; charset=utf-8")
+                if path == "/api/setup":
+                    return self._json(wizard.view(cfg))
+                if path == "/api/locale":
+                    lang = parse_qs(urlparse(self.path).query).get("lang", [""])[0]
+                    return self._json(wizard.locale_view(cfg, lang or None))
                 if path == "/api/today":
                     return self._json(today_api.view(cfg))
                 if path == "/api/summary":
@@ -219,6 +232,32 @@ def make_handler(cfg: Config):
             except (ValueError, json.JSONDecodeError) as exc:
                 return self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
+        def _setup_post(self, path: str):
+            """Setup answers. JSON content type is required, so a page on another site cannot send them."""
+            try:
+                if not (self.headers.get("Content-Type") or "").startswith("application/json"):
+                    return self._json({"error": "Content-Type must be application/json"}, HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > 100_000:
+                    return self._json({"error": "request too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(data, dict):
+                    raise ValueError("JSON object expected")
+                if path == "/api/setup/place":
+                    city = wizard._text(data.get("city"), "city", 120)
+                    if not city:
+                        raise ValueError("type a city first")
+                    try:
+                        found = wizard.find_place(city)
+                    except Exception as exc:  # offline or the geocoder is down: the user can still go on
+                        return self._json({"error": f"could not reach the map service ({exc.__class__.__name__})", "offline": True},
+                                          HTTPStatus.BAD_GATEWAY)
+                    return self._json(found)
+                res = wizard.apply(cfg, data)
+                return self._json({**wizard.view(cfg), **res, "reload": True})
+            except (ValueError, json.JSONDecodeError) as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+
         def _plan_post(self, path: str):
             """Content calendar writes. JSON content type is required, so a page on another site cannot trigger them."""
             try:
@@ -296,6 +335,8 @@ def make_handler(cfg: Config):
             path = urlparse(self.path).path
             if path == "/api/organiser/decide":
                 return self._organiser_post()
+            if path in ("/api/setup", "/api/setup/place"):
+                return self._setup_post(path)
             if path == "/api/instagram/plan" or path.startswith("/api/instagram/plan/"):
                 return self._plan_post(path)
             if path in ("/api/career/profile", "/api/career/cv", "/api/career/score", "/api/career/skills"):
@@ -319,10 +360,27 @@ def make_handler(cfg: Config):
     return Handler
 
 
+def open_setup(cfg: Config) -> str:
+    """First run: one loud line with the setup address, and a browser tab unless KOKPIT_NO_BROWSER=1."""
+    import os
+    host = "127.0.0.1" if cfg.host in ("0.0.0.0", "::", "") else cfg.host
+    url = f"http://{host}:{cfg.port}/setup"
+    print(f"FIRST RUN: OPEN {url} IN YOUR BROWSER TO ANSWER THE SETUP QUESTIONS")
+    if os.environ.get("KOKPIT_NO_BROWSER", "").strip() not in ("1", "true", "yes"):
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except Exception:  # no browser on this machine: the printed line is enough
+            pass
+    return url
+
+
 def serve(cfg: Config) -> None:
     srv = ThreadingHTTPServer((cfg.host, cfg.port), make_handler(cfg))
     print(f"Kokpit {__version__}  http://{cfg.host}:{cfg.port}/  (config: {cfg.path})")
     print(f"vault: {cfg.vault}   db: {cfg.db}   Ctrl+C to stop")
+    if not cfg.setup_done:
+        open_setup(cfg)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

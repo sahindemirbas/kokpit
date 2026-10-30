@@ -68,3 +68,7 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 ## What is deliberately out of scope for the first release
 
 Hosted multi-user service, mobile app, cloud sync. Each user runs their own instance.
+
+## Setup screen and languages
+
+First-run setup in the browser (`/setup`) and in `kokpit init`, keys in `.env`, `[ui] language` with en and tr dictionaries. In this round the setup screen, the navigation labels and the greeting follow the language; the rest of the dashboard is still English.

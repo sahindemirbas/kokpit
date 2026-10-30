@@ -32,8 +32,24 @@ def _last_run(cfg: Config, job: str) -> dict | None:
             "warnings": json.loads(r["warnings"] or "[]")}
 
 
+def _setup_item(cfg: Config) -> dict:
+    """The setup screen: done or not, language, whether a name is set and which keys .env defines (names only)."""
+    from ... import secrets, wizard
+    env = wizard.env_path(cfg)
+    names = secrets.names(env) if env.is_file() else []
+    return {
+        "id": "setup", "name": "Setup", "module": "setup", "kind": "setting", "enabled": True,
+        "reads": "kokpit.toml and the .env file next to it", "writes": "your answers to kokpit.toml, a key to .env",
+        "permission": "local files only", "target": "/setup",
+        "detail": f"language {cfg.ui_language}, name {'set' if cfg.user_name else 'not set'}, .env "
+                  + (f"present, defines {', '.join(names) if names else 'no keys'}" if env.is_file() else "not created")
+                  + ". Values are never shown.",
+        "status": "ok" if cfg.setup_done else "not done", "last": None,
+    }
+
+
 def view(cfg: Config) -> dict:
-    items = []
+    items = [_setup_item(cfg)]
     vault_ok = cfg.vault.exists()
     items.append({
         "id": "vault", "name": "Notes folder", "module": "brain", "kind": "local path",
@@ -128,7 +144,7 @@ def _model_item(cfg: Config) -> dict:
             "reads": "nothing", "writes": "sends the listed fields to the local Hermes agent, only for uses that are switched on" if on else "nothing (off)",
             "permission": "none in Kokpit (no API key); Hermes uses its own connected accounts", "target": d["base_host"],
             "detail": "provider: hermes (local command, no API key). Command found: " + ("yes" if d.get("command_found") else "no")
-                      + f". Model: {d['model']}. " + " | ".join(lines) + ".",
+                      + f". Model: {d['model']}. key: {'set' if d['key_present'] else 'not set'} (not used with hermes). " + " | ".join(lines) + ".",
             "status": status, "last": next((r for r in reversed(runs) if r), None),
         }
     return {
@@ -136,7 +152,7 @@ def _model_item(cfg: Config) -> dict:
         "provider": "openai_compatible",
         "reads": "nothing", "writes": "sends the listed fields to the provider, only for uses that are switched on" if on else "nothing (off)",
         "permission": f"API key in the environment variable {d['key_env']}", "target": d["base_host"] or "-",
-        "detail": "Key configured: " + ("yes" if d["key_present"] else "no") + ". " + " | ".join(lines) + ". The key is never shown.",
+        "detail": f"key: {'set' if d['key_present'] else 'not set'} ({d['key_env']}). " + " | ".join(lines) + ". The key is never shown.",
         "status": status, "last": next((r for r in reversed(runs) if r), None),
     }
 

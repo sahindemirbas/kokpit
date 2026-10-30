@@ -301,6 +301,7 @@ class InstagramTest(unittest.TestCase):
         from kokpit import web
         cfg = self.cfg()
         self.run_collect(cfg, FakeApi())
+        cfg.setup_done = True  # past the first-run setup screen
         srv = ThreadingHTTPServer(("127.0.0.1", 0), web.make_handler(cfg))
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:

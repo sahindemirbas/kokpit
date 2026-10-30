@@ -75,6 +75,9 @@ More in [docs/architecture.md](docs/architecture.md).
 
 ## Quick start
 
+Run `./run`. A browser tab opens on the setup screen: answer seven short questions (language, name, city, news topics, CV, model, summary) or skip any of them, then press Finish and the dashboard opens. If no tab opens, use the address printed in the terminal. Every answer can be changed later from Connections > Setup; kokpit.toml can also be edited by hand if you prefer. Keys you type go to a `.env` file next to kokpit.toml, never into kokpit.toml.
+
+
 Python 3.11 or newer. Nothing else to install.
 
 ```bash

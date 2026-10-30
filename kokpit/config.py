@@ -15,6 +15,7 @@ directory that holds the config file, so a repository checkout is self-contained
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import tomllib
@@ -24,6 +25,16 @@ from pathlib import Path
 DEFAULT_LOCATIONS = (Path("kokpit.toml"), Path.home() / ".config/kokpit/kokpit.toml")
 
 DEFAULT_TOML = """# Kokpit configuration. Secrets never go here (use .env when a module needs one).
+# The setup screen (open the dashboard, or `kokpit init`) fills the answers in; editing by hand works too.
+
+[ui]
+language = "{language}"             # screen language: a code from kokpit/locales (en, tr)
+
+[user]
+name = "{name}"                     # used in the greeting only; empty is fine
+
+[setup]
+done = false                  # true once the setup screen is finished; until then / opens the setup screen
 
 [modules]
 today = true
@@ -211,6 +222,9 @@ class Config:
     briefing: dict = field(default_factory=lambda: _briefing({}), repr=False)  # topics, feeds, tts (no key inside)
     organiser: dict = field(default_factory=lambda: _organiser({}), repr=False)  # thresholds and report mode
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
+    ui_language: str = "en"                        # [ui] language, a code from kokpit/locales
+    user_name: str = ""                            # [user] name, greeting only
+    setup_done: bool = True                        # [setup] done; a missing [setup] table counts as done (older configs)
 
     @property
     def has_place(self) -> bool:
@@ -331,7 +345,32 @@ def load(path: str | Path) -> Config:
     if isinstance(urls, str):
         urls = [urls]
     cfg.calendar_ics_urls = [str(u).strip() for u in urls if str(u).strip()]
+    ui = raw.get("ui", {}) if isinstance(raw.get("ui"), dict) else {}
+    cfg.ui_language = ui_language(ui.get("language", "en"))
+    user = raw.get("user", {}) if isinstance(raw.get("user"), dict) else {}
+    cfg.user_name = str(user.get("name", "")).strip()[:80]
+    setup = raw.get("setup", {}) if isinstance(raw.get("setup"), dict) else {}
+    cfg.setup_done = bool(setup.get("done", True)) if "setup" in raw else True
     return cfg
+
+
+LOCALES_DIR = Path(__file__).resolve().parent / "locales"
+
+
+def locale_codes() -> list[str]:
+    """Language codes with a dictionary in kokpit/locales, ``en`` first."""
+    codes = sorted(p.stem for p in LOCALES_DIR.glob("*.json") if re.fullmatch(r"[a-z]{2,3}", p.stem))
+    return sorted(codes, key=lambda c: (c != "en", c))
+
+
+def ui_language(code) -> str:
+    """A known locale code; anything else falls back to ``en`` with a log line (not a Health warning)."""
+    c = str(code or "").strip().lower()
+    if c in locale_codes():
+        return c
+    if c and c != "en":
+        logging.getLogger(__name__).warning("config: [ui] language %r has no dictionary in kokpit/locales, using en", c)
+    return "en"
 
 
 def _num_map(v) -> dict[str, float]:
@@ -608,13 +647,16 @@ def _float_or_none(v) -> float | None:
 
 
 def write_default(path: Path, vault: str = "data/vault", db: str = "data/kokpit.db",
-                  place: dict | None = None, slugs: dict | None = None) -> Path:
+                  place: dict | None = None, slugs: dict | None = None,
+                  name: str = "", language: str = "en") -> Path:
     """Write the default config. ``place`` (from the geocoder) switches the events module on."""
     path.parent.mkdir(parents=True, exist_ok=True)
     place = place or {}
     slugs = slugs or {}
     langs = _language_guess(place.get("country"))
+    from .tomledit import dumps_value
     text = DEFAULT_TOML.format(
+        language=ui_language(language), name=dumps_value(str(name or "")[:80])[1:-1],
         vault=vault, db=db, events="true" if place.get("lat") is not None else "false",
         city=place.get("city") or "", country=place.get("country") or "",
         lat=place.get("lat") if place.get("lat") is not None else 0.0,

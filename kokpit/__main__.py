@@ -14,26 +14,28 @@ from .modules.brain import api as brain_api
 
 def cmd_init(args) -> int:
     path = Path(args.config or "kokpit.toml")
-    if path.exists() and not args.force:
+    fresh = not path.exists() or args.force
+    if not fresh:
         print(f"{path} exists; use --force to overwrite the config (the vault is never overwritten)")
         cfg = cfgmod.load(path)
     else:
         place = slugs = None
         if args.city:
-            from .modules.events import geocode
+            from . import wizard
             try:
-                place = geocode.geocode(args.city)
+                found = wizard.find_place(args.city)
             except Exception as exc:  # offline or Nominatim down: config still gets written
-                print(f"could not geocode '{args.city}' ({exc.__class__.__name__}); set [place] by hand in {path}")
-            if place:
-                slugs = geocode.propose_slugs(place)
+                found = None
+                print(f"could not geocode '{args.city}' ({exc.__class__.__name__}); set [place] by hand in {path} or on the setup screen")
+            if found and found["place"]:
+                place, slugs, counts = found["place"], found["slugs"], found["counts"]
                 print(f"place: {place.get('display')} ({place['lat']}, {place['lon']})")
-                slugs, counts = geocode.verify_slugs(place, slugs)
                 shown = ", ".join(f"{s} '{slugs[s + '_slug']}' ({'unreachable' if n < 0 else f'{n} events'})" for s, n in counts.items())
                 print(f"event sources: {shown} (change them on the Connections tab; a wrong slug shows as 0 records)")
-            elif place is None and args.city:
+            elif found is not None:
                 print(f"no match for '{args.city}'; events stay off until [place] is filled in")
-        cfgmod.write_default(path, vault=args.vault, db=args.db, place=place, slugs=slugs)
+        cfgmod.write_default(path, vault=args.vault, db=args.db, place=place, slugs=slugs,
+                             name=args.name or "", language=args.language or "en")
         print(f"wrote {path}")
         cfg = cfgmod.load(path)
     created = brain_api.init_vault(cfg.vault)
@@ -41,6 +43,15 @@ def cmd_init(args) -> int:
         print(f"starter vault in {cfg.vault}: " + ", ".join(created))
     else:
         print(f"vault {cfg.vault} already has its files; nothing copied")
+    if fresh and not args.yes and sys.stdin.isatty() and sys.stdout.isatty():
+        from . import wizard
+        print("A few questions; press Enter to skip any of them. The setup screen in the browser asks the same.")
+        try:
+            wizard.ask_cli(path)
+        except (EOFError, KeyboardInterrupt):
+            print("\nstopped; the setup screen opens on the first `kokpit run`")
+    elif fresh:
+        print("answer the setup questions in the browser: run `kokpit run` (or ./run)")
     return 0
 
 
@@ -451,7 +462,10 @@ def main(argv=None) -> int:
     p.add_argument("--vault", default="data/vault", help="Markdown folder (default data/vault)")
     p.add_argument("--db", default="data/kokpit.db")
     p.add_argument("--city", help='your city, e.g. "Lodi" or "Lodi, Italy"; geocoded once and written to [place]')
+    p.add_argument("--name", help="your name, used in the greeting")
+    p.add_argument("--language", help="screen language code, e.g. en or tr")
     p.add_argument("--force", action="store_true")
+    p.add_argument("--yes", action="store_true", help="ask nothing; the setup screen asks in the browser")
     p.set_defaults(fn=cmd_init)
     p = sub.add_parser("run", help="start the dashboard")
     p.set_defaults(fn=cmd_run)
@@ -555,7 +569,18 @@ def main(argv=None) -> int:
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)
     args = ap.parse_args(argv)
+    _load_env(args)
     return args.fn(args)
+
+
+def _load_env(args) -> None:
+    """Keys from the .env file next to kokpit.toml, before any config is read. The environment always wins."""
+    from . import secrets
+    path = Path(args.config) if args.config else cfgmod.find_config(None)
+    if path is None and getattr(args, "cmd", "") == "init":
+        path = Path("kokpit.toml")
+    if path is not None:
+        secrets.load_dotenv(path.resolve().parent / ".env")
 
 
 if __name__ == "__main__":

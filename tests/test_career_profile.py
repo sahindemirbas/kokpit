@@ -263,6 +263,7 @@ class WebTests(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.cfg = _cfg(self.tmp)
+        self.cfg.setup_done = True  # past the first-run setup screen
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.cfg))
         self.port = self.srv.server_address[1]
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
@@ -301,6 +302,7 @@ class WebTests(unittest.TestCase):
 
     def test_module_off_blocks_writes(self):
         cfg = _cfg(self.tmp / "off", jobs_on=False)
+        cfg.setup_done = True  # past the first-run setup screen
         srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(cfg))
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:

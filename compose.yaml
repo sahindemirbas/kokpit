@@ -8,6 +8,7 @@ x-kokpit: &kokpit
     - kokpit-data:/data
   environment:
     TZ: ${TZ:-UTC}
+    KOKPIT_NO_BROWSER: "1"         # no browser inside the container; open the printed setup address yourself
   env_file:
     - path: .env
       required: false

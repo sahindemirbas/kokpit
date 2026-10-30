@@ -76,6 +76,9 @@ Daha fazlası için [docs/architecture.md](docs/architecture.md) (İngilizce).
 
 ## Hızlı başlangıç
 
+`./run` komutunu çalıştır. Tarayıcıda kurulum ekranı açılır: yedi kısa soruyu cevapla (dil, ad, şehir, haber konuları, özgeçmiş, model, özet) ya da istediğini atla, Bitir'e bas ve panel açılır. Sekme açılmazsa terminalde yazan adresi kullan. Her cevap sonra Bağlantılar > Kurulum'dan değiştirilebilir; istersen kokpit.toml elle de düzenlenebilir. Girdiğin anahtarlar kokpit.toml'a değil, yanındaki `.env` dosyasına yazılır.
+
+
 Python 3.11 ve üstü. Başka kurulum yok.
 
 ```bash

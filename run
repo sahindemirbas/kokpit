@@ -6,5 +6,5 @@ cd "$(dirname "$0")"
 PY="${PYTHON:-python3}"
 "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' || {
   echo "Kokpit needs Python 3.11 or newer (found: $("$PY" --version 2>&1))"; exit 1; }
-[ -f kokpit.toml ] || "$PY" -m kokpit init
+[ -f kokpit.toml ] || "$PY" -m kokpit init --yes   # the questions are asked in the browser
 exec "$PY" -m kokpit run "$@"

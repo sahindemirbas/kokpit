@@ -165,3 +165,7 @@ Test it first on a spare account: the first real publish is the only way to conf
 ## Failure visibility
 
 A connection that fails or returns nothing must say so where the user looks: on the Connections screen and, if the module is in the morning line, in that line. Silent empty results are a bug, not a state.
+
+## Keys and the .env file
+
+Keys never go into kokpit.toml. They live in a `.env` file next to it (`KEY=VALUE` lines, file mode 0600), which every `kokpit` command loads before reading the config; a variable already set in the environment always wins, so Docker, systemd or the shell can override the file. The setup screen and `kokpit init` write the model key there under the name in `[model] key_env` (default `KOKPIT_MODEL_API_KEY`); choosing "Not now" removes it. The key field is a password field that is never filled back in: `GET /api/setup` only says `key_set: true` or `false`. The Setup row on this screen lists which names `.env` defines, never the values.

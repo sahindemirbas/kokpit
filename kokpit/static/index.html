@@ -691,7 +691,8 @@ const AFC=['#4a9dff','#ff7eb6','#ffc21a','#2fbf71','#ff9b3d','#b9a4ff','#7be0d0'
 const afTag=t=>AFT[t]||(AFT[t]=AFC[Object.keys(AFT).length%AFC.length]);
 const afD=(i,b=.05,s=.07)=>`style="animation-delay:${(b+i*s).toFixed(2)}s"`;
 const afSplit=(s,d)=>[...s].map((c,i)=>`<span style="animation-delay:${(d+i*.04).toFixed(2)}s">${c==' '?'&nbsp;':esc(c)}</span>`).join('');
-function afHi(){const h=new Date().getHours();return h<5?'Good night':h<12?'Good morning':h<18?'Good afternoon':h<23?'Good evening':'Good night'}
+const LOC={s:{},name:''};/* /api/locale: nav labels and the greeting; the rest of the page is English until phase 12 */
+function afHi(){const h=new Date().getHours(),k=h<5?'night':h<12?'morning':h<18?'afternoon':h<23?'evening':'night',g=LOC.s['greet.'+k]||{night:'Good night',morning:'Good morning',afternoon:'Good afternoon',evening:'Good evening'}[k],n=LOC.name.split(' ')[0];return n?(LOC.s['greet.with_name']||'{greet}, {name}').replace('{greet}',g).replace('{name}',n):g}
 function afClock(){const e=$('afclk');if(!e)return;const d=new Date();e.firstChild.nodeValue=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');$('afdt').textContent=DS[d.getDay()]+' '+d.getDate()+' '+ML[d.getMonth()]+' '+d.getFullYear()}
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function afKind(s){s=(s||'').toLowerCase();return /thunder|storm/.test(s)?'storm':/snow/.test(s)?'snow':/rain|drizzle|shower/.test(s)?'rain':/fog/.test(s)?'fog':/partly|mostly clear/.test(s)?'part':/clear|sun/.test(s)?'sun':'cloud'}
@@ -957,7 +958,7 @@ async function evView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
 async function cnView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/connections');if(S.view!='cn')return;
  const tone=s=>/^ok$/.test(s)?'af-gd':/planned|off|not set|not created|not run/.test(s)?'':'af-wr';
  const last=l=>l?`${l.ok?'ok':'error'}${l.rows!=null?' · '+l.rows+' rows':''} · ${esc(l.finished)}${l.today?'':' (not today)'}`:'never';
- S.hn.cn=[[d.connections.filter(c=>c.status==='ok').length,'ok'],[d.connections.length,'total']];const groups=['today','brain','health','events','jobs','instagram','briefing','model','bot','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span></div>`;
+ S.hn.cn=[[d.connections.filter(c=>c.status==='ok').length,'ok'],[d.connections.length,'total']];const groups=['setup','today','brain','health','events','jobs','instagram','briefing','model','bot','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span> <a class="btn" href="/setup">${esc(LOC.s['cn.setup']||'Open the setup screen')}</a></div>`;
  for(const g of groups){const items=d.connections.filter(c=>c.module===g);if(!items.length)continue;
   for(const c of items)h+=`<div class="af-b s4 ${tone(c.status)}" ${afD(i++)}><h4>${esc(c.name)} ${c.enabled?'':'<span class="mono" style="font-size:10px">off</span>'}</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">${esc(c.module)} · ${esc(c.kind)}</p><p style="margin:0"><b>reads</b> ${esc(c.reads)}</p><p style="margin:0"><b>writes</b> ${esc(c.writes)}</p><p style="margin:0"><b>permission</b> ${esc(c.permission)}</p><p style="margin:0"><b>target</b> <span class="mono">${esc(c.target)}</span></p>${c.detail?`<p class="mono" style="font-size:10px;margin:6px 0 0">${esc(c.detail)}</p>`:''}<p class="mono" style="font-size:10px;margin:8px 0 0">status ${esc(c.status)} · last ${last(c.last)}</p>${c.last&&c.last.warnings&&c.last.warnings.length?`<p class="mono" style="font-size:10px;margin:4px 0 0">${c.last.warnings.map(esc).join('<br>')}</p>`:''}</div>`}
  v.innerHTML=h+'</div>'}
@@ -1275,6 +1276,10 @@ function afDecor(){const v=$('view'),key=S.view;
 new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
 async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:S.sub=='market'?jmView:S.sub=='skills'?jsView:jbView,ai:aiView,so:soView,br:S.sub=='meetings'?bmView:brView,hl:hlView,bi:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 window.addEventListener('hashchange',()=>{legacyHash();const n=hashParts(),s=n[1];if(n[0]!=S.view||s!=S.sub){S.view=n[0];S.sub=s;render()}});
+fetch('/api/locale').then(r=>r.json()).then(d=>{if(!d||!d.strings)return;LOC.s=d.strings;LOC.name=d.name||'';document.documentElement.lang=d.language;const L=k=>LOC.s['nav.'+k];
+ const VK={bg:'today',bi:'briefing',ev:'events',ai:'ai',hl:'health',og:'organiser',cn:'connections'},GK={jb:'jobs','jb/market':'market','jb/skills':'skills',so:'instagram',br:'threads','br/meetings':'meetings'};
+ for(const x of NAVT)if(VK[x[0]]&&L(VK[x[0]]))x[1]=L(VK[x[0]]);for(const g in NAVG){if(L(g))NAVG[g].l=L(g);for(const x of NAVG[g].k)if(GK[x[0]]&&L(GK[x[0]]))x[1]=L(GK[x[0]])}
+ nav();if(S.view=='bg'||S.view=='cn')render()}).catch(()=>{});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`;
  if(m.modules&&typeof m.modules=='object'){S.mods=m.modules;nav()}}).catch(()=>{});
 /* Header summary card: date, today's weather, next calendar event, task and on-you counts (null = not shown). */

@@ -68,6 +68,7 @@ class HttpFreshness(unittest.TestCase):
             jobs.run(self.cfg, "heartbeat")
             jobs.run(self.cfg, "weather")
             jobs.run(self.cfg, "calendar")
+        self.cfg.setup_done = True  # past the first-run setup screen
         srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.cfg))
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         try:

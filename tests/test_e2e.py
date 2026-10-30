@@ -27,6 +27,7 @@ class EndToEnd(unittest.TestCase):
         brain_api.init_vault(self.cfg.vault)
         jobs.run(self.cfg, "heartbeat")
         jobs.run(self.cfg, "brain-check")
+        self.cfg.setup_done = True  # past the first-run setup screen
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.cfg))
         self.port = self.srv.server_address[1]
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
@@ -71,6 +72,7 @@ class EndToEnd(unittest.TestCase):
         self.cfg_path.write_text(text)
         self.srv.shutdown(); self.srv.server_close()
         self.cfg = cfgmod.load(self.cfg_path)
+        self.cfg.setup_done = True  # past the first-run setup screen
         self.srv = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.cfg))
         self.port = self.srv.server_address[1]
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()

@@ -113,3 +113,9 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 ## Optional modules in the reference instance (not in the first public scope)
 
 Chess training tracker, model-training watch, pharmacy-on-duty lookup. They stay out until the core is generalised.
+
+## Setup
+
+The first-run setup screen at `/setup`. While `[setup] done = false`, `/` redirects there; `./run` writes a fresh kokpit.toml with `kokpit init --yes` and `kokpit run` prints the setup address and tries to open a browser tab (`KOKPIT_NO_BROWSER=1` turns that off; the Docker compose file sets it). Seven steps, each with Back and Skip, each saved on its own: language (`[ui] language`, a code from `kokpit/locales`), name (`[user] name`, greeting only), place (geocoded once, with the event source counts) plus job locations, remote preference and roles (career profile), news topics (`[[briefing.topics]]`; none means the digest stays off), CV text (the existing CV suggestion, then the career profile), model (Hermes agent, an API key into `.env`, or not now, plus one switch for `digest` and `career_weekly`), and a summary where anything skipped reads "not set". Reopened later, it starts at the summary.
+
+API: `GET /api/setup` (answers, never a key), `POST /api/setup` (only the fields sent are written; JSON content type, 100 KB), `POST /api/setup/place {city}` (502 with `offline: true` when the map service cannot be reached), `GET /api/locale[?lang=xx]`. kokpit.toml is edited in place by `kokpit/tomledit.py`, which keeps comments and order, checks the result with `tomllib` and writes nothing when it would not parse. In a terminal, `kokpit init` asks the same questions when it writes a new config (`--yes` asks nothing; `--name`, `--language`, `--city`).

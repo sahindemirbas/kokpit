@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kokpit setup</title>
+<style>
+:root{--w:#fff;--w2:#fffdf6;--w3:#f5ecd2;--bg:#fff3d6;--ink:#161412;--card:#fffaf0;--sans:'Bricolage Grotesque',system-ui,sans-serif;--mono:'DM Mono',ui-monospace,monospace;--sh:4px 4px 0 var(--shd,var(--ink))}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--sans)}
+main{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:28px;margin:6px 0 4px}h2{font-size:22px;margin:0 0 6px}
+.mono{font-family:var(--mono);font-size:12px}
+.card{background:var(--card);border:2px solid var(--ink);box-shadow:var(--sh);border-radius:10px;padding:18px;margin:14px 0}
+.bar{display:flex;gap:4px;margin:10px 0}.bar i{flex:1;height:8px;border:1.5px solid var(--ink);border-radius:4px;background:var(--w)}.bar i.on{background:var(--ink)}
+label{display:block;font-weight:600;margin:12px 0 4px}
+input,select,textarea{width:100%;font:inherit;padding:8px 10px;border:2px solid var(--ink);border-radius:8px;background:var(--w)}
+textarea{min-height:140px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row>input{flex:1;min-width:0}
+.btn{font:inherit;font-weight:600;padding:8px 14px;border:2px solid var(--ink);border-radius:8px;background:var(--w);color:var(--ink);cursor:pointer;box-shadow:2px 2px 0 var(--ink)}
+.btn.pri{background:var(--ink);color:var(--w)}.btn:disabled{opacity:.5;cursor:default}
+.nav{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;margin-top:16px}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.opt{border:2px solid var(--ink);border-radius:10px;padding:12px;background:var(--w);cursor:pointer}.opt.on{background:var(--w3);box-shadow:var(--sh)}
+.opt h3{margin:0 0 4px;font-size:16px}.opt p{margin:0;font-size:13px}
+.topic{border:1.5px dashed var(--ink);border-radius:8px;padding:10px;margin:10px 0}
+.msg{margin:8px 0;font-size:14px}.warn{color:#8a3b00}.ok{color:#1d5e20}
+dl{display:grid;grid-template-columns:minmax(110px,30%) 1fr auto;gap:6px 10px;align-items:baseline}dt{font-weight:600}dd{margin:0;overflow-wrap:anywhere}
+.chk{display:flex;gap:8px;align-items:center;font-weight:600;margin-top:14px}.chk input{width:auto}
+.tags span{display:inline-block;border:1.5px solid var(--ink);border-radius:6px;padding:1px 6px;margin:2px;font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1 id="ti">Kokpit</h1>
+<p id="in" class="mono"></p>
+<div class="bar" id="bar"></div>
+<div class="card" id="st"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const W={L:{},d:null,i:0,found:null,cv:null,msg:''};
+const STEPS=['lang','name','place','news','cv','model','sum'];
+const t=(k,v)=>{let s=W.L[k]||k;for(const n in v||{})s=s.split('{'+n+'}').join(v[n]);return s};
+const list=s=>String(s||'').split(',').map(x=>x.trim()).filter(Boolean);
+async function J(p,body){const r=await fetch(p,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ let d={};try{d=await r.json()}catch(_){}if(!r.ok){const e=new Error(d.error||r.status);e.data=d;e.status=r.status;throw e}return d}
+async function loc(lang){const d=await J('/api/locale'+(lang?'?lang='+encodeURIComponent(lang):''));W.L=d.strings;document.documentElement.lang=d.language;$('ti').textContent=t('setup.title');$('in').textContent=t('setup.intro');document.title=t('setup.title')}
+async function save(body){try{W.d=await J('/api/setup',body);W.msg='';return true}catch(e){W.msg=t('setup.error')+': '+e.message;draw();return false}}
+function go(i){W.i=Math.max(0,Math.min(STEPS.length-1,i));W.msg='';draw();scrollTo(0,0)}
+function navBtns(){return `<div class="msg warn">${esc(W.msg)}</div><div class="nav"><button class="btn" data-a="back" ${W.i?'':'disabled'}>${esc(t('setup.back'))}</button><span class="row"><button class="btn" data-a="skip">${esc(t('setup.skip'))}</button><button class="btn pri" data-a="next">${esc(t('setup.next'))}</button></span></div>`}
+const notset=()=>`<span class="mono">${esc(t('setup.not_set'))}</span>`;
+function sumRows(){const d=W.d,c=d.career,m=d.model,lab=(d.languages.find(x=>x.code==d.language)||{}).label||d.language;
+ const rows=[['lang',t('setup.sum.language'),esc(lab)],['name',t('setup.sum.name'),d.name?esc(d.name):notset()],
+  ['place',t('setup.sum.place'),d.place.set?esc(d.place.city+(d.place.country?', '+d.place.country:'')):notset()],
+  ['place',t('setup.sum.jobs'),(c.locations.length||c.target_roles.length)?esc([c.locations.join(', '),t('setup.remote.'+c.remote_pref),c.target_roles.join(', ')].filter(Boolean).join(' / ')):notset()],
+  ['news',t('setup.sum.topics'),d.topics.length?esc(d.topics.map(x=>x.name).join(', ')):notset()],
+  ['cv',t('setup.sum.cv'),c.saved?'&#10003;':notset()],
+  ['model',t('setup.sum.model'),m.provider=='none'?notset():esc(t('setup.model.p.'+m.provider)+(m.model?' / '+m.model:''))]];
+ return '<dl>'+rows.map(([s,k,v])=>`<dt>${esc(k)}</dt><dd>${v}</dd><dd><button class="btn" data-goto="${STEPS.indexOf(s)}">${esc(t('setup.sum.edit'))}</button></dd>`).join('')+'</dl>'}
+function topicRow(x){return `<div class="topic"><label>${esc(t('setup.news.name'))}<input data-f="name" maxlength="60" value="${esc(x.name)}"></label><label>${esc(t('setup.news.keywords'))}<input data-f="keywords" value="${esc(x.keywords.join(', '))}"></label><label>${esc(t('setup.news.feeds'))}<input data-f="feeds" value="${esc(x.feeds.join(', '))}"></label><button class="btn" data-a="rmtopic">${esc(t('setup.news.remove'))}</button></div>`}
+function draw(){const d=W.d,s=STEPS[W.i];$('bar').innerHTML=STEPS.map((_,i)=>`<i class="${i<=W.i?'on':''}"></i>`).join('');
+ let h=`<p class="mono">${esc(t('setup.step',{n:W.i+1,total:STEPS.length}))}</p>`;
+ if(s=='lang')h+=`<h2>${esc(t('setup.lang.title'))}</h2><p>${esc(t('setup.lang.help'))}</p><div class="opts">${d.languages.map(l=>`<div class="opt${l.code==W.lang?' on':''}" data-lang="${esc(l.code)}" role="button" tabindex="0"><h3>${esc(l.label)}</h3><p class="mono">${esc(l.code)}</p></div>`).join('')}</div>`;
+ if(s=='name')h+=`<h2>${esc(t('setup.name.title'))}</h2><p>${esc(t('setup.name.help'))}</p><label for="nm">${esc(t('setup.name.label'))}</label><input id="nm" maxlength="80" autocomplete="name" value="${esc(d.name)}">`;
+ if(s=='place'){const f=W.found,c=d.career;h+=`<h2>${esc(t('setup.place.title'))}</h2><p>${esc(t('setup.place.help'))}</p><label for="ct">${esc(t('setup.place.city'))}</label><div class="row"><input id="ct" value="${esc(d.place.city)}"><button class="btn" data-a="find">${esc(t('setup.place.find'))}</button></div><div id="pf">`;
+  if(f&&f.place){const cn=Object.entries(f.counts).map(([k,n])=>k+' '+(n<0?t('setup.place.unreachable'):n)).join(', ');h+=`<p class="msg ok">${esc(t('setup.place.found',{place:f.place.display||f.place.city}))}</p><p class="msg">${esc(t('setup.place.counts',{counts:cn}))}</p>${Object.values(f.counts).some(n=>n==0)?`<p class="msg warn">${esc(t('setup.place.zero'))}</p>`:''}<button class="btn" data-a="placeok">${esc(t('setup.place.confirm'))}</button>`}
+  else if(f&&f.offline)h+=`<p class="msg warn">${esc(t('setup.place.offline'))}</p>`;else if(f)h+=`<p class="msg warn">${esc(t('setup.place.none'))}</p>`;
+  else if(d.place.set)h+=`<p class="msg ok">${esc(t('setup.place.confirmed'))}: ${esc(d.place.city)}</p>`;
+  h+=`</div><h2 style="margin-top:18px">${esc(t('setup.place.jobs'))}</h2><label for="lo">${esc(t('setup.place.locations'))}</label><input id="lo" value="${esc(c.locations.join(', '))}"><label for="rp">${esc(t('setup.place.remote'))}</label><select id="rp">${['any','onsite','hybrid','remote'].map(r=>`<option value="${r}"${r==c.remote_pref?' selected':''}>${esc(t('setup.remote.'+r))}</option>`).join('')}</select><label for="ro">${esc(t('setup.place.roles'))}</label><input id="ro" value="${esc(c.target_roles.join(', '))}">`}
+ if(s=='news'){if(!W.topics)W.topics=d.topics.length?d.topics.map(x=>({...x})):[{name:'',keywords:[],feeds:[]}];h+=`<h2>${esc(t('setup.news.title'))}</h2><p>${esc(t('setup.news.help'))}</p><p class="mono">${esc(t('setup.news.feedhelp'))}</p><div id="tp">${W.topics.map(topicRow).join('')}</div><button class="btn" data-a="addtopic">${esc(t('setup.news.add'))}</button>`}
+ if(s=='cv'){const p=W.cv;h+=`<h2>${esc(t('setup.cv.title'))}</h2><p>${esc(t('setup.cv.help'))}</p><label for="cvt">${esc(t('setup.cv.paste'))}</label><textarea id="cvt" maxlength="100000">${esc(W.cvText||'')}</textarea><p><button class="btn" data-a="suggest">${esc(t('setup.cv.suggest'))}</button></p>`;
+  if(p){const sk=p.skills||[],lg=(p.languages||[]).map(x=>x.language+(x.level?' '+x.level:''));h+=sk.length||lg.length?`<p><b>${esc(t('setup.cv.skills'))}</b></p><p class="tags">${sk.map(x=>`<span>${esc(x)}</span>`).join('')}</p><p><b>${esc(t('setup.cv.languages'))}</b></p><p class="tags">${lg.map(x=>`<span>${esc(x)}</span>`).join('')}</p><button class="btn pri" data-a="cvok">${esc(t('setup.cv.accept'))}</button>`:`<p class="msg warn">${esc(t('setup.cv.empty'))}</p>`}
+  if(W.cvDone)h+=`<p class="msg ok">${esc(t('setup.cv.added'))}</p>`}
+ if(s=='model'){const m=d.model;W.prov=W.prov||m.provider;const card=(k,ti,p)=>`<div class="opt${W.prov==k?' on':''}" data-prov="${k}" role="button" tabindex="0"><h3>${esc(ti)}</h3><p>${p}</p></div>`;
+  h+=`<h2>${esc(t('setup.model.title'))}</h2><p>${esc(t('setup.model.help'))}</p><div class="opts">${card('hermes',t('setup.model.hermes'),esc(t(m.hermes_found?'setup.model.hermes_found':'setup.model.hermes_missing',{bin:m.hermes_bin})))}${card('openai_compatible',t('setup.model.key'),esc(t('setup.model.key_help')))}${card('none',t('setup.model.none'),esc(t('setup.model.none_help')))}</div>`;
+  if(W.prov=='openai_compatible')h+=`<label for="bu">${esc(t('setup.model.base_url'))}</label><input id="bu" placeholder="https://provider.example/v1" value="${esc(m.base_url)}"><label for="ky">${esc(t('setup.model.api_key'))}</label><input id="ky" type="password" autocomplete="off" value=""><p class="mono">${m.key_set?esc(t('setup.model.key_set')):''}</p>`;
+  if(W.prov!='none')h+=`<label for="mo">${esc(t('setup.model.model'))}</label><input id="mo" value="${esc(m.model)}"><label class="chk"><input type="checkbox" id="su"${m.summaries||m.provider=='none'?' checked':''}> ${esc(t('setup.model.summaries'))}</label>`}
+ if(s=='sum'){h+=`<h2>${esc(t('setup.sum.title'))}</h2><p>${esc(t('setup.sum.help'))}</p>${sumRows()}`;
+  h+=d.done&&W.finished?`<p class="msg ok">${esc(t('setup.done'))}</p><p><a class="btn pri" href="/">${esc(t('setup.open'))}</a></p>`:`<div class="msg warn">${esc(W.msg)}</div><div class="nav"><button class="btn" data-a="back">${esc(t('setup.back'))}</button><button class="btn pri" data-a="finish">${esc(t('setup.finish'))}</button></div>`}
+ else h+=navBtns();
+ $('st').innerHTML=h}
+function readTopics(){W.topics=[...document.querySelectorAll('#tp .topic')].map(el=>({name:el.querySelector('[data-f=name]').value.trim(),keywords:list(el.querySelector('[data-f=keywords]').value),feeds:list(el.querySelector('[data-f=feeds]').value)}))}
+async function next(){const s=STEPS[W.i];let ok=true;
+ if(s=='lang')ok=await save({language:W.lang});
+ if(s=='name')ok=await save({name:$('nm').value});
+ if(s=='place')ok=await save({career:{locations:list($('lo').value),remote_pref:$('rp').value,target_roles:list($('ro').value)}});
+ if(s=='news'){readTopics();ok=await save({topics:W.topics.filter(x=>x.name||x.keywords.length||x.feeds.length)});if(ok)W.topics=null}
+ if(s=='model'){const m={provider:W.prov};if(W.prov=='openai_compatible'){m.base_url=$('bu').value.trim();m.api_key=$('ky').value}if(W.prov!='none'){m.model=$('mo').value.trim();m.summaries=$('su').checked}else m.summaries=false;ok=await save({model:m})}
+ if(ok)go(W.i+1)}
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-a],[data-lang],[data-prov],[data-goto]');if(!b)return;
+ if(b.dataset.lang){W.lang=b.dataset.lang;await loc(W.lang);draw();return}
+ if(b.dataset.prov){W.prov=b.dataset.prov;draw();return}
+ if(b.dataset.goto){go(+b.dataset.goto);return}
+ const a=b.dataset.a;
+ if(a=='back')return go(W.i-1);
+ if(a=='skip'){if(STEPS[W.i]=='news')W.topics=null;return go(W.i+1)}
+ if(a=='next')return next();
+ if(a=='addtopic'){readTopics();if(W.topics.length<20)W.topics.push({name:'',keywords:[],feeds:[]});return draw()}
+ if(a=='rmtopic'){readTopics();const i=[...document.querySelectorAll('#tp .topic')].indexOf(b.closest('.topic'));W.topics.splice(i,1);return draw()}
+ if(a=='find'){const city=$('ct').value.trim();if(!city)return;$('pf').innerHTML=`<p class="msg">${esc(t('setup.place.finding'))}</p>`;
+  try{W.found=await J('/api/setup/place',{city})}catch(err){W.found=err.data&&err.data.offline?{offline:true}:{place:null,counts:{}};if(!(err.data&&err.data.offline))W.msg=err.message}
+  W.d.career.locations=list($('lo').value);W.d.career.target_roles=list($('ro').value);W.d.career.remote_pref=$('rp').value;return draw()}
+ if(a=='placeok'){const f=W.found,p={city:f.place.city,country:f.place.country||'',lat:f.place.lat,lon:f.place.lon,...f.slugs};const keep=W.d.career;
+  if(await save({place:p})){W.d.career={...W.d.career,locations:keep.locations,target_roles:keep.target_roles,remote_pref:keep.remote_pref};W.found=null;draw()}return}
+ if(a=='suggest'){W.cvText=$('cvt').value;if(!W.cvText.trim())return;
+  try{if(!W.d.modules.jobs)await save({career:{}});W.cv=await J('/api/career/cv',{text:W.cvText});W.cvDone=false}catch(err){W.msg=err.message}return draw()}
+ if(a=='cvok'){try{const cur=(await J('/api/career')).profile||{};const have=new Set((cur.skills||[]).map(x=>x.toLowerCase()));const hl=new Set((cur.languages||[]).map(x=>x.language.toLowerCase()));
+  const prof={...cur,skills:[...(cur.skills||[]),...(W.cv.skills||[]).filter(x=>!have.has(x.toLowerCase()))],languages:[...(cur.languages||[]),...(W.cv.languages||[]).filter(x=>!hl.has(x.language.toLowerCase()))]};
+  await J('/api/career/profile',prof);W.d=await J('/api/setup');W.cvDone=true;W.cv=null}catch(err){W.msg=err.message}return draw()}
+ if(a=='finish'){if(await save({done:true})){W.finished=true;draw()}}});
+(async()=>{W.d=await J('/api/setup');W.lang=W.d.language;await loc();
+ const opened=W.d.done||W.d.name||W.d.place.set||W.d.topics.length||W.d.career.saved||W.d.model.provider!='none';
+ W.i=opened?STEPS.length-1:0;draw()})();
+</script>
+</body>
+</html>
