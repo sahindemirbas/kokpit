@@ -7,6 +7,7 @@ Binds to localhost unless the config says otherwise.
 from __future__ import annotations
 
 import json
+import re
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -14,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .config import Config
-from .modules.briefing import api as briefing_api
+from .modules.briefing import api as briefing_api, podcast as briefing_podcast
 from .modules.ai_usage import api as ai_usage_api
 from .modules.organiser import api as organiser_api
 from .modules.instagram import api as instagram_api, planapi as instagram_plan
@@ -27,6 +28,8 @@ from .modules.health import api as health_api
 from .modules.today import api as today_api
 
 STATIC = Path(__file__).parent / "static"
+_RANGE = re.compile(r"bytes=(\d*)-(\d*)")
+_PODCAST = re.compile(r"/briefing/podcast/(\d{4}-\d{2}-\d{2})\.(mp3|wav)")
 
 
 def make_handler(cfg: Config):
@@ -56,6 +59,45 @@ def make_handler(cfg: Config):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+
+        def _ranged(self, p: Path, ctype: str):
+            """Serves a file with HTTP Range support (one range): 200 full, 206 partial, 416 outside the file."""
+            size = p.stat().st_size
+            start, end, status = 0, size - 1, HTTPStatus.OK
+            m = _RANGE.fullmatch((self.headers.get("Range") or "").strip())
+            if m and (m.group(1) or m.group(2)):
+                if m.group(1):
+                    start = int(m.group(1))
+                    end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+                else:  # suffix: the last N bytes
+                    start = max(0, size - int(m.group(2)))
+                if start >= size or start > end:
+                    self.send_response(HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                status = HTTPStatus.PARTIAL_CONTENT
+            length = end - start + 1 if size else 0
+            self.send_response(status)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(length))
+            if status == HTTPStatus.PARTIAL_CONTENT:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            if self.command == "HEAD":
+                return
+            with p.open("rb") as fh:
+                fh.seek(start)
+                left = length
+                while left > 0:
+                    chunk = fh.read(min(65536, left))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
 
         def _ics(self, raw_id: str):
             try:
@@ -99,14 +141,13 @@ def make_handler(cfg: Config):
                     f = briefing_api.audio_file(cfg) if cfg.modules.get("briefing", False) else None
                     if f is None:
                         return self._json({"error": "no audio"}, HTTPStatus.NOT_FOUND)
-                    body = f.read_bytes()
-                    self.send_response(HTTPStatus.OK)
-                    self.send_header("Content-Type", "audio/mpeg")
-                    self.send_header("Content-Length", str(len(body)))
-                    self.send_header("Cache-Control", "no-store")
-                    self.end_headers()
-                    self.wfile.write(body)
-                    return
+                    return self._ranged(f, "audio/mpeg")
+                if path.startswith("/briefing/podcast/"):
+                    m = _PODCAST.fullmatch(path)
+                    f = briefing_podcast.file_for(cfg, m.group(1), m.group(2)) if m and cfg.modules.get("briefing", False) else None
+                    if m is None or f is None:
+                        return self._json({"error": "no podcast"}, HTTPStatus.NOT_FOUND)
+                    return self._ranged(f, "audio/mpeg" if m.group(2) == "mp3" else "audio/wav")
                 if path == "/api/health":
                     return self._json(health_api.view(cfg))
                 if path == "/api/events":

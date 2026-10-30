@@ -27,6 +27,8 @@ Put them in a `.env` file next to `compose.yaml` (git-ignored, optional), never 
 
     docker compose --profile bot up -d
 
+Optional podcast: the scheduler runs `podcast` at 07:00, after the 06:45 digest (table in docs/architecture.md). With `tts_provider = "gemini"` put `KOKPIT_GEMINI_API_KEY` in `.env`; the episode lands in `/data/audio/`. The image has no ffmpeg, so it serves wav.
+
 Needs `KOKPIT_TELEGRAM_TOKEN` in `.env`, `chat_id` under `[bot]` and `bot = true` under `[modules]`. The `bot` service runs `kokpit bot poll`; the scheduler does not poll.
 
 ## Open to your LAN (conscious choice)

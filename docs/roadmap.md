@@ -58,6 +58,7 @@ Moved out of M2:
 - Translation target setting for events (moved from M2), using the same model connection: done (`[events] translate_to`).
 - [x] Night organiser as an opt-in module: categorise, link, conditions, enrich, sync; deterministic morning report. Proposals only, never edits a note; rule-based; precision on a real vault not yet measured.
 - Telegram bot as an optional module.
+- Briefing podcast: done (two voices, model script per topic, Gemini multi-speaker or OpenAI-compatible TTS, Range-served audio; tested with fake servers only, not against the live providers).
 - `docker compose up` path: done (M5 step 2, see docs/docker.md).
 
 ## Later

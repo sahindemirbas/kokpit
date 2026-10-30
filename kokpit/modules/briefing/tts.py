@@ -39,29 +39,44 @@ def _record(cfg: Config, started: str, ok: bool, info: dict, warnings: list[str]
         conn.close()
 
 
-def speak(cfg: Config, day: str, text: str) -> str:
-    """Writes the audio file under the data folder and returns its file name. Raises RuntimeError with a key-free message."""
+def check(cfg: Config) -> str:
+    """Returns the key, or raises RuntimeError saying what is missing. No network call."""
     t = cfg.briefing["tts"]
-    secret = key(cfg)
     if t["provider"] != "openai_compatible":
         raise RuntimeError("provider is none")
     if not (t["base_url"] and t["model"]):
         raise RuntimeError("[briefing.tts] base_url and model are not set")
+    secret = key(cfg)
     if not secret:
         raise RuntimeError(f"no key in the environment variable {t['key_env']}")
+    return secret
+
+
+def request(cfg: Config, text: str, voice: str = "", fmt: str = "mp3") -> bytes:
+    """One ``/audio/speech`` call; returns the raw audio. Errors keep the key out (callers scrub with ``key``)."""
+    t = cfg.briefing["tts"]
+    secret = check(cfg)
+    body = {"model": t["model"], "input": text[:MAX_CHARS], "response_format": fmt}
+    if voice or t["voice"]:
+        body["voice"] = voice or t["voice"]
+    req = urllib.request.Request(t["base_url"].rstrip("/") + "/audio/speech", data=json.dumps(body).encode(), method="POST",
+                                 headers={"Content-Type": "application/json", "Authorization": "Bearer " + secret})
+    with urllib.request.urlopen(req, timeout=t["timeout"]) as r:
+        audio = r.read()
+    if not audio:
+        raise ValueError("empty audio")
+    return audio
+
+
+def speak(cfg: Config, day: str, text: str) -> str:
+    """Writes the audio file under the data folder and returns its file name. Raises RuntimeError with a key-free message."""
+    t = cfg.briefing["tts"]
+    secret = check(cfg)
     text = text[:MAX_CHARS]
     started = store.now_iso()
     info = {"declared_fields": FIELDS, "chars_sent": len(text), "model": t["model"]}
-    body = {"model": t["model"], "input": text, "response_format": "mp3"}
-    if t["voice"]:
-        body["voice"] = t["voice"]
-    req = urllib.request.Request(t["base_url"].rstrip("/") + "/audio/speech", data=json.dumps(body).encode(), method="POST",
-                                 headers={"Content-Type": "application/json", "Authorization": "Bearer " + secret})
     try:
-        with urllib.request.urlopen(req, timeout=t["timeout"]) as r:
-            audio = r.read()
-        if not audio:
-            raise ValueError("empty audio")
+        audio = request(cfg, text)
         p = audio_path(cfg, day)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(audio)

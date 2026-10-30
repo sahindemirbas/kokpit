@@ -24,12 +24,13 @@ The Connections screen is where a user enables modules and links accounts. It is
 | Telegram bot | all | bot token | commands from the owner chat only | sends messages to the owner | single allowed chat id; off by default, see below |
 | Model API | Briefing, Events, Career | API key (environment) | n/a | sends stated text to the provider | off by default; each use is listed with the data it sends; see below |
 | TTS provider | Briefing | API key (environment) | n/a | sends the digest summary text | off by default (`[briefing.tts] provider`); key named by `key_env`, never in the toml; shown on this screen |
+| Gemini TTS | Briefing podcast | API key (environment) | n/a | sends the podcast text | off by default (`[briefing.podcast]`); key in `KOKPIT_GEMINI_API_KEY`, never in the toml; see below |
 | AI tool logs | AI usage | local paths | usage rows | none | Hermes `state.db`, Claude Code, Codex |
 | Hermes agent | Brain, AI usage | local | vault files, usage rows | may append notes if enabled | not required; see `integrations/hermes` |
 
 ## Model API (off by default)
 
-Any OpenAI-compatible chat-completions endpoint. In `kokpit.toml` set `[model] enabled = true`, `base_url`, `model`, and switch on single uses under `[model.uses]` (`events_translate`, `events_classify`, `digest`, `night`, `career_weekly`; all false by default). The key is read from the environment variable named by `key_env` (default `KOKPIT_MODEL_API_KEY`) and is never written to the toml, the database or the screen. A use that is off, or a missing key, stops the call before any network traffic. The Connections row shows which uses are on, the fields each one sends, the host, and the last successful call; every call (and failure) is a row in the `runs` table under `model:<use>`, so Health shows it.
+Any OpenAI-compatible chat-completions endpoint. In `kokpit.toml` set `[model] enabled = true`, `base_url`, `model`, and switch on single uses under `[model.uses]` (`events_translate`, `events_classify`, `digest`, `night`, `career_weekly`, `podcast`; all false by default). The key is read from the environment variable named by `key_env` (default `KOKPIT_MODEL_API_KEY`) and is never written to the toml, the database or the screen. A use that is off, or a missing key, stops the call before any network traffic. The Connections row shows which uses are on, the fields each one sends, the host, and the last successful call; every call (and failure) is a row in the `runs` table under `model:<use>`, so Health shows it.
 
 ### Option B: through a local Hermes agent
 
@@ -50,6 +51,25 @@ digest = true
 Each call runs `hermes chat --oneshot -Q --query-file - --source tool` with the prompt on stdin and reads the answer from stdout. Which account answers (an API key, or a connected ChatGPT, Claude or Codex subscription) is Hermes's own setting, not Kokpit's. `base_url` and `key_env` are not used. What is sent is the same as with Option A: only the fields listed for the uses switched on under `[model.uses]`. If the command is not found the call stops before anything runs; failures are recorded in `runs` with a short message, as above. The Connections row shows `provider: hermes` and the command name instead of a host.
 
 Events translation: `[events] translate_to = "en"` (empty = off) translates title and description when `events_translate` is on. Only those two fields are sent; translations are cached per event, and the original text is kept if the call fails.
+
+## Gemini TTS for the Briefing podcast (off by default)
+
+The two-voice podcast can be read by Google's Gemini text-to-speech through the public REST API (`generateContent` with an audio response). Create a key in Google AI Studio ("Get API key") and put it in the environment as `KOKPIT_GEMINI_API_KEY` (or the name set in `gemini_key_env`). Then:
+
+```toml
+[model.uses]
+podcast = true                      # the text comes from your [model] connection
+[briefing.podcast]
+enabled = true
+tts_provider = "gemini"
+gemini_model = "gemini-2.5-flash-preview-tts"
+speakers = { A = "Kore", B = "Puck" }
+```
+
+- Model and voice names: the values above are examples. Which TTS models and prebuilt voices your key can use is decided by Google and changes over time; check the current Gemini API speech documentation. Not verified against the live service by this project.
+- Quota and price: the free tier has a small daily request limit that Google may change; a 20 minute episode needs several requests. A 429 answer is reported as a quota error and the run fails without a file. Not verified; check your own limits and any charges in Google AI Studio.
+- Sent: the podcast text only (and the short intro). Received: base64 PCM audio, 24 kHz, 16 bit, mono.
+- Without a Gemini key, `tts_provider = "openai_compatible"` uses the `[briefing.tts]` server, one request per line with the two `speakers` names as `voice` and `response_format = "pcm"` (or `openai_format = "wav"`); the audio must be 24 kHz, 16 bit mono. This is slower.
 
 ## Telegram bot (off by default)
 

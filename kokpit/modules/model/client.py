@@ -31,6 +31,7 @@ USES: dict[str, str] = {
     "digest": "titles, tags, short summaries and measured facts (stars, likes...) of selected items",
     "night": "text of the notes being organised",
     "career_weekly": "weekly listing counts, top companies, listing titles, requested skills and the profile's target roles, locations, seniority and skills (no name or contact)",
+    "podcast": "titles, tags and summaries of the day's digest items, the last lines of the previous segment, the optional listener first name and, only with [briefing.podcast] brain_context = true, the bounded personal context",
 }
 
 

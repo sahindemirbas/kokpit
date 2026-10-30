@@ -335,6 +335,44 @@ def cmd_instagram(args) -> int:
     return 0
 
 
+def cmd_briefing(args) -> int:
+    """briefing podcast [--day D] [--script-only]. The script-only form makes no speech request."""
+    from .modules.briefing import podcast
+    from .modules.health import store
+    from .modules.model.client import ModelDisabled, ModelError
+    cfg = _load(args)
+    if args.day and not podcast.DAY.fullmatch(args.day):
+        print("error: --day must be YYYY-MM-DD", file=sys.stderr)
+        return 2
+    if args.script_only:
+        day, items = podcast.load_items(cfg, args.day)
+        try:
+            sc = podcast.script(cfg, day or "", items, podcast.context_for(cfg))
+        except (ModelDisabled, ModelError, podcast.PodcastError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        print(podcast.as_text(sc), end="")
+        return 0
+    started = store.now_iso()
+    try:
+        rows, info, warnings = podcast.job(cfg, args.day)
+        ok = True
+    except Exception as exc:  # the failure itself is the record
+        rows, info, warnings, ok = None, {"error": f"{type(exc).__name__}: {str(exc)[:300]}"}, [], False
+    from .db import connect
+    conn = connect(cfg.db)
+    try:
+        store.record(conn, "podcast", started, ok, rows=rows, info=info, warnings=warnings)
+    finally:
+        conn.close()
+    if not ok:
+        print(f"podcast: error: {info['error']}", file=sys.stderr)
+        return 1
+    print("podcast: " + (f"{info['file']}, {info['seconds']} s" if rows else info.get("status", "ok"))
+          + (f"; warnings: {'; '.join(warnings)}" if warnings else ""))
+    return 0
+
+
 def cmd_bot(args) -> int:
     """bot poll [--once] | send-test. Neither prints the token, the chat id or message text."""
     from . import jobs
@@ -454,6 +492,12 @@ def main(argv=None) -> int:
     isub.add_parser("summary", help="aggregates from the local tables: followers, 30-day totals, errors")
     isub.add_parser("refresh-token", help="exchange the long-lived token for a fresh one (explicit only); prints the expiry date, never the token")
     p.set_defaults(fn=cmd_instagram)
+    p = sub.add_parser("briefing", help="Briefing extras")
+    brsub = p.add_subparsers(dest="briefing_cmd", required=True)
+    q = brsub.add_parser("podcast", help="make the two-voice podcast of a digest day ([briefing.podcast])")
+    q.add_argument("--day", help="digest day YYYY-MM-DD (default: the newest)")
+    q.add_argument("--script-only", action="store_true", help="print the text only; no speech request")
+    p.set_defaults(fn=cmd_briefing)
     p = sub.add_parser("bot", help="Telegram bot (one allowed chat)")
     bsub = p.add_subparsers(dest="bot_cmd", required=True)
     q = bsub.add_parser("poll", help="answer commands: long poll loop, or one pass with --once (cron friendly)")

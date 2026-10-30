@@ -48,6 +48,7 @@ SCHEDULE: tuple[Entry, ...] = (
     Entry("career", "jobs", at=("06:30",)),
     Entry("organiser", "organiser", at=("03:30",)),
     Entry("briefing", "briefing", at=("06:45",)),
+    Entry("podcast", "briefing", at=("07:00",)),  # after the digest; a skipped run when [briefing.podcast] is off
     Entry("ai_usage", "ai_usage", every=60),
     Entry("instagram", "instagram", at=("07:00", "19:00")),
     Entry("instagram-plan", "instagram", at=("07:00",)),

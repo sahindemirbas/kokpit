@@ -113,6 +113,7 @@ events_classify = false
 digest = false
 night = false
 career_weekly = false         # weekly job-market note in the Career tab; without it the tab shows numbers only
+podcast = false               # text of the two-voice Briefing podcast ([briefing.podcast])
 
 [briefing]                      # digest topics: you choose them, nothing is built in. Example (remove the leading # to use):
 # max_per_topic = 5           # items kept per topic (1 to 20)
@@ -137,6 +138,19 @@ career_weekly = false         # weekly job-market note in the Career tab; withou
 # model = ""
 # voice = ""
 # key_env = "KOKPIT_TTS_API_KEY"
+# [briefing.podcast]            # optional two-voice podcast of the digest, off. Needs [model.uses] podcast = true for the text
+# enabled = false
+# language = "en"             # language of the text
+# minutes = 20                # target length (5 to 40); about 130 words per minute
+# speakers = {{ A = "Kore", B = "Puck" }}   # provider voice names; A asks, B explains
+# listener_name = ""          # empty: no name; set: used only in the opening greeting and the closing goodbye
+# intro = true                # short spoken intro first: date, weather and today's calendar (skipped without data)
+# brain_context = false       # add the bounded personal context of the vault to the prompt (see docs/privacy.md)
+# tts_provider = "gemini"     # "gemini" or "openai_compatible" (uses [briefing.tts], one request per line)
+# gemini_key_env = "KOKPIT_GEMINI_API_KEY"
+# gemini_model = "gemini-2.5-flash-preview-tts"   # example; check which TTS model your key can use
+# max_turns_per_request = 12
+# link_base = ""              # e.g. "http://my-server:8501"; used in the bot line, empty gives a path only
 
 # [organiser]                 # night organiser, 03:30 daily; proposals go to SQLite and one report file in the data folder
 # stale_days = 30             # an active thread unchanged for this long is proposed for closing
@@ -376,7 +390,7 @@ def _model(a: dict) -> dict:
         "model": str(a.get("model", "")).strip(),
         "key_env": str(a.get("key_env", "KOKPIT_MODEL_API_KEY")).strip() or "KOKPIT_MODEL_API_KEY",
         "timeout": max(1, min(300, _int(a.get("timeout"), 30))),
-        "uses": {k: bool(uses.get(k, False)) for k in ("events_translate", "events_classify", "digest", "night", "career_weekly")},
+        "uses": {k: bool(uses.get(k, False)) for k in ("events_translate", "events_classify", "digest", "night", "career_weekly", "podcast")},
     }
 
 
@@ -463,6 +477,43 @@ def _briefing(a: dict) -> dict:
             "key_env": str(tts.get("key_env", "KOKPIT_TTS_API_KEY")).strip() or "KOKPIT_TTS_API_KEY",
             "timeout": max(1, min(300, _int(tts.get("timeout"), 60))),
         },
+        "podcast": _podcast(a.get("podcast", {}) if isinstance(a.get("podcast"), dict) else {}),
+    }
+
+
+_VOICE = re.compile(r"[A-Za-z0-9_.-]{1,40}")
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
+GEMINI_TTS_MODEL = "gemini-2.5-flash-preview-tts"  # example default; which models a key can use is the provider's matter
+
+
+def _podcast(p: dict) -> dict:
+    """[briefing.podcast]: off by default. No key inside; the Gemini key is read from the environment."""
+    sp = p.get("speakers", {}) if isinstance(p.get("speakers"), dict) else {}
+    voices = {}
+    for label, default in (("A", "Kore"), ("B", "Puck")):
+        v = str(sp.get(label, default)).strip()
+        voices[label] = v if _VOICE.fullmatch(v) else default
+    prov = str(p.get("tts_provider", "gemini")).strip().lower()
+    lang = str(p.get("language", "en")).strip().lower()[:12]
+    base = str(p.get("gemini_base_url", GEMINI_BASE)).strip().rstrip("/")
+    fmt = str(p.get("openai_format", "pcm")).strip().lower()
+    link = str(p.get("link_base", "")).strip().rstrip("/")
+    return {
+        "enabled": p.get("enabled") is True,
+        "language": lang if re.fullmatch(r"[a-z]{2,3}(-[a-z0-9]{2,8})?", lang) else "en",
+        "minutes": max(5, min(40, _int(p.get("minutes"), 20))),
+        "speakers": voices,
+        "listener_name": re.sub(r"[^\w .'-]", "", str(p.get("listener_name", "")).strip())[:40].strip(),
+        "intro": p.get("intro", True) is not False,
+        "brain_context": p.get("brain_context") is True,
+        "tts_provider": prov if prov in ("gemini", "openai_compatible") else "gemini",
+        "gemini_key_env": str(p.get("gemini_key_env", "KOKPIT_GEMINI_API_KEY")).strip() or "KOKPIT_GEMINI_API_KEY",
+        "gemini_model": str(p.get("gemini_model", GEMINI_TTS_MODEL)).strip() or GEMINI_TTS_MODEL,
+        "gemini_base_url": base if base.lower().startswith(("http://", "https://")) else GEMINI_BASE,
+        "openai_format": fmt if fmt in ("pcm", "wav") else "pcm",
+        "max_turns_per_request": max(2, min(40, _int(p.get("max_turns_per_request"), 12))),
+        "timeout": max(10, min(900, _int(p.get("timeout"), 400))),
+        "link_base": link if link.lower().startswith(("http://", "https://")) else "",
     }
 
 

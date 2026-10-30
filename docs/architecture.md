@@ -75,6 +75,7 @@ Table (local time, set `TZ` to change it; intervals are counted from midnight):
 - weather every 30 min, calendar every 15 min (module today)
 - brain-check every 60 min (brain), ai_usage every 60 min (ai_usage)
 - events-collect and career daily at 06:30 (events, jobs)
+- briefing at 06:45, podcast at 07:00 (briefing; podcast records a skipped run while `[briefing.podcast]` is off)
 - instagram at 07:00 and 19:00, instagram-plan at 07:00 (instagram)
 - bot-morning at 07:30 or the `[bot]` morning time, bot-instagram-remind every 15 min (bot)
 

@@ -6,7 +6,7 @@ import json
 from ...config import Config
 from ...db import connect
 from ..health import api as health_api
-from . import collect, tts
+from . import collect, podcast, tts
 
 
 def _items(rows) -> list[dict]:
@@ -23,7 +23,7 @@ def _items(rows) -> list[dict]:
 
 def view(cfg: Config) -> dict:
     out = {"enabled": cfg.modules.get("briefing", False), "freshness": health_api.freshness(cfg, "briefing"),
-           "day": None, "sections": [], "speech": "", "audio": None,
+           "day": None, "sections": [], "speech": "", "audio": None, "podcast": None,
            "tts": {"provider": cfg.briefing["tts"]["provider"], "on": tts.enabled(cfg)}}
     if not out["enabled"]:
         return out
@@ -56,6 +56,8 @@ def view(cfg: Config) -> dict:
         out["speech"] = collect.speech_text(day, [{**i, "project": i["project"]} for i in items])
     if day and tts.audio_path(cfg, day).is_file():
         out["audio"] = "/api/briefing/audio"
+    if day:
+        out["podcast"] = podcast.info(cfg, day)
     out["count"] = len(items)
     return out
 

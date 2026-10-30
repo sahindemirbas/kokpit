@@ -10,7 +10,7 @@ from collections.abc import Callable
 from .config import Config
 from .db import connect
 from .modules.brain import reader
-from .modules.briefing import collect as briefing_collect
+from .modules.briefing import collect as briefing_collect, podcast as briefing_podcast
 from .modules.organiser import collect as organiser_collect
 from .modules.ai_usage import collect as ai_usage_collect
 from .modules.career import collect as career_collect, profile as career_profile, weekly as career_weekly
@@ -62,6 +62,11 @@ def briefing(cfg: Config):
         return briefing_collect.collect(cfg, conn)
     finally:
         conn.close()
+
+
+def podcast(cfg: Config):
+    """Two-voice podcast of the newest digest; a skipped run when [briefing.podcast] is off."""
+    return briefing_podcast.job(cfg)
 
 
 def organiser(cfg: Config):
@@ -168,7 +173,7 @@ def calendar_job(cfg: Config):
     return len(data["events"]), info, data["errors"] + data["warnings"]
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "briefing": briefing, "organiser": organiser, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan, "bot-poll": bot_poll, "bot-morning": bot_morning, "bot-instagram-remind": bot_instagram_remind}
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "briefing": briefing, "podcast": podcast, "organiser": organiser, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan, "bot-poll": bot_poll, "bot-morning": bot_morning, "bot-instagram-remind": bot_instagram_remind}
 
 
 ALIASES = {"agenda": "briefing"}  # old job name, kept so existing crontabs keep working; not listed

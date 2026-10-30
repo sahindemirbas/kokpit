@@ -17,6 +17,12 @@ Enforcement: `.gitignore` for the obvious patterns, a pre-commit secret scan bef
 - Publishing to a social platform happens only after an explicit approval per item.
 - A calendar ICS address is treated as a secret: it is never stored in the database, and API answers, the health log and error messages show it masked to scheme and host only.
 
+## Briefing podcast
+
+- With `[briefing.podcast]` on, the model connection receives the day's digest items (titles, tags, summaries, measured facts), the last lines of the previous segment and, only if set, the listener's first name. The vault's bounded personal context is added only with `brain_context = true` and the Brain module on.
+- The speech provider (Gemini or the `[briefing.tts]` server) receives the finished podcast text and the short intro (date, weather, today's event count and the first event title and time).
+- The Gemini key is read from the environment only; it is never written to the toml, the database, the logs or the screen, and error messages are scrubbed of it.
+
 ## Receipts and archive
 
 - Brain > Meetings writes only into the configured notes inside the vault (one marked section per note) and keeps its backups under the data directory (`data/backups/meetings/`). The API sends the client the file name of a source note, not its path.
