@@ -38,7 +38,7 @@ Kokpit gathers the things you check every morning (calendar, tasks, your notes, 
 **Working now**
 
 - **Today:** calendar (read-only ICS), open tasks, upcoming dates, live weather from Open-Meteo.
-- **Brain:** your Markdown notes as projects and open threads, with quick capture that only ever appends.
+- **Brain:** your Markdown notes as projects and open threads, with quick capture that only ever appends. Meetings turns a note's question lists into a form and saves the answers into one marked section of that note.
 - **Events:** what is on in your city from AllEvents and Eventbrite, plus local adapters and category rules in your language.
 - **Career:** a local profile, job listings scored with a written reason ("Python, SQL; Milan; remote not stated"), listing lifecycle, market view, CSV export. A weekly market summary shows listing counts for the last 8 weeks and, only when you switch on `[model.uses] career_weekly`, a short note on what changed. A skills plan lists the skills that listings ask for and your profile lacks, and you mark each one learning, known or skip.
 - **Health:** the last successful run of every job. A source that silently returns nothing shows "0 records", not "OK".

@@ -1,6 +1,6 @@
 """The web app: one static page plus a small JSON API. Standard library only.
 
-Reads: everything. Writes: quick capture into the vault, the local career profile file and the Instagram content calendar (publishing only
+Reads: everything. Writes: quick capture and the marked meeting-notes section into the vault, the local career profile file and the Instagram content calendar (publishing only
 through the Approve action of one slot), nothing else.
 Binds to localhost unless the config says otherwise.
 """
@@ -19,6 +19,7 @@ from .modules.ai_usage import api as ai_usage_api
 from .modules.organiser import api as organiser_api
 from .modules.instagram import api as instagram_api, planapi as instagram_plan
 from .modules.brain import api as brain_api
+from .modules.brain import meetings
 from .modules.career import api as career_api
 from .modules.events import api as events_api
 from .modules.connections import api as connections_api
@@ -80,6 +81,16 @@ def make_handler(cfg: Config):
                     return self._json(today_api.view(cfg))
                 if path == "/api/brain":
                     return self._json(brain_api.view(cfg))
+                if path == "/api/brain/meetings":
+                    mid = parse_qs(urlparse(self.path).query).get("id", [""])[0]
+                    if not mid:
+                        return self._json({"meetings": meetings.list_meetings(cfg), "write": cfg.meetings_write})
+                    try:
+                        return self._json(meetings.load(cfg, mid))
+                    except meetings.UnknownMeeting:
+                        return self._json({"error": "meeting not found"}, HTTPStatus.NOT_FOUND)
+                    except meetings.SourceError:
+                        return self._json({"error": "meeting source could not be read"}, HTTPStatus.INTERNAL_SERVER_ERROR)
                 if path in ("/api/briefing", "/api/agenda"):  # /api/agenda: old name, kept as an alias
                     return self._json(briefing_api.view(cfg))
                 if path == "/api/organiser":
@@ -192,12 +203,38 @@ def make_handler(cfg: Config):
             except (ValueError, json.JSONDecodeError) as exc:
                 return self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
+        def _meetings_post(self):
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > meetings.MAX_BODY:
+                    return self._json({"ok": False, "code": "too_large", "error": "request too large"},
+                                      HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                return self._json(meetings.save(cfg, data))
+            except meetings.UnknownMeeting:
+                return self._json({"ok": False, "code": "unknown", "error": "meeting not found"}, HTTPStatus.NOT_FOUND)
+            except meetings.Conflict as exc:
+                return self._json({"ok": False, "code": "conflict", "current": exc.current}, HTTPStatus.CONFLICT)
+            except meetings.TooLarge as exc:
+                return self._json({"ok": False, "code": exc.code, "error": "text too long"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+            except meetings.Invalid as exc:
+                return self._json({"ok": False, "code": exc.code, "error": "invalid request"}, HTTPStatus.BAD_REQUEST)
+            except meetings.SourceError as exc:
+                return self._json({"ok": False, "code": exc.code, "error": "meeting source could not be read"},
+                                  HTTPStatus.INTERNAL_SERVER_ERROR)
+            except PermissionError as exc:
+                return self._json({"ok": False, "code": "read_only", "error": str(exc)}, HTTPStatus.FORBIDDEN)
+            except (ValueError, json.JSONDecodeError) as exc:
+                return self._json({"ok": False, "code": "invalid", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+
         def do_POST(self):
             path = urlparse(self.path).path
             if path == "/api/instagram/plan" or path.startswith("/api/instagram/plan/"):
                 return self._plan_post(path)
             if path in ("/api/career/profile", "/api/career/cv", "/api/career/score", "/api/career/skills"):
                 return self._career_post(path)
+            if path == "/api/brain/meetings/save":
+                return self._meetings_post()
             if path not in ("/api/brain/capture", "/api/brain/done"):
                 return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
             try:

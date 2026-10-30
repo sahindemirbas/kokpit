@@ -179,6 +179,8 @@ html[data-tema=dark] .leaflet-container{background:#2a2824}
 .af-mq b{margin:0 20px;cursor:pointer}.af-mq b:hover{text-decoration:underline}.af-mq em{font-style:normal;color:var(--bg)}
 .af-bu{position:fixed;width:9px;height:9px;border-radius:2px;pointer-events:none;z-index:3000;animation:afburst .6s ease-out forwards}
 .af textarea,.brw textarea{width:100%;font:500 15px/1.4 var(--sans);border:2px solid var(--ink);border-radius:10px;padding:10px;background:var(--bg);resize:vertical}
+.mt .mt-f{display:block;margin-top:10px}.mt .mt-f .mono{display:block;margin-bottom:4px;text-transform:none;letter-spacing:0;font-size:13px}.mt textarea,.mt-ex{width:100%;font:500 15px/1.4 var(--sans);border:2px solid var(--ink);border-radius:10px;padding:10px;background:var(--bg);resize:vertical}.mt-ex{font:500 12px/1.5 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}.mt .mt-meta{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-top:6px}.mt .mt-bar{display:flex;gap:12px;align-items:center}.mt textarea.mt-ch{border-color:#ff5a3c;box-shadow:0 0 0 3px #ff5a3c66}
+@media(max-width:700px){.mt .mt-g{grid-column:span 12}}
 .af table{box-shadow:none}
 @media(max-width:900px){.s4,.s5,.s6,.s7,.s8{grid-column:span 12}.af-hero h2{max-width:none}}
 @media(max-width:700px){.af{padding:14px 14px 30px;gap:14px}.af-top{padding:16px 14px 4px}.nav{padding:8px 14px 0}.af-cd .n{font-size:80px}.af-stk{width:78px;height:78px;right:-14px;top:-14px}.af-hero h4{padding-right:56px}.af-hero h2{font-size:clamp(26px,8.6vw,40px)}.nav{flex-wrap:nowrap;overflow-x:auto;padding-bottom:8px}.nav .btn{flex:none}.af-wx .wxtp b{font-size:46px}.af-wx .wxtp .lo b{font-size:28px}}
@@ -329,7 +331,7 @@ html[data-tema=dark] .gv-c{background:var(--card)}
 /* Ortak bağlantılar (v2) */
 #view a:not(.btn):not(.dl):not(.chip),.tk a:not(.btn):not(.dl){color:var(--ink);text-decoration:none;font-weight:700;background:linear-gradient(var(--tc),var(--tc)) 0 100%/100% 3px no-repeat;transition:background-size .2s}
 #view a:not(.btn):not(.dl):not(.chip):hover,.tk a:not(.btn):not(.dl):hover{background-size:100% 100%}
-/* Beyin (v2) */
+/* Brain (v2) */
 .bm{padding:8px 24px 40px;overflow-wrap:anywhere}
 .bm-g:not(.bm-gen){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:28px}
 .bm-g>.bm-gh{grid-column:1/-1}
@@ -354,7 +356,7 @@ html[data-tema=dark] .bm-st.err{color:#ff8a7a}html[data-tema=dark] .bm-st.ok{col
 .br-c{margin:0;background:var(--card);border:2.5px solid var(--ink);border-radius:16px;box-shadow:5px 5px 0 var(--shd,var(--ink));padding:16px 18px;transition:transform .18s,box-shadow .18s;display:inline-block;width:100%}
 .br-c:hover{transform:translate(-3px,-3px);box-shadow:8px 8px 0 var(--shd,var(--ink))}
 .br-c.you{background:#fff0a8}
-/* Beyin filters + links */
+/* Brain filters + links */
 .kpi-b{font:inherit;color:inherit;text-align:left;cursor:pointer;width:100%;display:block}
 .kpi-b[aria-pressed=true]{outline:3px solid var(--ink);outline-offset:3px;transform:translate(-3px,-3px);box-shadow:8px 8px 0 var(--shd,var(--ink))}
 .kpi-b[aria-pressed=true] span:after{content:' · selected'}
@@ -681,9 +683,11 @@ function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){co
 const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['ai','AI usage'],['so','Social'],['br','Brain'],['hl','Health'],['bi','Briefing'],['og','Organiser'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',ai_usage:'ai',social:'so',brain:'br',health:'hl',briefing:'bi',organiser:'og',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',bi:'briefing',og:'organiser',cn:'connections'};
 function legacyHash(){if(location.hash=='#agenda')history.replaceState(null,'','#briefing')}/* old name of the briefing tab */
 legacyHash();try{const o=localStorage.getItem('kokpit_agenda_read');if(o!==null){if(localStorage.getItem('kokpit_briefing_read')===null)localStorage.setItem('kokpit_briefing_read',o);localStorage.removeItem('kokpit_agenda_read')}}catch(e){}
-const S={hn:{},view:HASH[location.hash.replace('#','')]||'bg'};
+const hashParts=()=>{const p=location.hash.replace('#','').split('/');return [HASH[p[0]]||'bg',p[1]||'']};
+const S={hn:{},view:hashParts()[0],sub:hashParts()[1]};
 function nav(){$('nav').innerHTML=NAVT.map(([k,l])=>`<button type="button" class="btn${k==S.view?' on':''}" data-view="${k}">${l}</button>`).join('')}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;location.hash=HASHR[S.view];render()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;S.sub='';location.hash=HASHR[S.view];render()}
+ const sb=e.target.closest('[data-sub]');if(sb){S.sub=sb.dataset.sub;location.hash=HASHR[S.view]+(S.sub?'/'+S.sub:'');render()}
  const s=e.target.closest('[data-scroll]');if(s)afScroll(s.dataset.scroll)});
 function afCount(root,ms=1000){root.querySelectorAll('[data-c]').forEach(e=>{const t=+e.dataset.c,s0=performance.now();if(!t||RM){e.textContent=String(t||0);return}const f=p=>{const r=Math.min(1,(p-s0)/ms);e.textContent=Math.round(t*(1-Math.pow(1-r,3)));if(r<1)requestAnimationFrame(f)};requestAnimationFrame(f)})}
 const counts=v=>afCount(v,1100);
@@ -743,10 +747,46 @@ async function bugunView(){const v=$('view');if(!v.querySelector('.af'))v.innerH
  h+=`<div class="af-b s12" ${afD(i++)}><h4>Recent sessions · ${SE.length}</h4>${SE.length?`<div style="overflow-x:auto"><table><thead><tr><th>Time</th><th>Agent</th><th>What</th></tr></thead><tbody>${SE.map(x=>`<tr><td class="mono" style="white-space:nowrap">${esc(x.at||'')}</td><td class="mono">${esc(x.session||'')}</td><td><b>${esc(x.title||'')}</b>${x.text?' · '+esc(String(x.text).slice(0,160)):''}</td></tr>`).join('')}</tbody></table></div>`:'<p>No session cards yet.</p>'}</div>`;
  h+=`<div class="af-b s7" ${afD(i++)}><h4>Note to brain</h4><textarea id="bnote" rows="4" maxlength="4000" placeholder="Write what is on your mind: an idea, a task, a journal line..."></textarea><div style="display:flex;gap:12px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn" id="bnoteb" onclick="bwNote()" style="background:#ffc21a">Add to inbox</button><span id="bnotes" class="mono" style="font-size:11px">Nothing is rewritten; a new file lands in inbox/.</span></div></div>`;
  v.innerHTML=h+'</div>';counts(v)}
+/* Brain > Meetings: answer the question lists of a configured note; saved into one marked section of that note */
+const BM_EX='[[brain.meetings]]\nid = "garden-timer-review"\ntitle = "Garden timer: review with the supplier"\nsource = "notes/garden-timer-review.md"\nsections = ["## Questions for the supplier", "## Open decisions"]';
+const bmSt={id:'',d:null,dirty:false,write:true};
+window.addEventListener('beforeunload',e=>{if(bmSt.dirty){e.preventDefault();e.returnValue=''}});
+function bmField(q){return `<label class="mt-f"><span class="mono">${q.n}. ${esc(q.q)}</span><textarea data-bmq="${q.n}" rows="3" maxlength="5000" placeholder="Answer">${esc(q.a||'')}</textarea></label>`}
+function bmDraw(){const v=$('view'),d=bmSt.d;if(!d)return;const ro=!bmSt.write;
+ const groups=d.groups.map(g=>`<section class="af-b s6 mt-g"><h4>${esc(g.title)}</h4>${g.questions.length?g.questions.map(bmField).join(''):'<div class="empty">No bullet lines under this heading.</div>'}</section>`).join('');
+ const warn=(d.warnings||[]).length?`<div class="af-b s12"><h4>Warnings</h4>${d.warnings.map(w=>`<div>${esc(w)}</div>`).join('')}</div>`:'';
+ const orph=(d.orphans||[]).length?`<div class="af-b s12"><h4>Answers to questions no longer in the note</h4>${d.orphans.map(o=>`<div class="af-row"><span>${esc(o.q)}</span><span class="mono">${esc(o.a)}</span></div>`).join('')}</div>`:'';
+ v.innerHTML=`<div class="af mt"><div class="af-b s12"><h4>${esc(d.title)}</h4><div class="mt-meta"><span class="mono">${esc(d.source)} / ${d.count} question${d.count==1?'':'s'}</span><span class="mono" id="bmst">${d.updated_at?'Last saved: '+esc(d.updated_at):'Not saved yet'}</span></div>
+ <div class="mt-meta"><button type="button" class="btn" data-bmback="1">All meetings</button>${ro?'<span class="mono">Read-only (meetings_write = false)</span>':''}</div></div>${warn}${groups}
+ <section class="af-b s12"><h4>General notes and decisions</h4><textarea id="bmgen" rows="6" maxlength="20000" placeholder="Notes, decisions, follow-ups">${esc(d.general||'')}</textarea></section>${orph}
+ <div class="af-b s12 mt-bar"><button type="button" class="btn on" id="bmsave"${ro?' disabled':''}>Save</button><span class="mono" id="bmmsg"></span></div></div>`;
+ if(ro)v.querySelectorAll('textarea').forEach(t=>t.disabled=true);
+ v.oninput=e=>{if(e.target.matches('textarea')){bmSt.dirty=true;$('bmmsg').textContent='Unsaved changes'}};
+ $('bmsave').onclick=bmSave;v.querySelector('[data-bmback]').onclick=()=>{if(bmSt.dirty&&!confirm('Discard unsaved changes?'))return;bmSt.dirty=false;bmSt.id='';bmView()}}
+function bmBody(){const d=bmSt.d,answers=[];d.groups.forEach(g=>g.questions.forEach(q=>{const t=document.querySelector(`[data-bmq="${q.n}"]`);answers.push(t?t.value:q.a||'')}));return {meeting:d.id,revision:d.revision,answers,general:$('bmgen').value}}
+async function bmSave(){const b=$('bmsave'),m=$('bmmsg');b.disabled=true;m.textContent='Saving...';
+ try{const r=await fetch('/api/brain/meetings/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(bmBody())});const j=await r.json().catch(()=>({}));
+  if(r.status==409){m.innerHTML=`Someone else saved this note. Your text is kept in the editor; reload to see the new version. <button type="button" class="btn" id="bmreload">Load the new version</button>`;
+   $('bmreload').onclick=()=>{if(!confirm('Replace your text with the saved version?'))return;bmSt.d=j.current;bmSt.dirty=false;bmDraw()};bmDiff(j.current);b.disabled=false;return}
+  if(!r.ok)throw new Error(j.error||('HTTP '+r.status));
+  bmSt.d.revision=r.ok&&j.revision||bmSt.d.revision;bmSt.d.updated_at=j.updated_at||bmSt.d.updated_at;bmSt.dirty=false;
+  const body=bmBody();let i=0;bmSt.d.groups.forEach(g=>g.questions.forEach(q=>{q.a=body.answers[i++]}));bmSt.d.general=body.general;
+  m.textContent='Saved';$('bmst').textContent='Last saved: '+(bmSt.d.updated_at||'');afBurst(b)}catch(e){m.textContent=e.message}b.disabled=false}
+function bmDiff(cur){if(!cur||!cur.groups)return;const mine=bmBody();let i=0,n=0;cur.groups.forEach(g=>g.questions.forEach(q=>{const t=document.querySelector(`[data-bmq="${q.n}"]`);if(t&&mine.answers[i]!==(q.a||'')){t.classList.add('mt-ch');t.title='Saved version: '+(q.a||'(none)');n++}i++}));
+ const g=$('bmgen');if(g&&mine.general!==(cur.general||'')){g.classList.add('mt-ch');g.title='Saved version: '+(cur.general||'(none)');n++}
+ if(n)$('bmmsg').insertAdjacentHTML('beforeend',` ${n} field${n==1?'':'s'} differ from the saved version (outlined).`)}
+async function bmView(){const v=$('view');brSub();bmSt.dirty=false;v.innerHTML='<div class="empty">Loading...</div>';
+ const list=await J('/api/brain/meetings');if(S.view!='br'||S.sub!='meetings')return;bmSt.write=list.write!==false;
+ if(!list.meetings.length){v.innerHTML=`<div class="af"><div class="af-b s12"><h4>Meetings</h4><div class="empty">No meetings configured. Add [[brain.meetings]] to kokpit.toml.</div><pre class="mt-ex">${esc(BM_EX)}</pre></div></div>`;return}
+ if(bmSt.id){try{bmSt.d=await J('/api/brain/meetings?id='+encodeURIComponent(bmSt.id));bmDraw();return}catch(e){v.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}}
+ v.innerHTML=`<div class="af"><div class="af-b s12"><h4>Meetings</h4>${list.meetings.map(m=>`<div class="af-row"><button type="button" class="btn" data-bmid="${esc(m.id)}"${m.exists?'':' disabled'}>${esc(m.title)}</button><span class="mono">${esc(m.source)} / ${m.exists?m.count+' question'+(m.count==1?'':'s'):'source missing'}</span></div>`).join('')}</div></div>`;
+ v.onclick=e=>{const b=e.target.closest('[data-bmid]');if(b){bmSt.id=b.dataset.bmid;bmView()}}}
+
 async function bwNote(){const t=$('bnote'),b=$('bnoteb'),s=$('bnotes'),val=t.value.trim();if(!val)return;b.disabled=t.disabled=true;s.textContent='Saving...';
  try{const r=await J('/api/brain/capture',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'note',text:val})});s.textContent='saved '+base(r.path);t.value='';afBurst(b)}catch(e){s.textContent=e.message}b.disabled=t.disabled=false}
 
-async function brView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const [d,hh]=await Promise.all([J('/api/brain'),J('/api/health').catch(()=>null)]);if(S.view!='br')return;d.hwarn=hh&&hh.available?(hh.failing||[]).length+(hh.warnings||[]).length:0;
+function brSub(){const sn=$('subnav');sn.hidden=false;sn.innerHTML=[['','Overview'],['meetings','Meetings']].map(([k,l])=>`<button type="button" class="btn${k==(S.sub||'')?' on':''}" data-sub="${k}" aria-current="${k==(S.sub||'')?'page':'false'}">${l}</button>`).join('')}
+async function brView(){const v=$('view');brSub();v.innerHTML='<div class="empty">Loading...</div>';const [d,hh]=await Promise.all([J('/api/brain'),J('/api/health').catch(()=>null)]);if(S.view!='br'||S.sub)return;d.hwarn=hh&&hh.available?(hh.failing||[]).length+(hh.warnings||[]).length:0;
  S.hn.br=d.exists?[[d.lanes.on_you.length,'on you'],[d.todo.length,'tasks'],[d.threads.length,'threads']]:[];
  if(!d.exists){v.innerHTML=`<div class="empty">Vault not found: ${esc(base(d.vault))}</div>`;return}
  S._bd=d;S.bf=S.bf||'all';brDraw()}
@@ -1139,8 +1179,8 @@ function afDecor(){const v=$('view'),key=S.view;
  v.querySelectorAll('.kpi b').forEach(b=>{const m=b.textContent.trim().match(/^(\d{1,7})$/);if(m)b.dataset.c=m[1]});afCount(v);
  clearTimeout(afT);afT=setTimeout(()=>v.classList.remove('afa'),2500)}
 new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
-async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:brView,hl:hlView,bi:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
-window.addEventListener('hashchange',()=>{legacyHash();const n=HASH[location.hash.replace('#','')]||'bg';if(n!=S.view){S.view=n;render()}});
+async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;const sn=$('subnav');sn.hidden=true;sn.innerHTML='';window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:S.sub=='meetings'?bmView:brView,hl:hlView,bi:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+window.addEventListener('hashchange',()=>{legacyHash();const n=hashParts(),s=n[1];if(n[0]!=S.view||s!=S.sub){S.view=n[0];S.sub=s;render()}});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`}).catch(()=>{});
 afClock();setInterval(afClock,15000);render();
 </script>

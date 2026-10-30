@@ -38,7 +38,7 @@ Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki
 **Bugün çalışan**
 
 - **Today:** takvim (salt okunur ICS), açık görevler, yaklaşan tarihler, Open-Meteo'dan canlı hava.
-- **Brain:** Markdown notların projeler ve açık işler olarak; hızlı not yalnız ekleme yapar, hiçbir notu yeniden yazmaz.
+- **Brain:** Markdown notların projeler ve açık işler olarak; hızlı not yalnız ekleme yapar, hiçbir notu yeniden yazmaz. Meetings bir notun soru listelerini forma çevirir, cevapları o notun sonundaki işaretli bölüme kaydeder.
 - **Briefing:** `briefing = true` yap ve `[briefing]` altına kendi konularını (RSS/Atom ve anahtar kelimeler) yaz; aktif projelerinle eşleşen öğeler etiketlenir ve öne çıkar. Model özeti ve sesli okuma isteğe bağlı, varsayılan kapalı.
 - **Events:** AllEvents ve Eventbrite'tan şehrindeki etkinlikler; yerel adaptörler ve kendi dilinde kategori kuralları.
 - **Career:** yerel profil, yazılı gerekçeyle puanlanan ilanlar ("Python, SQL; Milano; uzaktan belirtilmemiş"), ilan yaşam döngüsü, pazar görünümü, CSV dışa aktarım. Haftalık pazar özeti son 8 haftanın ilan sayılarını gösterir; yalnız `[model.uses] career_weekly` açıksa neyin değiştiğini anlatan kısa bir not da ekler. Beceri planı ilanların istediği ama profilinde olmayan becerileri listeler; her birini öğreniyorum, biliyorum ya da atla diye işaretlersin.

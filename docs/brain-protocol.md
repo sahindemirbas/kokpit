@@ -56,7 +56,7 @@ Markdown. Nothing proprietary.
 | Context hook (any agent) | Threads, Last-Session, relevant notes | nothing | writes |
 | Working agent (Hermes, Claude Code, Codex, ...) | whole vault | Last-Session card, Threads update, the note the work belongs to, a receipt line | rewrites old text, deletes |
 | Night organiser (scheduled) | `inbox/`, today's changed notes, unreviewed notes | moves inbox notes to a folder, adds links, appends dated status blocks | edits text meaning, touches files outside its journal |
-| Kokpit web app | whole vault | quick capture only (append a line to `inbox/` or `To-Do.md`) | rewrites, deletes |
+| Kokpit web app | whole vault | quick capture (append a line to `inbox/` or `To-Do.md`); the marked meeting-notes section of configured notes | rewrites, deletes |
 | User | everything | everything | - |
 
 ### Context hook
@@ -251,7 +251,38 @@ Status: live in the reference instance since October 2026 as a first version;
 **generalise** for this repository (the project list and goals are currently
 read from the author's vault paths).
 
-## 5. What this protocol is not
+## 5. Meeting notes (Brain > Meetings)
+
+A note that lists questions (for a supplier, a review, an interview) can be
+answered from the dashboard instead of in the editor.
+
+- Configuration: `[[brain.meetings]]` in `kokpit.toml` with `id`
+  (`[a-z0-9-]`, up to 40 characters), `title`, `source` (a Markdown file
+  inside the vault) and `sections` (headings whose bullet lines are the
+  questions). Invalid entries (bad id, duplicate id, empty sections, a path
+  outside the vault) are skipped with a warning at config load.
+- What is read: the bullet lines (`-`, `*`, `1.`) under each listed heading,
+  up to the next heading of the same or higher level. Plain paragraphs are not
+  questions. At most 100 questions per meeting, source up to 1 MiB.
+- Where it writes: one section at the end of the same note, fenced by
+  `<!-- kokpit-meeting:<id> -->` and `<!-- /kokpit-meeting:<id> -->` and headed
+  `## Meeting notes (Kokpit)`. The text above the markers is left byte for
+  byte as it was. Inside the section a readable rendering (question, answer,
+  general notes) is followed by a ```json block; **the JSON block is the
+  canonical data**, the rendering is derived from it on every save.
+- Agents and people should not edit the marked section by hand: the next save
+  rewrites it from the JSON block. Edit the questions above the markers
+  instead; an answer whose question text changed is kept under `orphans` and
+  shown on the screen until it is deleted.
+- Conflicts: every load carries a `revision` (hash of the source bytes). A
+  save with an older revision is refused with HTTP 409 and the current state;
+  the editor keeps the user's text and offers to load the new version. Saves
+  take a lock file next to the source (`<source>.lock`, stale after 60 s),
+  write a backup to `data/backups/meetings/` (last 20 kept) and replace the
+  file atomically. `meetings_write = false` turns the screen read-only.
+- Privacy: the API returns only the file name of the source, never its path.
+
+## 6. What this protocol is not
 
 - Not a sync service. The vault lives where the user puts it (local disk,
   Syncthing, Obsidian Sync, Git). Kokpit never uploads it.

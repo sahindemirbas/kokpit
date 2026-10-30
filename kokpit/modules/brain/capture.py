@@ -1,4 +1,4 @@
-"""Quick capture: the only write the web app performs on the vault.
+"""Quick capture: appends from the dashboard (the other vault write is ``meetings``, which edits one marked section).
 
 - a note becomes a new file in ``inbox/`` (never overwrites);
 - a task becomes one checkbox line appended under ``## Open`` in ``To-Do.md``.
@@ -6,11 +6,19 @@ Nothing is rewritten or deleted.
 """
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime
 from pathlib import Path
 
 MAX_CHARS = 2000
+
+
+def _atomic_write(p: Path, text: str) -> None:
+    """Write to a temp file next to ``p`` and ``os.replace`` it, so a crash never leaves a half-written note."""
+    tmp = p.with_name(f".{p.name}.kokpit-tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, p)
 
 
 def _slug(s: str) -> str:
@@ -33,8 +41,7 @@ def capture_note(vault: Path, text: str, now: datetime | None = None) -> Path:
     while p.exists():
         n += 1
         p = inbox / f"{base}-{n}.md"
-    p.write_text(f"---\ncaptured: {now.isoformat(timespec='seconds')}\nsource: kokpit quick capture\n---\n{text}\n",
-                 encoding="utf-8")
+    _atomic_write(p, f"---\ncaptured: {now.isoformat(timespec='seconds')}\nsource: kokpit quick capture\n---\n{text}\n")
     return p
 
 
@@ -60,7 +67,7 @@ def capture_task(vault: Path, text: str, due: str = "") -> str:
         tail = tail[: m.start()].rstrip("\n") + "\n" + line + "\n\n" + tail[m.start():]
     else:
         tail = tail.rstrip("\n") + "\n" + line + "\n"
-    p.write_text(head + tail, encoding="utf-8")
+    _atomic_write(p, head + tail)
     return line
 
 
@@ -83,7 +90,7 @@ def complete_task(vault: Path, text: str) -> str:
             if clean == text:
                 i = body.index("[", pos)
                 body = body[:i] + "[x" + body[i + 2:]
-                p.write_text(body, encoding="utf-8")
+                _atomic_write(p, body)
                 return clean
         pos += len(line)
     raise ValueError("open task not found")

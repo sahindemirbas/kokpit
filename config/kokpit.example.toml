@@ -72,6 +72,16 @@ calendar_ics_urls = []        # e.g. ["https://calendar.example.org/feeds/<secre
 [brain]
 vault_path = "~/Notes"        # Markdown folder; starter structure created if empty
 quick_capture = true          # allow appending notes/tasks from the dashboard
+meetings_write = true         # false: Brain > Meetings is read-only (saving answers returns 403)
+
+# Brain > Meetings: answer the question lists of a note from the dashboard.
+# Kokpit reads the bullet lines under the listed headings and writes your answers
+# into one marked section at the end of the same note (data/backups/meetings/ keeps copies).
+# [[brain.meetings]]
+# id = "garden-timer-review"                                  # [a-z0-9-], at most 40 characters
+# title = "Garden timer: review with the supplier"
+# source = "notes/garden-timer-review.md"                     # relative to vault_path
+# sections = ["## Questions for the supplier", "## Open decisions"]
 
 [events]
 sources = ["allevents", "eventbrite", "sagramap"]   # chosen by country; edit to taste

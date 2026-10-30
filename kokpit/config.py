@@ -151,6 +151,12 @@ career_weekly = false         # weekly job-market note in the Career tab; withou
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
 quick_capture = true          # allow appending a note or task from the dashboard
+meetings_write = true         # false: Brain > Meetings is read-only (saving answers 403)
+# [[brain.meetings]]          # a note whose question lists you answer on the Brain > Meetings screen
+# id = "garden-timer-review"  # [a-z0-9-], unique
+# title = "Garden timer: review with the supplier"
+# source = "notes/garden-timer-review.md"   # relative to the vault, must stay inside it
+# sections = ["## Questions for the supplier", "## Open decisions"]   # headings whose bullet lines are the questions
 
 [health]
 db_path = "{db}"
@@ -168,6 +174,8 @@ class Config:
     modules: dict[str, bool] = field(default_factory=lambda: {"today": True, "brain": True, "health": True})
     vault_path: Path = Path("data/vault")
     quick_capture: bool = True
+    meetings_write: bool = True
+    meetings: list[dict] = field(default_factory=list, repr=False)
     db_path: Path = Path("data/kokpit.db")
     expected_jobs: list[str] = field(default_factory=list)
     host: str = "127.0.0.1"
@@ -246,6 +254,8 @@ def load(path: str | Path) -> Config:
     brain = raw.get("brain", {})
     cfg.vault_path = Path(brain.get("vault_path", cfg.vault_path))
     cfg.quick_capture = bool(brain.get("quick_capture", True))
+    cfg.meetings_write = bool(brain.get("meetings_write", True))
+    cfg.meetings = _brain_meetings(brain.get("meetings", []), cfg)
     health = raw.get("health", {})
     cfg.db_path = Path(health.get("db_path", cfg.db_path))
     cfg.expected_jobs = list(health.get("expected", []))
@@ -368,6 +378,51 @@ def _model(a: dict) -> dict:
         "timeout": max(1, min(300, _int(a.get("timeout"), 30))),
         "uses": {k: bool(uses.get(k, False)) for k in ("events_translate", "events_classify", "digest", "night", "career_weekly")},
     }
+
+
+_MEETING_ID = re.compile(r"[a-z0-9-]{1,40}")
+
+
+def _brain_meetings(items, cfg: "Config") -> list[dict]:
+    """``[[brain.meetings]]`` entries. A bad entry is logged and skipped, never fatal. Sources must stay in the vault."""
+    out: list[dict] = []
+    seen: set[str] = set()
+    if not isinstance(items, list):
+        return out
+    vault = cfg.vault
+    for i, m in enumerate(items):
+        why = ""
+        if not isinstance(m, dict):
+            why = "not a table"
+        else:
+            mid = str(m.get("id", ""))
+            title = str(m.get("title", "")).strip()
+            source = str(m.get("source", ""))
+            sections = m.get("sections")
+            if not _MEETING_ID.fullmatch(mid):
+                why = "id must match [a-z0-9-]{1,40}"
+            elif mid in seen:
+                why = f"duplicate id {mid}"
+            elif not title:
+                why = "title is required"
+            elif not source or Path(source).is_absolute():
+                why = "source must be a path relative to the vault"
+            elif not isinstance(sections, list) or not sections or not all(
+                    isinstance(s, str) and s.strip().startswith("#") for s in sections):
+                why = "sections must be a list of Markdown headings"
+            else:
+                try:
+                    rel = (vault / source).resolve().relative_to(vault)
+                except ValueError:
+                    why = "source must stay inside the vault"
+                else:
+                    seen.add(mid)
+                    out.append({"id": mid, "title": title[:120], "source": rel.as_posix(),
+                                "sections": [s.strip() for s in sections][:20]})
+        if why:
+            import logging
+            logging.getLogger(__name__).warning("kokpit.toml: [[brain.meetings]] entry %d skipped: %s", i + 1, why)
+    return out
 
 
 def _briefing(a: dict) -> dict:

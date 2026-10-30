@@ -19,6 +19,7 @@ Enforcement: `.gitignore` for the obvious patterns, a pre-commit secret scan bef
 
 ## Receipts and archive
 
+- Brain > Meetings writes only into the configured notes inside the vault (one marked section per note) and keeps its backups under the data directory (`data/backups/meetings/`). The API sends the client the file name of a source note, not its path.
 - Session receipts (`receipts/`) and compacted text (`archive/`) stay inside the user's vault. Kokpit sends neither anywhere, and the context hook does not read them.
 - Before a receipt is written, its summary is checked for a few obvious key and token patterns. This is best effort, not a guarantee; summaries should not contain secrets in the first place.
 
