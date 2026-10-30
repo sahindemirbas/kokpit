@@ -52,9 +52,10 @@ Moved out of M2:
 
 ## M5: agenda, bot, Docker
 
+- Model connection: done (M5 step 3, see docs/connections.md). Opt-in, one switch per use, key from the environment.
 - Topic configuration for the digest; optional TTS.
 - Brain-driven agenda matching with a rule-based fallback and a model opt-in.
-- Translation target setting for events (moved from M2), using the same model connection.
+- Translation target setting for events (moved from M2), using the same model connection: done (`[events] translate_to`).
 - Night organiser as an opt-in module: categorise, link, conditions, enrich, sync; deterministic morning report.
 - Telegram bot as an optional module.
 - `docker compose up` path: done (M5 step 2, see docs/docker.md).

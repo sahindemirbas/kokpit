@@ -54,6 +54,7 @@ adapters = []                    # adapters/events/<name> directories to enable 
 adapter_dirs = []                # extra folders holding your own <name>/collect.py adapters
 category_languages = ["en"]      # keyword packs for categories, merged in order; built in: en, it
 category_pack_dirs = []          # folders with your own <code>.json packs; same code wins over the built-in one
+translate_to = ""                # language code to translate titles and descriptions into (e.g. "en"); needs [model] and uses.events_translate
 
 [career]
 profile_path = "data/career-profile.json"   # local profile (skills, targets); never in the vault, never sent anywhere
@@ -94,6 +95,18 @@ morning_time = "07:30"        # used by `kokpit bot poll` to send the morning li
 poll_timeout = 25             # long poll seconds for `kokpit bot poll` (1 to 50)
 remind_hours = 24             # job bot-instagram-remind: remind about Instagram slots due within this many hours (1 to 168)
 
+[model]                       # optional model connection, OFF. The key is read from the environment, never from this file
+enabled = false
+base_url = ""                 # OpenAI-compatible endpoint, e.g. https://provider.example/v1
+model = ""
+key_env = "KOKPIT_MODEL_API_KEY"   # name of the environment variable that holds the key
+timeout = 30
+[model.uses]                  # one switch per purpose; the Connections screen lists the fields each one sends
+events_translate = false
+events_classify = false
+digest = false
+night = false
+
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
 quick_capture = true          # allow appending a note or task from the dashboard
@@ -123,6 +136,7 @@ class Config:
     career: dict = field(default_factory=dict)     # profile_path
     ai_usage: dict = field(default_factory=dict)   # readers, paths, prices, limits, advice thresholds
     instagram: dict = field(default_factory=lambda: _instagram({}), repr=False)  # switches, token_file, media_limit; token is secret
+    model: dict = field(default_factory=lambda: _model({}), repr=False)  # no secret inside: the key lives in the environment
     bot: dict = field(default_factory=lambda: _bot({}), repr=False)  # token and chat_id are secret-like
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
@@ -194,6 +208,7 @@ def load(path: str | Path) -> Config:
         "adapter_dirs": [str(x) for x in ev.get("adapter_dirs", [])],
         "category_languages": _str_list(ev.get("category_languages"), ["en"]),
         "category_pack_dirs": _str_list(ev.get("category_pack_dirs"), []),
+        "translate_to": str(ev.get("translate_to", "")).strip().lower()[:12],
     }
     cfg.modules.setdefault("events", False)
     cfg.modules.setdefault("jobs", False)
@@ -210,6 +225,7 @@ def load(path: str | Path) -> Config:
     cfg.ai_usage = _ai_usage(raw.get("ai_usage", {}))
     cfg.modules.setdefault("instagram", False)
     cfg.instagram = _instagram(raw.get("instagram", {}))
+    cfg.model = _model(raw.get("model", {}))
     cfg.modules.setdefault("bot", False)
     cfg.bot = _bot(raw.get("bot", {}))
     today = raw.get("today", {})
@@ -271,6 +287,18 @@ def _instagram(a: dict) -> dict:
         "plan_guard_days": max(0, min(60, _int(a.get("plan_guard_days"), 3))),
         "poll_seconds": max(1, min(30, _int(a.get("poll_seconds"), 3))),
         "poll_timeout": max(5, min(600, _int(a.get("poll_timeout"), 120))),
+    }
+
+
+def _model(a: dict) -> dict:
+    uses = a.get("uses", {}) if isinstance(a.get("uses"), dict) else {}
+    return {
+        "enabled": bool(a.get("enabled", False)),
+        "base_url": str(a.get("base_url", "")).strip(),
+        "model": str(a.get("model", "")).strip(),
+        "key_env": str(a.get("key_env", "KOKPIT_MODEL_API_KEY")).strip() or "KOKPIT_MODEL_API_KEY",
+        "timeout": max(1, min(300, _int(a.get("timeout"), 30))),
+        "uses": {k: bool(uses.get(k, False)) for k in ("events_translate", "events_classify", "digest", "night")},
     }
 
 

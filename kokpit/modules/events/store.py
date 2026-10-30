@@ -7,7 +7,7 @@ from pathlib import Path
 
 SCHEMA = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
 FIELDS = ("source", "source_id", "title", "description", "start", "end", "venue", "address", "city", "lat", "lon",
-          "url", "image", "price", "category", "distance_km", "language")
+          "url", "image", "price", "category", "distance_km", "language", "title_tr", "description_tr", "translated_to")
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
@@ -18,6 +18,11 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     except sqlite3.OperationalError as e:
         if "readonly" not in str(e):
             raise
+        return
+    have = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
+    for col in ("title_tr", "description_tr", "translated_to"):  # older databases
+        if col not in have:
+            conn.execute(f"ALTER TABLE events ADD COLUMN {col} TEXT")
 
 
 def has_table(conn: sqlite3.Connection) -> bool:

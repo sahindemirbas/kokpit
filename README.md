@@ -56,7 +56,7 @@ Kokpit gathers the things you check every morning (calendar, tasks, your notes, 
 ## Why Kokpit
 
 - **One notes folder, many AI agents.** Hermes, Claude Code, Codex or Antigravity can all work in the same Markdown vault. Each one reads the last session and open threads, then leaves a session card and a receipt of what it changed. You can switch tools mid-project and still audit every step. See [docs/brain-protocol.md](docs/brain-protocol.md).
-- **No model required.** Collection is plain code and every module has a rule-based path. A model is an opt-in connection that adds summaries and translation.
+- **No model required.** Collection is plain code and every module has a rule-based path. A model is an opt-in connection that adds summaries and translation (done for event translation: `[model]` + `[events] translate_to`, key in the environment).
 - **Unknown is not zero.** A price, quota or measurement that cannot be determined is shown as unknown, never as 0. Features are labelled working, needs generalisation or planned.
 - **Your device, your data.** There is no hosted service. Delete the app and your notes and database are still there.
 

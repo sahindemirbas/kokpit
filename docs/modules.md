@@ -81,6 +81,7 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 - Daily digest of items in the areas you follow (reference: AI/tech releases, repos, security notes). Each item has a one-sentence summary, a "why it matters" line and a score; the top item per section is the headline.
 - Optional audio summary (TTS) that keeps playing while you switch tabs.
 - Brain-driven matching: active threads, project names and current blockers from the vault steer what is selected. Items that clearly relate to an active project are tagged with the project and a stated reason; tagged items come first in the digest and the audio summary. Only titles, tags and short summaries leave the vault. A rule-based fallback works without any model. Details in `docs/brain-protocol.md`, section 4.
+- Model connection (`kokpit/modules/model`, M5): `complete(cfg, purpose, system, user, max_tokens)`, one switch per use, `ModelDisabled` before any network call when off. Events translation (`[events] translate_to`) is its first user.
 - Connections: a model API key for summaries (opt-in, stated), a TTS provider (optional), the brain vault (read-only).
 - Status: digest **working** for the author's topic set; brain-driven matching **working** in a first version tied to the author's vault paths (**generalise**); topic configuration **planned**.
 

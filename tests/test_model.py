@@ -1,0 +1,189 @@
+"""Model connection: a fake local http.server stands in for the provider. No real network, no real key."""
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+import threading
+import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
+from unittest import mock
+
+from kokpit import config as cfgmod
+from kokpit.db import connect
+from kokpit.modules.connections import api as conn_api
+from kokpit.modules.events import api as events_api, store as events_store, translate
+from kokpit.modules.model import client
+
+KEY = "sk-" + "test" + "-" + "x" * 6
+
+
+class Fake(BaseHTTPRequestHandler):
+    hits: list = []
+    mode = "ok"
+
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        Fake.hits.append({"path": self.path, "auth": self.headers.get("Authorization"), "body": body})
+        if Fake.mode == "fail":
+            self.send_response(500); self.end_headers(); self.wfile.write(b"boom " + KEY.encode()); return
+        user = body["messages"][1]["content"]
+        try:
+            items = json.loads(user)
+            text = json.dumps([{"id": x["id"], "title": "T:" + x["title"], "description": "D:" + x["description"]} for x in items])
+        except ValueError:
+            text = "echo " + user
+        out = json.dumps({"choices": [{"message": {"content": text}}]}).encode()
+        self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(out)
+
+    def log_message(self, *a):
+        pass
+
+
+def make_cfg(tmp: Path, url: str, enabled=True, uses=("events_translate",), translate_to="en") -> cfgmod.Config:
+    p = tmp / "kokpit.toml"
+    u = "\n".join(f"{k} = true" for k in uses)
+    p.write_text(f'''[modules]
+events = true
+[place]
+city = "Testville"
+country = "IT"
+lat = 45.0
+lon = 10.0
+radius_km = 40
+languages = ["it"]
+[events]
+translate_to = "{translate_to}"
+[model]
+enabled = {str(enabled).lower()}
+base_url = "{url}"
+model = "fake-1"
+[model.uses]
+{u}
+[health]
+db_path = "t.db"
+''')
+    return cfgmod.load(p)
+
+
+class ModelTests(unittest.TestCase):
+    def setUp(self):
+        self.srv = HTTPServer(("127.0.0.1", 0), Fake)
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.srv.server_port}/v1"
+        Fake.hits, Fake.mode = [], "ok"
+        self.tmp = Path(tempfile.mkdtemp())
+        self.env = mock.patch.dict(os.environ, {"KOKPIT_MODEL_API_KEY": KEY})
+        self.env.start()
+
+    def tearDown(self):
+        self.env.stop()
+        self.srv.shutdown(); self.srv.server_close()
+
+    def test_defaults_off(self):
+        cfg = cfgmod.Config(path=self.tmp / "x.toml")
+        self.assertFalse(cfg.model["enabled"])
+        self.assertFalse(any(cfg.model["uses"].values()))
+        self.assertEqual(cfg.events.get("translate_to", ""), "")
+        self.assertIn("enabled = false", cfgmod.DEFAULT_TOML.split("\n[model]")[1])
+
+    def test_disabled_makes_no_network_call(self):
+        for kw in ({"enabled": False}, {"uses": ()}):
+            cfg = make_cfg(self.tmp, self.url, **kw)
+            with self.assertRaises(client.ModelDisabled):
+                client.complete(cfg, "events_translate", "s", "u", 10)
+        cfg = make_cfg(self.tmp, self.url)
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("KOKPIT_MODEL_API_KEY")
+            with self.assertRaises(client.ModelDisabled):
+                client.complete(cfg, "events_translate", "s", "u", 10)
+        with self.assertRaises(client.ModelDisabled):
+            client.complete(make_cfg(self.tmp, self.url, uses=("digest",)), "events_translate", "s", "u", 10)
+        self.assertEqual(Fake.hits, [])
+
+    def test_complete_and_record(self):
+        cfg = make_cfg(self.tmp, self.url)
+        self.assertEqual(client.complete(cfg, "events_translate", "sys", "hello", 50), "echo hello")
+        h = Fake.hits[0]
+        self.assertEqual(h["path"], "/v1/chat/completions")
+        self.assertEqual(h["auth"], "Bearer " + KEY)
+        self.assertEqual(h["body"]["model"], "fake-1")
+        item = conn_api._model_item(cfg)
+        self.assertEqual(item["status"], "ok")
+        self.assertIn("event title and description", item["detail"])
+        self.assertNotIn(KEY, json.dumps(item))
+        self.assertNotIn(KEY, (cfg.db).read_bytes().decode("latin-1"))
+
+    def test_failure_is_recorded_and_scrubbed(self):
+        cfg = make_cfg(self.tmp, self.url)
+        Fake.mode = "fail"
+        with self.assertRaises(client.ModelError) as cm:
+            client.complete(cfg, "events_translate", "s", "u", 10)
+        self.assertNotIn(KEY, str(cm.exception))
+        item = conn_api._model_item(cfg)
+        self.assertEqual(item["status"], "warning")
+        self.assertNotIn(KEY, json.dumps(item))
+
+    def test_connection_off_item(self):
+        cfg = make_cfg(self.tmp, self.url, enabled=False)
+        item = conn_api._model_item(cfg)
+        self.assertEqual((item["status"], item["enabled"]), ("off", False))
+        self.assertEqual(Fake.hits, [])
+
+    def _records(self):
+        return [{"source": "t", "source_id": "1", "title": "Sagra", "description": "Musica", "price": "", "category": "other", "start": "2026-11-01"},
+                {"source": "t", "source_id": "2", "title": "Mostra", "description": "", "price": "", "category": "other", "start": "2026-11-02"}]
+
+    def test_translate_events_and_cache(self):
+        cfg = make_cfg(self.tmp, self.url)
+        conn = connect(cfg.db)
+        recs = self._records()
+        out, warns = translate.apply(cfg, conn, recs, "en")
+        self.assertEqual(warns, [])
+        self.assertEqual((recs[0]["title_tr"], recs[0]["description_tr"], recs[0]["translated_to"]), ("T:Sagra", "D:Musica", "en"))
+        self.assertIsNone(recs[1]["description_tr"])
+        events_store.upsert(conn, recs)
+        self.assertEqual(len(Fake.hits), 1)
+        recs2 = self._records()
+        translate.apply(cfg, conn, recs2, "en")
+        self.assertEqual(len(Fake.hits), 1)  # cached, no second call
+        self.assertEqual(recs2[0]["title_tr"], "T:Sagra")
+        conn.close()
+
+    def test_translate_target_set_but_model_off(self):
+        cfg = make_cfg(self.tmp, self.url, uses=())
+        conn = connect(cfg.db)
+        recs = self._records()
+        out, warns = translate.apply(cfg, conn, recs, "en")
+        self.assertEqual(out, "skipped")
+        self.assertTrue(warns)
+        self.assertNotIn("title_tr", recs[0])
+        self.assertEqual(Fake.hits, [])
+
+    def test_translate_failure_keeps_originals(self):
+        cfg = make_cfg(self.tmp, self.url)
+        Fake.mode = "fail"
+        conn = connect(cfg.db)
+        recs = self._records()
+        out, warns = translate.apply(cfg, conn, recs, "en")
+        self.assertTrue(warns[0].startswith("translation failed"))
+        self.assertNotIn("title_tr", recs[0])
+
+    def test_collect_without_target_never_calls(self):
+        cfg = make_cfg(self.tmp, self.url, translate_to="")
+        conn = connect(cfg.db)
+        fetchers = {}
+        events_api.collect(cfg, conn, fetchers=fetchers)
+        self.assertEqual(Fake.hits, [])
+
+    def test_old_events_table_gets_columns(self):
+        conn = connect(self.tmp / "old.db")
+        conn.execute("CREATE TABLE events (id INTEGER PRIMARY KEY, source TEXT, source_id TEXT, title TEXT, start TEXT)")
+        events_store.ensure_schema(conn)
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(events)")}
+        self.assertTrue({"title_tr", "description_tr", "translated_to"} <= cols)
+
+
+if __name__ == "__main__":
+    unittest.main()

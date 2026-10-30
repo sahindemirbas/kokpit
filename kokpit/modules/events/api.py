@@ -12,7 +12,7 @@ import sqlite3
 
 from ...config import Config
 from ..health import api as health_api
-from . import adapters, categories, sources, store
+from . import adapters, categories, sources, store, translate
 
 
 def collect(cfg: Config, conn: sqlite3.Connection, fetchers: dict | None = None) -> tuple[int, dict, list[str]]:
@@ -52,8 +52,13 @@ def collect(cfg: Config, conn: sqlite3.Connection, fetchers: dict | None = None)
     warnings.extend(pack_warns)
     for r in records:
         r["category"] = categories.classify(r, packs=packs)
+    info = {"sources": per_source, "radius_km": place["radius_km"]}
+    target = ev.get("translate_to") or ""
+    if target:
+        info["translate"], tw = translate.apply(cfg, conn, records, target)
+        warnings.extend(tw)
     n = store.upsert(conn, records)
-    return n, {"sources": per_source, "radius_km": place["radius_km"]}, warnings
+    return n, info, warnings
 
 
 def payload(cfg: Config, conn: sqlite3.Connection, days: int = 14) -> dict:

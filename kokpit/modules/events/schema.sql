@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS events (
     category TEXT NOT NULL DEFAULT 'other',
     distance_km REAL,           -- from the configured place, null when the record has no coordinates
     language TEXT,
+    title_tr TEXT,              -- translation of title into [events] translate_to, null when off
+    description_tr TEXT,
+    translated_to TEXT,
     first_seen TEXT NOT NULL,
     last_seen TEXT NOT NULL,
     UNIQUE(source, source_id)

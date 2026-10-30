@@ -22,10 +22,16 @@ The Connections screen is where a user enables modules and links accounts. It is
 | Instagram | Social | user's own Meta app, Instagram Login | insights, media | publish only with the publish toggle and an approval | token stored locally; separate toggles |
 | TikTok stats | Social | local analytics DB | statistics | none | optional, browser-based collector |
 | Telegram bot | all | bot token | commands from the owner chat only | sends messages to the owner | single allowed chat id; off by default, see below |
-| Model API | Agenda, Events, Career | API key | n/a | sends stated text to the provider | each use is listed with the data it sends |
+| Model API | Agenda, Events, Career | API key (environment) | n/a | sends stated text to the provider | off by default; each use is listed with the data it sends; see below |
 | TTS provider | Agenda | API key | n/a | sends summary text | optional |
 | AI tool logs | AI usage | local paths | usage rows | none | Hermes `state.db`, Claude Code, Codex |
 | Hermes agent | Brain, AI usage | local | vault files, usage rows | may append notes if enabled | not required; see `integrations/hermes` |
+
+## Model API (off by default)
+
+Any OpenAI-compatible chat-completions endpoint. In `kokpit.toml` set `[model] enabled = true`, `base_url`, `model`, and switch on single uses under `[model.uses]` (`events_translate`, `events_classify`, `digest`, `night`; all false by default). The key is read from the environment variable named by `key_env` (default `KOKPIT_MODEL_API_KEY`) and is never written to the toml, the database or the screen. A use that is off, or a missing key, stops the call before any network traffic. The Connections row shows which uses are on, the fields each one sends, the host, and the last successful call; every call (and failure) is a row in the `runs` table under `model:<use>`, so Health shows it.
+
+Events translation: `[events] translate_to = "en"` (empty = off) translates title and description when `events_translate` is on. Only those two fields are sent; translations are cached per event, and the original text is kept if the call fails.
 
 ## Telegram bot (off by default)
 

@@ -92,10 +92,38 @@ def view(cfg: Config) -> dict:
     items.extend(_ai_usage_items(cfg))
     items.append(_instagram_item(cfg))
     items.append(_bot_item(cfg))
-    for name in ("CV file", "Model API"):
+    items.append(_model_item(cfg))
+    for name in ("CV file",):
         items.append({"id": name.lower().replace(" ", "-"), "name": name, "module": "planned", "kind": "planned",
                       "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
     return {"config": cfg.path.name, "connections": items}
+
+
+def _model_item(cfg: Config) -> dict:
+    from ..model import client
+    d = client.view(cfg)
+    on_uses = [u for u in d["uses"] if u["on"]]
+    on = d["enabled"] and bool(on_uses)
+    runs = [_last_run(cfg, f"model:{u['purpose']}") for u in on_uses]
+    failing = [u["purpose"] for u, r in zip(on_uses, runs) if r and not r["ok"]]
+    if not on:
+        status = "off"
+    elif not d["key_present"] or not d["base_host"] or not d["model"]:
+        status = "not configured"
+    elif failing:
+        status = "warning"
+    elif any(u["last_success"] for u in on_uses):
+        status = "ok"
+    else:
+        status = "not run yet"
+    lines = [f"{u['purpose']}: {'on' if u['on'] else 'off'}, sends {u['fields']}, last success {u['last_success'] or 'never'}" for u in d["uses"]]
+    return {
+        "id": "model-api", "name": "Model API", "module": "model", "kind": "API with key", "enabled": on,
+        "reads": "nothing", "writes": "sends the listed fields to the provider, only for uses that are switched on" if on else "nothing (off)",
+        "permission": f"API key in the environment variable {d['key_env']}", "target": d["base_host"] or "-",
+        "detail": "Key configured: " + ("yes" if d["key_present"] else "no") + ". " + " | ".join(lines) + ". The key is never shown.",
+        "status": status, "last": next((r for r in reversed(runs) if r), None),
+    }
 
 
 def _bot_item(cfg: Config) -> dict:
