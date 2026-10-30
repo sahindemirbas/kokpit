@@ -131,6 +131,99 @@ class ModelTests(unittest.TestCase):
         self.assertEqual((item["status"], item["enabled"]), ("off", False))
         self.assertEqual(Fake.hits, [])
 
+    # Hermes backend: subprocess.run and shutil.which are always faked, no real command ever runs.
+
+    def _hermes_cfg(self, model="", extra=""):
+        p = self.tmp / "hermes.toml"
+        p.write_text(f'''[model]
+enabled = true
+provider = "hermes"
+model = "{model}"
+{extra}
+[model.uses]
+digest = true
+[health]
+db_path = "h.db"
+''')
+        return cfgmod.load(p)
+
+    def test_provider_default_is_openai_compatible(self):
+        self.assertEqual(cfgmod.Config(path=self.tmp / "x.toml").model["provider"], "openai_compatible")
+        cfg = make_cfg(self.tmp, self.url)  # an older file without a provider line
+        self.assertEqual(cfg.model["provider"], "openai_compatible")
+        self.assertIn('provider = "openai_compatible"', cfgmod.DEFAULT_TOML.split("\n[model]")[1])
+        with mock.patch.object(client.subprocess, "run") as run:
+            self.assertEqual(client.complete(cfg, "events_translate", "sys", "hi", 20), "echo hi")
+            run.assert_not_called()
+        self.assertEqual(conn_api._model_item(cfg)["provider"], "openai_compatible")
+
+    def test_hermes_missing_command_is_disabled(self):
+        cfg = self._hermes_cfg()
+        os.environ.pop("KOKPIT_MODEL_API_KEY")
+        with mock.patch.object(client.shutil, "which", return_value=None), \
+                mock.patch.object(client.subprocess, "run") as run:
+            self.assertFalse(client.use_enabled(cfg, "digest"))
+            with self.assertRaises(client.ModelDisabled) as cm:
+                client.complete(cfg, "digest", "s", "u", 10)
+            self.assertIn("hermes command not found", str(cm.exception))
+            self.assertEqual(conn_api._model_item(cfg)["status"], "not configured")
+            run.assert_not_called()
+        self.assertEqual(Fake.hits, [])
+
+    def test_hermes_success_is_recorded(self):
+        cfg = self._hermes_cfg(model="example/model-a", extra='hermes_provider = "example"\nhermes_bin = "agent-cli"')
+        os.environ.pop("KOKPIT_MODEL_API_KEY")
+        done = client.subprocess.CompletedProcess([], 0, stdout="\x1b[1m  Short summary.  \x1b[0m\n", stderr="\nsession_id: s1\n")
+        with mock.patch.object(client.shutil, "which", return_value="/usr/bin/agent-cli"), \
+                mock.patch.object(client.subprocess, "run", return_value=done) as run:
+            self.assertTrue(client.use_enabled(cfg, "digest"))
+            self.assertEqual(client.complete(cfg, "digest", "SYS", "USER", 50), "Short summary.")
+            item = conn_api._model_item(cfg)
+        args, kw = run.call_args
+        cmd = args[0]
+        self.assertEqual(cmd[:4], ["agent-cli", "chat", "--oneshot", "-Q"])
+        self.assertIn("--query-file", cmd)
+        self.assertEqual(cmd[cmd.index("-m") + 1], "example/model-a")
+        self.assertEqual(cmd[cmd.index("--provider") + 1], "example")
+        self.assertEqual(kw["input"], "SYS\n\nUSER")
+        self.assertNotIn("USER", " ".join(cmd))
+        self.assertEqual(kw["timeout"], cfg.model["timeout"])
+        conn = connect(cfg.db)
+        r = conn.execute("SELECT ok, info FROM runs WHERE job = 'model:digest'").fetchone()
+        conn.close()
+        self.assertEqual(r[0], 1)
+        info = json.loads(r[1])
+        self.assertEqual((info["provider"], info["model"]), ("hermes", "example/model-a"))
+        self.assertEqual((item["status"], item["provider"], item["target"]), ("ok", "hermes", "agent-cli"))
+        self.assertIn("no API key", item["detail"])
+        self.assertEqual(Fake.hits, [])
+
+    def test_hermes_failure_is_recorded_and_short(self):
+        cfg = self._hermes_cfg()
+        long_err = "boom " + "x" * 500
+        done = client.subprocess.CompletedProcess([], 2, stdout="", stderr=long_err)
+        with mock.patch.object(client.shutil, "which", return_value="/usr/bin/hermes"), \
+                mock.patch.object(client.subprocess, "run", return_value=done) as run:
+            with self.assertRaises(client.ModelError) as cm:
+                client.complete(cfg, "digest", "s", "u", 10)
+            self.assertNotIn("-m", run.call_args[0][0])
+            item = conn_api._model_item(cfg)
+        msg = str(cm.exception)
+        self.assertIn("hermes exited with 2", msg)
+        self.assertLess(len(msg), 220)
+        self.assertNotIn("x" * 200, msg)
+        conn = connect(cfg.db)
+        r = conn.execute("SELECT ok FROM runs WHERE job = 'model:digest'").fetchone()
+        conn.close()
+        self.assertEqual(r[0], 0)
+        self.assertEqual(item["status"], "warning")
+        empty = client.subprocess.CompletedProcess([], 0, stdout="\x1b[0m  \n", stderr="")
+        with mock.patch.object(client.shutil, "which", return_value="/usr/bin/hermes"), \
+                mock.patch.object(client.subprocess, "run", return_value=empty):
+            with self.assertRaises(client.ModelError) as cm:
+                client.complete(cfg, "digest", "s", "u", 10)
+        self.assertEqual(str(cm.exception), "empty answer")
+
     def _records(self):
         return [{"source": "t", "source_id": "1", "title": "Sagra", "description": "Musica", "price": "", "category": "other", "start": "2026-11-01"},
                 {"source": "t", "source_id": "2", "title": "Mostra", "description": "", "price": "", "category": "other", "start": "2026-11-02"}]

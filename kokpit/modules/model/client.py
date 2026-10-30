@@ -6,11 +6,16 @@ Rules (docs/connections.md, Model API):
 - A disabled use or a missing key raises ``ModelDisabled`` before any network call.
 - Every call is recorded in the ``runs`` table (job ``model:<purpose>``) with the declared fields it sends.
 - Nothing here prints or stores the key.
+- ``[model] provider = "hermes"`` sends the same prompt to a local ``hermes chat`` command instead;
+  no key is involved and the accounts used are the ones Hermes itself is connected to.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
+import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -38,12 +43,26 @@ class ModelError(Exception):
 
 
 def key(cfg: Config) -> str:
+    if _is_hermes(cfg):
+        return ""
     return os.environ.get(cfg.model["key_env"], "").strip()
+
+
+def _is_hermes(cfg: Config) -> bool:
+    return cfg.model.get("provider") == "hermes"
+
+
+def _hermes_bin(cfg: Config) -> str:
+    return cfg.model.get("hermes_bin") or "hermes"
 
 
 def use_enabled(cfg: Config, purpose: str) -> bool:
     m = cfg.model
-    return bool(m["enabled"] and m["uses"].get(purpose) and m["base_url"] and m["model"] and key(cfg))
+    if not (m["enabled"] and m["uses"].get(purpose)):
+        return False
+    if _is_hermes(cfg):
+        return shutil.which(_hermes_bin(cfg)) is not None
+    return bool(m["base_url"] and m["model"] and key(cfg))
 
 
 def check(cfg: Config, purpose: str) -> None:
@@ -54,6 +73,10 @@ def check(cfg: Config, purpose: str) -> None:
         raise ModelDisabled("model connection is off ([model] enabled = false)")
     if not m["uses"].get(purpose):
         raise ModelDisabled(f"model use '{purpose}' is off ([model.uses] {purpose} = false)")
+    if _is_hermes(cfg):
+        if shutil.which(_hermes_bin(cfg)) is None:
+            raise ModelDisabled("hermes command not found")
+        return
     if not m["base_url"] or not m["model"]:
         raise ModelDisabled("[model] base_url and model are not set")
     if not key(cfg):
@@ -75,8 +98,44 @@ def _scrub(text: str, secret: str) -> str:
     return text.replace(secret, "***") if secret else text
 
 
+_ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)")
+
+
+def _hermes_complete(cfg: Config, purpose: str, system: str, user: str) -> str:
+    """One `hermes chat` call; the prompt goes in on stdin, the answer comes back on stdout.
+
+    Which account and model answer is Hermes's own setting; Kokpit passes no key.
+    """
+    m = cfg.model
+    cmd = [_hermes_bin(cfg), "chat", "--oneshot", "-Q", "--query-file", "-", "--source", "tool"]
+    if m["model"]:
+        cmd += ["-m", m["model"]]
+    if m.get("hermes_provider"):
+        cmd += ["--provider", m["hermes_provider"]]
+    started = store.now_iso()
+    info = {"purpose": purpose, "declared_fields": USES[purpose], "provider": "hermes",
+            "model": m["model"] or "hermes default", "chars_sent": len(system) + len(user)}
+    prompt = (system + "\n\n" + user) if system else user
+    try:
+        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=m["timeout"])
+        if proc.returncode != 0:
+            err = _ANSI.sub("", proc.stderr or proc.stdout or "").strip()
+            raise RuntimeError(f"hermes exited with {proc.returncode}: {err[:160]}")
+        text = _ANSI.sub("", proc.stdout or "").strip()
+        if not text:
+            raise ValueError("empty answer")
+    except Exception as exc:
+        msg = f"{type(exc).__name__}: {str(exc)[:160]}"
+        _record(cfg, purpose, started, False, {**info, "error": msg}, [f"model {purpose}: {msg}"])
+        raise ModelError("empty answer" if isinstance(exc, ValueError) else msg) from None
+    _record(cfg, purpose, started, True, info, [])
+    return text
+
+
 def complete(cfg: Config, purpose: str, system: str, user: str, max_tokens: int = 512) -> str:
     check(cfg, purpose)
+    if _is_hermes(cfg):
+        return _hermes_complete(cfg, purpose, system, user)
     m, secret = cfg.model, key(cfg)
     started = store.now_iso()
     info = {"purpose": purpose, "declared_fields": USES[purpose], "model": m["model"], "chars_sent": len(system) + len(user)}
@@ -105,8 +164,12 @@ def view(cfg: Config) -> dict:
     for purpose, fields in USES.items():
         run = _last_ok(cfg, purpose)
         uses.append({"purpose": purpose, "on": bool(m["uses"].get(purpose)), "fields": fields, "last_success": run})
-    return {"enabled": m["enabled"], "base_host": _host(m["base_url"]), "model": m["model"], "key_env": m["key_env"],
-            "key_present": bool(key(cfg)), "uses": uses}
+    if _is_hermes(cfg):
+        return {"enabled": m["enabled"], "provider": "hermes", "base_host": _hermes_bin(cfg),
+                "model": m["model"] or "hermes default", "key_env": "", "key_present": False,
+                "command_found": shutil.which(_hermes_bin(cfg)) is not None, "uses": uses}
+    return {"enabled": m["enabled"], "provider": "openai_compatible", "base_host": _host(m["base_url"]), "model": m["model"],
+            "key_env": m["key_env"], "key_present": bool(key(cfg)), "uses": uses}
 
 
 def _host(url: str) -> str:

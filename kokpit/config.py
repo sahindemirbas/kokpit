@@ -99,10 +99,14 @@ remind_hours = 24             # job bot-instagram-remind: remind about Instagram
 
 [model]                       # optional model connection, OFF. The key is read from the environment, never from this file
 enabled = false
-base_url = ""                 # OpenAI-compatible endpoint, e.g. https://provider.example/v1
+base_url = ""                 # OpenAI-compatible endpoint, e.g. https://provider.example/v1 (not used with "hermes")
 model = ""
-key_env = "KOKPIT_MODEL_API_KEY"   # name of the environment variable that holds the key
-timeout = 30
+key_env = "KOKPIT_MODEL_API_KEY"   # name of the environment variable that holds the key (not used with "hermes")
+timeout = 30                  # seconds; an agent call is slower, 120 is safer with "hermes"
+provider = "openai_compatible"   # or "hermes": calls go through a local Hermes agent and its connected accounts, no key here
+                              # with "hermes", model may stay empty (Hermes uses its own default)
+# hermes_bin = "hermes"       # with "hermes": command name or path
+# hermes_provider = ""        # with "hermes": optional, passed to Hermes as --provider
 [model.uses]                  # one switch per purpose; the Connections screen lists the fields each one sends
 events_translate = false
 events_classify = false
@@ -355,6 +359,9 @@ def _model(a: dict) -> dict:
     uses = a.get("uses", {}) if isinstance(a.get("uses"), dict) else {}
     return {
         "enabled": bool(a.get("enabled", False)),
+        "provider": "hermes" if str(a.get("provider", "")).strip().lower() == "hermes" else "openai_compatible",
+        "hermes_bin": str(a.get("hermes_bin", "hermes")).strip() or "hermes",
+        "hermes_provider": str(a.get("hermes_provider", "")).strip(),
         "base_url": str(a.get("base_url", "")).strip(),
         "model": str(a.get("model", "")).strip(),
         "key_env": str(a.get("key_env", "KOKPIT_MODEL_API_KEY")).strip() or "KOKPIT_MODEL_API_KEY",

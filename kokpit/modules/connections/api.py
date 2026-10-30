@@ -107,9 +107,12 @@ def _model_item(cfg: Config) -> dict:
     on = d["enabled"] and bool(on_uses)
     runs = [_last_run(cfg, f"model:{u['purpose']}") for u in on_uses]
     failing = [u["purpose"] for u, r in zip(on_uses, runs) if r and not r["ok"]]
+    hermes = d.get("provider") == "hermes"
     if not on:
         status = "off"
-    elif not d["key_present"] or not d["base_host"] or not d["model"]:
+    elif hermes and not d.get("command_found"):
+        status = "not configured"
+    elif not hermes and (not d["key_present"] or not d["base_host"] or not d["model"]):
         status = "not configured"
     elif failing:
         status = "warning"
@@ -118,8 +121,19 @@ def _model_item(cfg: Config) -> dict:
     else:
         status = "not run yet"
     lines = [f"{u['purpose']}: {'on' if u['on'] else 'off'}, sends {u['fields']}, last success {u['last_success'] or 'never'}" for u in d["uses"]]
+    if hermes:
+        return {
+            "id": "model-api", "name": "Model API", "module": "model", "kind": "local command (Hermes agent)", "enabled": on,
+            "provider": "hermes",
+            "reads": "nothing", "writes": "sends the listed fields to the local Hermes agent, only for uses that are switched on" if on else "nothing (off)",
+            "permission": "none in Kokpit (no API key); Hermes uses its own connected accounts", "target": d["base_host"],
+            "detail": "provider: hermes (local command, no API key). Command found: " + ("yes" if d.get("command_found") else "no")
+                      + f". Model: {d['model']}. " + " | ".join(lines) + ".",
+            "status": status, "last": next((r for r in reversed(runs) if r), None),
+        }
     return {
         "id": "model-api", "name": "Model API", "module": "model", "kind": "API with key", "enabled": on,
+        "provider": "openai_compatible",
         "reads": "nothing", "writes": "sends the listed fields to the provider, only for uses that are switched on" if on else "nothing (off)",
         "permission": f"API key in the environment variable {d['key_env']}", "target": d["base_host"] or "-",
         "detail": "Key configured: " + ("yes" if d["key_present"] else "no") + ". " + " | ".join(lines) + ". The key is never shown.",
