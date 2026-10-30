@@ -43,6 +43,10 @@ def morning_line(cfg: Config, now: datetime | None = None) -> str:
     ws = health_warnings(cfg)
     if ws:
         parts.append(f"Warnings: {len(ws)}. First: {ws[0]}")
+    from ..organiser import api as organiser_api
+    org = organiser_api.morning(cfg)
+    if org and not org.endswith("no open proposals."):
+        parts.append(org.splitlines()[0])
     return " ".join(parts)
 
 

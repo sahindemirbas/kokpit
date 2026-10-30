@@ -71,6 +71,7 @@ The reference instance uses user crontab plus `systemd-run --user` for long one-
 
 Table (local time, set `TZ` to change it; intervals are counted from midnight):
 
+- organiser at 03:30 (module organiser, opt-in)
 - weather every 30 min, calendar every 15 min (module today)
 - brain-check every 60 min (brain), ai_usage every 60 min (ai_usage)
 - events-collect and career daily at 06:30 (events, jobs)

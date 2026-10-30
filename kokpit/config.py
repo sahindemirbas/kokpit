@@ -35,6 +35,7 @@ ai_usage = false              # reads local usage logs of AI tools (off until yo
 instagram = false             # Instagram analysis through the official API (off until you add a token)
 agenda = false                # daily digest of the RSS/Atom feeds you list under [agenda] (off until you set topics)
 bot = false                   # Telegram bot: commands and a morning message (off until you add a token and chat id)
+organiser = false             # night organiser: proposals only, never edits a note (off until you want it)
 
 [today]
 calendar_ics_urls = []        # read-only ICS feeds (e.g. Google's secret iCal address). SECRET: keep this file
@@ -122,6 +123,16 @@ night = false
 # voice = ""
 # key_env = "KOKPIT_TTS_API_KEY"
 
+# [organiser]                 # night organiser, 03:30 daily; proposals go to SQLite and one report file in the data folder
+# stale_days = 30             # an active thread unchanged for this long is proposed for closing
+# types = ["idea", "project", "note", "person", "reference"]
+# required_fields = ["type", "summary"]
+# short_summary = 20          # a summary shorter than this many characters counts as empty
+# apply_report_to_vault = false   # true: write the report as ONE new file under report_folder in the vault
+# report_folder = "Organiser"
+# [organiser.folders]         # type = folder, for the folder mismatch check
+# project = "projects"
+
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
 quick_capture = true          # allow appending a note or task from the dashboard
@@ -154,6 +165,7 @@ class Config:
     model: dict = field(default_factory=lambda: _model({}), repr=False)  # no secret inside: the key lives in the environment
     bot: dict = field(default_factory=lambda: _bot({}), repr=False)  # token and chat_id are secret-like
     agenda: dict = field(default_factory=lambda: _agenda({}), repr=False)  # topics, feeds, tts (no key inside)
+    organiser: dict = field(default_factory=lambda: _organiser({}), repr=False)  # thresholds and report mode
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
     @property
@@ -244,6 +256,8 @@ def load(path: str | Path) -> Config:
     cfg.model = _model(raw.get("model", {}))
     cfg.modules.setdefault("agenda", False)
     cfg.agenda = _agenda(raw.get("agenda", {}))
+    cfg.modules.setdefault("organiser", False)
+    cfg.organiser = _organiser(raw.get("organiser", {}))
     cfg.modules.setdefault("bot", False)
     cfg.bot = _bot(raw.get("bot", {}))
     today = raw.get("today", {})
@@ -342,6 +356,19 @@ def _agenda(a: dict) -> dict:
             "key_env": str(tts.get("key_env", "KOKPIT_TTS_API_KEY")).strip() or "KOKPIT_TTS_API_KEY",
             "timeout": max(1, min(300, _int(tts.get("timeout"), 60))),
         },
+    }
+
+
+def _organiser(a: dict) -> dict:
+    folders = a.get("folders", {}) if isinstance(a.get("folders"), dict) else {}
+    return {
+        "stale_days": max(1, min(365, _int(a.get("stale_days"), 30))),
+        "types": [t.lower() for t in _str_list(a.get("types"), ["idea", "project", "note", "person", "reference"])],
+        "required_fields": [t.lower() for t in _str_list(a.get("required_fields"), ["type", "summary"])],
+        "short_summary": max(0, min(500, _int(a.get("short_summary"), 20))),
+        "folders": {str(k).lower(): str(v).strip().strip("/") for k, v in folders.items() if str(v).strip()},
+        "apply_report_to_vault": a.get("apply_report_to_vault") is True,
+        "report_folder": str(a.get("report_folder", "Organiser")).strip().strip("/") or "Organiser",
     }
 
 

@@ -21,6 +21,7 @@ career = false
 social = false
 ai_usage = false
 agenda = false
+organiser = false
 bot = false
 
 [today]
@@ -28,6 +29,18 @@ bot = false
 # secret: put real addresses only in your local, git-ignored kokpit.toml, or in
 # the KOKPIT_CALENDAR_ICS_URLS environment variable (space-separated).
 calendar_ics_urls = []        # e.g. ["https://calendar.example.org/feeds/<secret>/basic.ics"]
+
+# Night organiser (set organiser = true under [modules]). Runs at 03:30. It never edits or deletes a note:
+# it writes proposals to SQLite and one report file in the data folder.
+# [organiser]
+# stale_days = 30
+# types = ["idea", "project", "note", "person", "reference"]
+# required_fields = ["type", "summary"]
+# short_summary = 20
+# apply_report_to_vault = false   # true: one new file Organiser/organiser-report.md inside the vault
+# report_folder = "Organiser"
+# [organiser.folders]
+# project = "projects"
 
 [brain]
 vault_path = "~/Notes"        # Markdown folder; starter structure created if empty

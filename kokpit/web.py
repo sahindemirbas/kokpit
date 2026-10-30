@@ -16,6 +16,7 @@ from . import __version__
 from .config import Config
 from .modules.agenda import api as agenda_api
 from .modules.ai_usage import api as ai_usage_api
+from .modules.organiser import api as organiser_api
 from .modules.instagram import api as instagram_api, planapi as instagram_plan
 from .modules.brain import api as brain_api
 from .modules.career import api as career_api
@@ -81,6 +82,8 @@ def make_handler(cfg: Config):
                     return self._json(brain_api.view(cfg))
                 if path == "/api/agenda":
                     return self._json(agenda_api.view(cfg))
+                if path == "/api/organiser":
+                    return self._json(organiser_api.view(cfg))
                 if path == "/api/agenda/audio":
                     f = agenda_api.audio_file(cfg) if cfg.modules.get("agenda", False) else None
                     if f is None:

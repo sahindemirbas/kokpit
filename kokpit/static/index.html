@@ -658,7 +658,7 @@ function afIcon(k,sz){const C='<path d="M20 62a18 18 0 0 1 10-33 24 24 0 0 1 46-
  return `<svg class="ic" width="${sz}" height="${sz}" viewBox="0 0 120 110" aria-hidden="true">${g}</svg>`}
 function afScroll(id){const e=$(id);if(e){e.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});e.focus({preventScroll:true})}}
 function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){const p=document.createElement('i');p.className='af-bu';const a=k/14*6.283;p.style.cssText=`left:${b.left+b.width/2-4}px;top:${b.top+b.height/2-4}px;background:${['#ffc21a','#ff5a3c','#4a9dff','#2fbf71'][k%4]};--x:${Math.cos(a)*56}px;--y:${Math.sin(a)*56}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),700)}}
-const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['ai','AI usage'],['so','Social'],['br','Brain'],['hl','Health'],['ag','Agenda'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',ai_usage:'ai',social:'so',brain:'br',health:'hl',agenda:'ag',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',ag:'agenda',cn:'connections'};
+const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['ai','AI usage'],['so','Social'],['br','Brain'],['hl','Health'],['ag','Agenda'],['og','Organiser'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',ai_usage:'ai',social:'so',brain:'br',health:'hl',agenda:'ag',organiser:'og',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',ag:'agenda',og:'organiser',cn:'connections'};
 const S={hn:{},view:HASH[location.hash.replace('#','')]||'bg'};
 function nav(){$('nav').innerHTML=NAVT.map(([k,l])=>`<button type="button" class="btn${k==S.view?' on':''}" data-view="${k}">${l}</button>`).join('')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;location.hash=HASHR[S.view];render()}
@@ -817,6 +817,14 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-agsay]');i
  const u=new SpeechSynthesisUtterance(AGP.text||'');u.onend=()=>{b.textContent='Read digest aloud'};speechSynthesis.speak(u);b.textContent='Stop reading'});
 function agItem(it,i){const tag=it.project?`<span class="af-st">${esc(it.project)}</span> `:'';
  return `<div class="af-b ${it.headline?'s12':'s6'}" ${afD(i)}><h4>${tag}<a href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a></h4>${it.summary?`<p style="margin:4px 0">${esc(it.summary)}</p>`:''}<p class="mono" style="font-size:11px;margin:2px 0">${it.by_model?'model: ':'why: '}${esc(it.why)}</p>${it.reason&&it.reason!==it.why?`<p class="mono" style="font-size:10px;margin:2px 0">${esc(it.reason)}</p>`:''}<p class="mono" style="font-size:10px;margin:2px 0">${esc(it.topic)}${it.tags.length?' · '+it.tags.slice(0,4).map(esc).join(', '):''}</p></div>`}
+async function ogView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/organiser');if(S.view!='og')return;
+ if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Organiser module is off. Set <code>organiser = true</code> under [modules] in kokpit.toml. It only writes suggestions; it never edits a note.</p></div></div>`;return}
+ S.hn.og=[[d.total||0,'open']];
+ if(d.reason){v.innerHTML=`<div class="af"><div class="af-b s12"><p>${esc(d.reason)}</p>${afFresh(d.freshness)}</div></div>`;return}
+ let h=`<div class="af"><div class="af-b s12">${afFresh(d.freshness)}<p class="mono" style="font-size:10px;margin:2px 0">${esc(Object.entries(d.counts).map(([k,n])=>n+' '+k).join(' · '))} · report: ${esc(d.mode)}</p>${d.summary?`<p>${esc(d.summary)}</p>`:''}</div>`,i=1;
+ if(!d.proposals.length)h+=`<div class="af-b s12" ${afD(i++)}><p>No open proposals.</p></div>`;
+ for(const p of d.proposals)h+=`<div class="af-b s12" ${afD(i++)} style="padding:8px 18px"><span class="mono" style="font-size:10px">${esc(p.kind)} · ${esc(p.path||'vault')}</span><p style="margin:2px 0">${esc(p.text)}</p></div>`;
+ v.innerHTML=h+'</div>'}
 async function agView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/agenda');if(S.view!='ag')return;
  if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Agenda module is off. Set <code>agenda = true</code> under [modules] and list topics under [agenda] in kokpit.toml.</p></div></div>`;return}
  agPlayer(d);S.hn.ag=[[d.count||0,'items']];
@@ -929,8 +937,9 @@ const AFH={ev:['Events','#ff6b4a',()=>'Around your city',()=>AFN('ev')],
  br:['Brain','#ffd23f',()=>'Open loops and where you left off',()=>AFN('br')],
  hl:['Health','#2fbf71',()=>'Nightly jobs, last runs and warnings',()=>AFN('hl')],
  ag:['Agenda','#c8e64a',()=>'Your topics, tagged with your projects',()=>AFN('ag')],
+ og:['Organiser','#e0a96d',()=>'Night suggestions about your notes. Nothing is changed for you',()=>AFN('og')],
  cn:['Connections','#7be0d0',()=>'What Kokpit reads, and when it last worked',()=>AFN('cn')]};
-const AFR={ev:'EVENTS',jb:'CAREER',ai:'AI USAGE',so:'SOCIAL',br:'BRAIN',hl:'HEALTH',ag:'AGENDA',cn:'CONNECTIONS'};
+const AFR={ev:'EVENTS',jb:'CAREER',ai:'AI USAGE',so:'SOCIAL',br:'BRAIN',hl:'HEALTH',ag:'AGENDA',og:'ORGANISER',cn:'CONNECTIONS'};
 let afLast='',afT=0;
 function afRing(c){return (AFR[S.view]||c[0].toLocaleUpperCase('en'))+' · KOKPIT · '}
 function afHero(anim){const h=$('afhd'),c=AFH[S.view];document.body.style.setProperty('--tc',c?c[1]:'#ffc21a');if(!h)return;if(!c){h.innerHTML='';h.hidden=true;return}h.hidden=false;
@@ -946,7 +955,7 @@ function afDecor(){const v=$('view'),key=S.view;
  v.querySelectorAll('.kpi b').forEach(b=>{const m=b.textContent.trim().match(/^(\d{1,7})$/);if(m)b.dataset.c=m[1]});afCount(v);
  clearTimeout(afT);afT=setTimeout(()=>v.classList.remove('afa'),2500)}
 new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
-async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:brView,hl:hlView,ag:agView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:brView,hl:hlView,ag:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 window.addEventListener('hashchange',()=>{const n=HASH[location.hash.replace('#','')]||'bg';if(n!=S.view){S.view=n;render()}});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`}).catch(()=>{});
 afClock();setInterval(afClock,15000);render();
