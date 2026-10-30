@@ -284,6 +284,33 @@ class JobAndApiTests(Base):
         self.assertIn("list_price_equivalent", n2)
         self.assertNotEqual(n2["list_price_equivalent"]["7d"], n2["subscription_fee"]["total_monthly"])
 
+    def test_daily_series_and_places(self):
+        self.populate()
+        cfg = self.cfg()
+        self.run_job(cfg)
+        v = api.view(cfg, NOW)
+        d = v["daily"]
+        self.assertEqual(len(d), 30)
+        self.assertEqual(d[-1]["date"], NOW.astimezone().strftime("%Y-%m-%d"))
+        self.assertGreaterEqual(sum(x["tokens"] for x in d), v["windows"]["7d"]["tokens"])
+        self.assertLessEqual(sum(x["tokens"] for x in d), sum(x["tokens"] for x in v["by_tool"]))
+        empty = [x for x in d if not x["tokens"]]
+        self.assertTrue(all(x["estimate_state"] == "known" and x["estimate_usd"] == 0 for x in empty))
+        self.assertEqual({p["name"] for p in v["by_place"]} >= {"cron"}, True)
+        # nothing priced: days with tokens report None, never 0
+        (self.tmp / "prices.json").write_text(json.dumps({"models": {}}))
+        d = api.view(cfg, NOW)["daily"]
+        used = [x for x in d if x["tokens"]]
+        self.assertTrue(used)
+        self.assertTrue(all(x["estimate_usd"] is None and x["estimate_state"] == "unknown" for x in used))
+
+    def test_daily_empty_and_missing_db(self):
+        cfg = self.cfg()
+        v = api.view(cfg, NOW)
+        self.assertEqual(len(v["daily"]), 30)
+        self.assertTrue(all(x["tokens"] == 0 for x in v["daily"]))
+        self.assertEqual((v["by_place"], v["by_tool"], v["top_sessions"]), ([], [], []))
+
     def test_limits(self):
         self.populate()
         self.assertEqual(api.limits_view(self.cfg(), NOW)["configured"], False)

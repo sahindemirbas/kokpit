@@ -187,6 +187,28 @@ def advice_for(cfg: Config, rows: list[dict], stored: list[dict], now: datetime)
     return advice.run({"rows": recent, "readers": stored, "enabled": cfg.ai_usage["readers"], "settings": cfg.ai_usage, "now": now})
 
 
+def daily(rows: list[dict], now: datetime, days: int = 30) -> list[dict]:
+    """One entry per local calendar day, oldest first, ``days`` long (today included). Each hour row goes to the local
+    day of its UTC bucket. ``estimate_usd`` follows totals(): None when the day has tokens but none priced."""
+    local = now.astimezone()
+    keys = [(local - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days - 1, -1, -1)]
+    per: dict[str, list[dict]] = {k: [] for k in keys}
+    for r in rows:
+        try:
+            b = datetime.fromisoformat((r["bucket"] or "")[:19]).replace(tzinfo=timezone.utc).astimezone(local.tzinfo)
+        except ValueError:
+            continue
+        k = b.strftime("%Y-%m-%d")
+        if k in per:
+            per[k].append(r)
+    out = []
+    for k in keys:
+        t = totals(per[k])
+        out.append({"date": k, "tokens": t["tokens"], "sessions": t["sessions"], "estimate_usd": t["estimate_usd"],
+                    "estimate_state": t["estimate_state"], "unpriced_tokens": t["unpriced_tokens"]})
+    return out
+
+
 def view(cfg: Config, now: datetime | None = None) -> dict:
     if not cfg.modules.get("ai_usage", False):
         return {"enabled": False}
@@ -201,6 +223,7 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
     return {"enabled": True, "generated": _stamp(now), "label": LABEL, "freshness": health_api.freshness(cfg, "ai_usage"),
             "readers": reader_status(cfg, stored, rows), "windows": windows, "numbers": numbers(cfg, windows),
             "by_tool": _group(d30, lambda r: r["tool"]), "by_model": _group(d30, lambda r: f"{r['tool']} / {r['model']}"),
+            "by_place": _group(d30, lambda r: r["place"] or "unknown"), "daily": daily(rows, now),
             "top_sessions": sessions(d30), "limits": limits(cfg, rows, now), "advice": advice_for(cfg, rows, stored, now),
             "notes": ["Usage is stored per session, model and UTC hour; a window sums the hours inside it (a session over midnight is split).",
                       "Sources marked approximate only have session totals; those are spread evenly over the session's active hours.",
