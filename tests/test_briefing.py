@@ -1,4 +1,4 @@
-"""Agenda digest: fake local servers stand in for the feeds, the model and the TTS provider."""
+"""Briefing digest: fake local servers stand in for the feeds, the model and the TTS provider."""
 from __future__ import annotations
 
 import json
@@ -13,7 +13,7 @@ from unittest import mock
 
 from kokpit import config as cfgmod, jobs, scheduler
 from kokpit.db import connect
-from kokpit.modules.agenda import api, collect, feeds, match, tts
+from kokpit.modules.briefing import api, collect, feeds, match, tts
 from kokpit.modules.connections import api as conn_api
 
 NOW = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
@@ -62,7 +62,7 @@ def make_cfg(tmp: Path, base: str, model=False, tts_on=False, brain=None) -> cfg
         (tmp / "vault" / "Threads.md").write_text(brain)
     p = tmp / "kokpit.toml"
     p.write_text(f'''[modules]
-agenda = true
+briefing = true
 brain = {str(bool(brain)).lower()}
 [brain]
 vault_path = "vault"
@@ -74,13 +74,13 @@ base_url = "{base}/v1"
 model = "fake-1"
 [model.uses]
 digest = true
-[agenda]
+[briefing]
 max_per_topic = 5
-[[agenda.topics]]
+[[briefing.topics]]
 name = "open source releases"
 feeds = ["{base}/rss", "{base}/atom", "{base}/bad"]
 keywords = ["release", "pytools"]
-[agenda.tts]
+[briefing.tts]
 provider = "{'openai_compatible' if tts_on else 'none'}"
 base_url = "{base}/v1"
 model = "tts-fake"
@@ -100,7 +100,7 @@ Source: [[notes/Projects/pytools-port]]
 """
 
 
-class AgendaBase(unittest.TestCase):
+class BriefingBase(unittest.TestCase):
     def setUp(self):
         self.srv = HTTPServer(("127.0.0.1", 0), FeedHandler)
         threading.Thread(target=self.srv.serve_forever, daemon=True).start()
@@ -114,7 +114,7 @@ class AgendaBase(unittest.TestCase):
         self.env.stop(); self.srv.shutdown(); self.srv.server_close()
 
 
-class ParseTests(AgendaBase):
+class ParseTests(BriefingBase):
     def test_rss_and_atom(self):
         r = feeds.parse(RSS)
         self.assertEqual(len(r), 4)
@@ -129,7 +129,7 @@ class ParseTests(AgendaBase):
             feeds.parse('<?xml version="1.0"?><!DOCTYPE x [<!ENTITY a "b">]><rss/>')
 
 
-class CollectTests(AgendaBase):
+class CollectTests(BriefingBase):
     def test_plain_digest_without_model(self):
         cfg = make_cfg(self.tmp, self.base)
         items, info, warns = collect.build(cfg, now=NOW, threads=[])
@@ -159,7 +159,7 @@ class CollectTests(AgendaBase):
         items, info, _ = collect.build(cfg, now=NOW, threads=[])
         self.assertTrue(all(i["by_model"] and i["summary"].startswith("S:") and i["why"].startswith("W:") for i in items))
         sent = json.loads(Srv.hits[0]["body"]["messages"][1]["content"])
-        self.assertEqual(set(sent), {"title", "tags", "summary"})
+        self.assertEqual(set(sent), {"title", "tags", "summary", "facts"})
         self.assertEqual(Srv.hits[0]["auth"], "Bearer " + KEY)
 
     def test_model_failure_falls_back(self):
@@ -172,7 +172,7 @@ class CollectTests(AgendaBase):
     def test_job_stores_and_api(self):
         cfg = make_cfg(self.tmp, self.base, brain=THREADS)
         with mock.patch.object(collect.feeds.fetch, "get", side_effect=lambda u, **k: __import__("urllib.request").request.urlopen(u).read().decode()):
-            ok = jobs.run(cfg, "agenda")
+            ok = jobs.run(cfg, "briefing")
         self.assertTrue(ok)
         v = api.view(cfg)
         self.assertTrue(v["sections"][0]["tagged"])
@@ -180,25 +180,25 @@ class CollectTests(AgendaBase):
         self.assertIn("For project pytools-port", v["speech"])
         self.assertIsNone(v["audio"])
         conn = connect(cfg.db, readonly=True)
-        self.assertEqual(conn.execute("SELECT COUNT(*) FROM runs WHERE job='agenda'").fetchone()[0], 1)
+        self.assertEqual(conn.execute("SELECT COUNT(*) FROM runs WHERE job='briefing'").fetchone()[0], 1)
 
     def test_no_topics(self):
         cfg = make_cfg(self.tmp, self.base)
-        cfg.agenda["topics"] = []
+        cfg.briefing["topics"] = []
         conn = connect(cfg.db)
         self.assertEqual(collect.collect(cfg, conn)[0], 0)
         self.assertIn("topic", api.view(cfg)["reason"])
 
     def test_off_by_default_and_schedule(self):
-        self.assertFalse(cfgmod.Config(path=self.tmp / "k.toml").modules.get("agenda", False))
+        self.assertFalse(cfgmod.Config(path=self.tmp / "k.toml").modules.get("briefing", False))
         cfg = make_cfg(self.tmp, self.base)
-        self.assertIn("agenda", {e.job for e in scheduler.entries_for(cfg)})
-        cfg.modules["agenda"] = False
-        self.assertNotIn("agenda", {e.job for e in scheduler.entries_for(cfg)})
+        self.assertIn("briefing", {e.job for e in scheduler.entries_for(cfg)})
+        cfg.modules["briefing"] = False
+        self.assertNotIn("briefing", {e.job for e in scheduler.entries_for(cfg)})
         self.assertFalse(api.view(cfg)["enabled"])
 
 
-class TtsTests(AgendaBase):
+class TtsTests(BriefingBase):
     def test_speak_writes_file_and_records(self):
         cfg = make_cfg(self.tmp, self.base, tts_on=True)
         name = tts.speak(cfg, "2026-10-30", "hello digest")
@@ -206,7 +206,7 @@ class TtsTests(AgendaBase):
         self.assertEqual(Srv.hits[0]["body"]["input"], "hello digest")
         self.assertEqual(Srv.hits[0]["auth"], "Bearer " + KEY)
         self.assertEqual(api.audio_file(cfg).name, name)
-        row = connect(cfg.db, readonly=True).execute("SELECT info FROM runs WHERE job='tts:agenda'").fetchone()[0]
+        row = connect(cfg.db, readonly=True).execute("SELECT info FROM runs WHERE job='tts:briefing'").fetchone()[0]
         self.assertNotIn(KEY, row)
 
     def test_provider_none_and_missing_key(self):
@@ -225,15 +225,15 @@ class TtsTests(AgendaBase):
         n, info, warns = collect.collect(cfg, conn, fetcher=lambda u: feeds.parse(RSS if u.endswith("rss") else ATOM) if "bad" not in u else [], now=NOW, threads=[])
         self.assertGreater(n, 0)
         self.assertTrue(info["audio"].endswith(".mp3"))
-        self.assertEqual(api.view(cfg)["audio"], "/api/agenda/audio")
-        item = [c for c in conn_api.view(cfg)["connections"] if c["id"] == "tts-agenda"][0]
+        self.assertEqual(api.view(cfg)["audio"], "/api/briefing/audio")
+        item = [c for c in conn_api.view(cfg)["connections"] if c["id"] == "tts-briefing"][0]
         self.assertEqual(item["status"], "ok")
         self.assertIn("summary text", item["writes"])
         self.assertNotIn(KEY, json.dumps(item))
 
     def test_connection_row_off(self):
         cfg = make_cfg(self.tmp, self.base)
-        item = [c for c in conn_api.view(cfg)["connections"] if c["id"] == "tts-agenda"][0]
+        item = [c for c in conn_api.view(cfg)["connections"] if c["id"] == "tts-briefing"][0]
         self.assertEqual((item["status"], item["enabled"]), ("off", False))
 
 

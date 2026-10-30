@@ -64,15 +64,32 @@ def brain_threads(data: dict) -> list[dict]:
 
 def project_match(item: dict, threads: list[dict]) -> tuple[str, str] | None:
     """(project, reason) for the first thread that clearly relates to the item, else None."""
+    hits = matching_threads(item, threads, 1)
+    return (hits[0][0]["project"], hits[0][1]) if hits else None
+
+
+def matching_threads(item: dict, threads: list[dict], limit: int = 3) -> list[tuple[dict, str]]:
+    """Threads that clearly relate to the item, with the reason; same rule as ``project_match``."""
     words = tokens(item["title"] + " " + " ".join(item["tags"]))
+    out = []
     for th in threads:
         common = sorted(words & th["title_kw"])
         if common:
-            return th["project"], f"matches project {th['project']}: keyword {common[0]} in thread {th['title']}"
-        common = sorted(words & th["status_kw"])
-        if len(common) >= 2:
-            return th["project"], f"matches project {th['project']}: keywords {', '.join(common[:2])} in thread {th['title']}"
-    return None
+            out.append((th, f"matches project {th['project']}: keyword {common[0]} in thread {th['title']}"))
+        else:
+            common = sorted(words & th["status_kw"])
+            if len(common) >= 2:
+                out.append((th, f"matches project {th['project']}: keywords {', '.join(common[:2])} in thread {th['title']}"))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def first_sentence(text: str, n: int = 180) -> str:
+    """First sentence of the source text, at most ``n`` characters. Nothing is added."""
+    text = re.sub(r"\s+", " ", (text or "")).strip()
+    m = re.search(r"(?<=[.!?])\s+(?=[A-Z0-9\"'(])", text)
+    return cut(text[: m.start()] if m else text, n)
 
 
 def cut(text: str, n: int = 200) -> str:

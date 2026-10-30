@@ -33,7 +33,7 @@ events = {events}
 jobs = false                  # career: profile, scoring, listings (off until you set it up)
 ai_usage = false              # reads local usage logs of AI tools (off until you set it up)
 instagram = false             # Instagram analysis through the official API (off until you add a token)
-agenda = false                # daily digest of the RSS/Atom feeds you list under [agenda] (off until you set topics)
+briefing = false                # daily digest of the RSS/Atom feeds you list under [briefing] (off until you set topics)
 bot = false                   # Telegram bot: commands and a morning message (off until you add a token and chat id)
 organiser = false             # night organiser: proposals only, never edits a note (off until you want it)
 
@@ -109,14 +109,24 @@ events_classify = false
 digest = false
 night = false
 
-[agenda]                      # digest topics: you choose them, nothing is built in. Example (remove the leading # to use):
+[briefing]                      # digest topics: you choose them, nothing is built in. Example (remove the leading # to use):
 # max_per_topic = 5           # items kept per topic (1 to 20)
 # max_age_days = 7            # older feed entries are ignored
-# [[agenda.topics]]
+# [[briefing.topics]]
 # name = "open source releases"
 # feeds = ["https://example.org/releases.atom"]
 # keywords = ["release", "security", "python"]
-# [agenda.tts]                # optional audio summary, off. The key is read from the environment, never from this file
+# [briefing.github]             # optional: new GitHub repositories by search query, off until queries are set
+# queries = ["topic:llm", "static site generator"]
+# language = "python"         # optional language filter
+# created_days = 30           # only repositories created in the last N days
+# max_items = 5
+# token_env = "KOKPIT_GITHUB_TOKEN"   # optional token from the environment (higher rate limit); works without one
+# [briefing.huggingface]        # optional: Hugging Face models by search term and/or the daily papers list, off by default
+# models = ["text-to-speech"]
+# papers = false
+# max_items = 5
+# [briefing.tts]                # optional audio summary, off. The key is read from the environment, never from this file
 # provider = "none"           # "none" | "openai_compatible" (POST <base_url>/audio/speech)
 # base_url = "https://provider.example/v1"
 # model = ""
@@ -164,7 +174,7 @@ class Config:
     instagram: dict = field(default_factory=lambda: _instagram({}), repr=False)  # switches, token_file, media_limit; token is secret
     model: dict = field(default_factory=lambda: _model({}), repr=False)  # no secret inside: the key lives in the environment
     bot: dict = field(default_factory=lambda: _bot({}), repr=False)  # token and chat_id are secret-like
-    agenda: dict = field(default_factory=lambda: _agenda({}), repr=False)  # topics, feeds, tts (no key inside)
+    briefing: dict = field(default_factory=lambda: _briefing({}), repr=False)  # topics, feeds, tts (no key inside)
     organiser: dict = field(default_factory=lambda: _organiser({}), repr=False)  # thresholds and report mode
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
@@ -202,10 +212,28 @@ def find_config(explicit: str | Path | None = None) -> Path | None:
     return None
 
 
+LEGACY_BRIEFING = "agenda"  # name of the briefing module before the rename; still read, with a warning
+
+
+def _legacy_briefing(raw: dict) -> None:
+    """Accept configs written before the rename: [agenda] and modules.agenda are read as briefing."""
+    import logging
+    log = logging.getLogger(__name__)
+    old = LEGACY_BRIEFING
+    if old in raw and "briefing" not in raw:
+        raw["briefing"] = raw.pop(old)
+        log.warning("kokpit.toml: [%s] is deprecated, rename it to [briefing]", old)
+    mods = raw.get("modules")
+    if isinstance(mods, dict) and old in mods and "briefing" not in mods:
+        mods["briefing"] = mods.pop(old)
+        log.warning("kokpit.toml: modules.%s is deprecated, rename it to modules.briefing", old)
+
+
 def load(path: str | Path) -> Config:
     path = Path(path).resolve()
     with path.open("rb") as fh:
         raw = tomllib.load(fh)
+    _legacy_briefing(raw)
     cfg = Config(path=path)
     mods = raw.get("modules", {})
     if mods:
@@ -254,8 +282,8 @@ def load(path: str | Path) -> Config:
     cfg.modules.setdefault("instagram", False)
     cfg.instagram = _instagram(raw.get("instagram", {}))
     cfg.model = _model(raw.get("model", {}))
-    cfg.modules.setdefault("agenda", False)
-    cfg.agenda = _agenda(raw.get("agenda", {}))
+    cfg.modules.setdefault("briefing", False)
+    cfg.briefing = _briefing(raw.get("briefing", {}))
     cfg.modules.setdefault("organiser", False)
     cfg.organiser = _organiser(raw.get("organiser", {}))
     cfg.modules.setdefault("bot", False)
@@ -334,7 +362,7 @@ def _model(a: dict) -> dict:
     }
 
 
-def _agenda(a: dict) -> dict:
+def _briefing(a: dict) -> dict:
     topics = []
     for t in a.get("topics", []) if isinstance(a.get("topics"), list) else []:
         if not isinstance(t, dict) or not str(t.get("name", "")).strip():
@@ -344,8 +372,24 @@ def _agenda(a: dict) -> dict:
                        "keywords": [k.lower() for k in _str_list(t.get("keywords"), [])]})
     tts = a.get("tts", {}) if isinstance(a.get("tts"), dict) else {}
     prov = str(tts.get("provider", "none")).strip().lower()
+    gh = a.get("github", {}) if isinstance(a.get("github"), dict) else {}
+    hf = a.get("huggingface", {}) if isinstance(a.get("huggingface"), dict) else {}
     return {
         "topics": topics,
+        "github": {
+            "queries": [q for q in _str_list(gh.get("queries"), []) if q.strip()][:5],
+            "language": str(gh.get("language", "")).strip()[:40],
+            "created_days": max(1, min(365, _int(gh.get("created_days"), 30))),
+            "max_items": max(1, min(20, _int(gh.get("max_items"), 5))),
+            "token_env": str(gh.get("token_env", "KOKPIT_GITHUB_TOKEN")).strip() or "KOKPIT_GITHUB_TOKEN",
+            "base_url": str(gh.get("base_url", "https://api.github.com")).strip().rstrip("/") or "https://api.github.com",
+        },
+        "huggingface": {
+            "models": [q for q in _str_list(hf.get("models"), []) if q.strip()][:5],
+            "papers": hf.get("papers") is True,
+            "max_items": max(1, min(20, _int(hf.get("max_items"), 5))),
+            "base_url": str(hf.get("base_url", "https://huggingface.co")).strip().rstrip("/") or "https://huggingface.co",
+        },
         "max_per_topic": max(1, min(20, _int(a.get("max_per_topic"), 5))),
         "max_age_days": max(1, min(60, _int(a.get("max_age_days"), 7))),
         "tts": {

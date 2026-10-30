@@ -128,10 +128,10 @@ def _model_item(cfg: Config) -> dict:
 
 
 def _tts_item(cfg: Config) -> dict:
-    from ..agenda import tts
-    t = cfg.agenda["tts"]
-    on = cfg.modules.get("agenda", False) and t["provider"] != "none"
-    run = _last_run(cfg, "tts:agenda")
+    from ..briefing import tts
+    t = cfg.briefing["tts"]
+    on = cfg.modules.get("briefing", False) and t["provider"] != "none"
+    run = _last_run(cfg, "tts:briefing")
     if not on:
         status = "off"
     elif not (t["base_url"] and t["model"]) or not tts.key(cfg):
@@ -147,10 +147,10 @@ def _tts_item(cfg: Config) -> dict:
     except IndexError:
         host = ""
     return {
-        "id": "tts-agenda", "name": "TTS provider (Agenda audio)", "module": "agenda", "kind": "API with key", "enabled": on,
+        "id": "tts-briefing", "name": "TTS provider (Briefing audio)", "module": "briefing", "kind": "API with key", "enabled": on,
         "reads": "nothing", "writes": f"sends {tts.FIELDS} to the provider" if on else "nothing (off)",
         "permission": f"API key in the environment variable {t['key_env']}", "target": host or "-",
-        "detail": "Key configured: " + ("yes" if tts.key(cfg) else "no") + ". Without TTS the Agenda tab can read the digest with the browser's own speech, which sends nothing. The key is never shown.",
+        "detail": "Key configured: " + ("yes" if tts.key(cfg) else "no") + ". Without TTS the Briefing tab can read the digest with the browser's own speech, which sends nothing. The key is never shown.",
         "status": status, "last": run,
     }
 

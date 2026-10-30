@@ -1,6 +1,6 @@
 """Optional text to speech for the digest: any OpenAI-compatible ``POST <base_url>/audio/speech``.
 
-Off by default. The key comes from the environment variable named by ``[agenda.tts] key_env``;
+Off by default. The key comes from the environment variable named by ``[briefing.tts] key_env``;
 it is never written to the toml, the database or the screen. The only thing sent is the summary text.
 """
 from __future__ import annotations
@@ -19,34 +19,34 @@ FIELDS = "the digest summary text (titles and one-sentence summaries)"
 
 
 def key(cfg: Config) -> str:
-    return os.environ.get(cfg.agenda["tts"]["key_env"], "").strip()
+    return os.environ.get(cfg.briefing["tts"]["key_env"], "").strip()
 
 
 def enabled(cfg: Config) -> bool:
-    t = cfg.agenda["tts"]
+    t = cfg.briefing["tts"]
     return t["provider"] == "openai_compatible" and bool(t["base_url"] and t["model"] and key(cfg))
 
 
 def audio_path(cfg: Config, day: str) -> Path:
-    return cfg.db.parent / "agenda" / f"digest-{day}.mp3"
+    return cfg.db.parent / "briefing" / f"digest-{day}.mp3"
 
 
 def _record(cfg: Config, started: str, ok: bool, info: dict, warnings: list[str]) -> None:
     conn = connect(cfg.db)
     try:
-        store.record(conn, "tts:agenda", started, ok, rows=1 if ok else 0, info=info, warnings=warnings)
+        store.record(conn, "tts:briefing", started, ok, rows=1 if ok else 0, info=info, warnings=warnings)
     finally:
         conn.close()
 
 
 def speak(cfg: Config, day: str, text: str) -> str:
     """Writes the audio file under the data folder and returns its file name. Raises RuntimeError with a key-free message."""
-    t = cfg.agenda["tts"]
+    t = cfg.briefing["tts"]
     secret = key(cfg)
     if t["provider"] != "openai_compatible":
         raise RuntimeError("provider is none")
     if not (t["base_url"] and t["model"]):
-        raise RuntimeError("[agenda.tts] base_url and model are not set")
+        raise RuntimeError("[briefing.tts] base_url and model are not set")
     if not secret:
         raise RuntimeError(f"no key in the environment variable {t['key_env']}")
     text = text[:MAX_CHARS]

@@ -31,7 +31,7 @@
 
 Kokpit gathers the things you check every morning (calendar, tasks, your notes, events in your city, job listings, the health of your own scripts) into one small web page that runs on your own device. It reads only the data you connect, and keeps everything in SQLite and plain Markdown.
 
-> **Status:** early. Milestones M1 to M3 are done; from M4, the AI usage tab and Instagram analysis are done; the dashboard below runs today with `./run`. Social publishing, the daily digest, and the Telegram bot are planned; `docker compose up` works (see Docker below). The design comes from a single-user instance that has run every day on a small home server since 2025. Full breakdown: [docs/status.md](docs/status.md).
+> **Status:** early. Milestones M1 to M3 are done; from M4, the AI usage tab and Instagram analysis are done; the dashboard below runs today with `./run`. The daily Briefing digest and the Telegram bot are in main and off by default; social publishing is planned; `docker compose up` works (see Docker below). The design comes from a single-user instance that has run every day on a small home server since 2025. Full breakdown: [docs/status.md](docs/status.md).
 
 ## Features
 
@@ -49,9 +49,9 @@ Kokpit gathers the things you check every morning (calendar, tasks, your notes, 
 **Planned** ([roadmap](docs/roadmap.md))
 
 - Instagram publishing with approval, content calendar
-- Daily news digest linked to your projects, optional audio
-- Telegram bot with the morning line and approval buttons
 - `pip install kokpit`
+
+Done since the first release and off by default: the daily Briefing digest from your own feeds, linked to your brain threads, with optional model summaries and audio (`briefing = true`), and the Telegram bot with the morning line (`bot = true`).
 
 ## Why Kokpit
 
@@ -114,7 +114,7 @@ Data lives in the `kokpit-data` volume. The port is bound to loopback because Ko
 | `python -m unittest discover -s tests` | run the tests |
 
 - **Calendar:** add one or more ICS addresses to `calendar_ics_urls` (or `KOKPIT_CALENDAR_ICS_URLS`). Treat an ICS address like a password.
-- **Agenda:** set `agenda = true` and list your own topics (RSS/Atom feeds and keywords) under `[agenda]`; items that match your active projects are tagged and come first. Optional model summaries and optional text to speech, both off by default.
+- **Briefing:** set `briefing = true` and list your own topics (RSS/Atom feeds and keywords) under `[briefing]`; items that match your active projects are tagged and come first. Optional model summaries and optional text to speech, both off by default.
 - **Events:** set `events = true` in `kokpit.toml`. Event page slugs are only written with `--confirm-slug`, after you have checked them on the site.
 - **Demo data:** the GIF uses the synthetic vault in [docs/demo-vault/](docs/demo-vault/) with the city set to Lodi, Italy:
   `python -m kokpit init --vault <copy> --db /tmp/demo.db --city "Lodi, Italy"`.

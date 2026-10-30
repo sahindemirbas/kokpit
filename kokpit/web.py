@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .config import Config
-from .modules.agenda import api as agenda_api
+from .modules.briefing import api as briefing_api
 from .modules.ai_usage import api as ai_usage_api
 from .modules.organiser import api as organiser_api
 from .modules.instagram import api as instagram_api, planapi as instagram_plan
@@ -80,12 +80,12 @@ def make_handler(cfg: Config):
                     return self._json(today_api.view(cfg))
                 if path == "/api/brain":
                     return self._json(brain_api.view(cfg))
-                if path == "/api/agenda":
-                    return self._json(agenda_api.view(cfg))
+                if path in ("/api/briefing", "/api/agenda"):  # /api/agenda: old name, kept as an alias
+                    return self._json(briefing_api.view(cfg))
                 if path == "/api/organiser":
                     return self._json(organiser_api.view(cfg))
-                if path == "/api/agenda/audio":
-                    f = agenda_api.audio_file(cfg) if cfg.modules.get("agenda", False) else None
+                if path in ("/api/briefing/audio", "/api/agenda/audio"):
+                    f = briefing_api.audio_file(cfg) if cfg.modules.get("briefing", False) else None
                     if f is None:
                         return self._json({"error": "no audio"}, HTTPStatus.NOT_FOUND)
                     body = f.read_bytes()

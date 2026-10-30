@@ -1,7 +1,7 @@
-CREATE TABLE IF NOT EXISTS agenda_items (
+CREATE TABLE IF NOT EXISTS briefing_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     day TEXT NOT NULL,          -- digest day, YYYY-MM-DD
-    topic TEXT NOT NULL,        -- topic name from [agenda] topics
+    topic TEXT NOT NULL,        -- topic name from [briefing] topics
     url TEXT NOT NULL,
     title TEXT NOT NULL,
     tags TEXT NOT NULL DEFAULT '[]',      -- JSON list, feed categories
@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS agenda_items (
     by_model INTEGER NOT NULL DEFAULT 0,  -- 1 when summary and why came from the model
     project TEXT,               -- project tag from brain-driven matching, null when none
     reason TEXT,                -- "matches project X: keyword Y in thread Z"
+    extra TEXT NOT NULL DEFAULT '{}',     -- JSON: measured facts (stars, likes, age_days...) and personal_context titles
+    visual TEXT,                -- JSON visual spec from the model after strict validation, null when none
     UNIQUE(day, url)
 );
-CREATE INDEX IF NOT EXISTS idx_agenda_day ON agenda_items(day, score);
+CREATE INDEX IF NOT EXISTS idx_briefing_day ON briefing_items(day, score);

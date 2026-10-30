@@ -20,7 +20,7 @@ events = true
 career = false
 social = false
 ai_usage = false
-agenda = false
+briefing = false
 organiser = false
 bot = false
 
@@ -41,6 +41,33 @@ calendar_ics_urls = []        # e.g. ["https://calendar.example.org/feeds/<secre
 # report_folder = "Organiser"
 # [organiser.folders]
 # project = "projects"
+
+# Briefing digest (set briefing = true under [modules]). Daily job `briefing` at 06:45. Nothing is built in:
+# remove the leading # and put your own topics, feeds and interests here.
+# [briefing]
+# max_per_topic = 5            # items kept per topic (1 to 20)
+# max_age_days = 7             # older feed entries are ignored
+# [[briefing.topics]]
+# name = "open source releases"
+# feeds = ["https://example.org/releases.atom"]
+# keywords = ["release", "security", "python"]
+# [briefing.github]              # optional: new repositories by search query; off until queries are set
+# queries = ["topic:llm", "static site generator"]
+# language = "python"          # optional language filter
+# created_days = 30            # only repositories created in the last N days
+# max_items = 5
+# token_env = "KOKPIT_GITHUB_TOKEN"   # optional token from the environment; works without one
+# [briefing.huggingface]         # optional: models by search term and/or the daily papers list
+# models = ["text-to-speech"]
+# papers = false
+# max_items = 5
+# [briefing.tts]                 # optional audio summary; the key is read from the environment only
+# provider = "none"            # "none" (browser speech) | "openai_compatible"
+# base_url = "https://provider.example/v1"
+# model = ""
+# voice = ""
+# key_env = "KOKPIT_TTS_API_KEY"
+# Model summaries and diagrams are a separate opt-in: [model] enabled = true and [model.uses] digest = true.
 
 [brain]
 vault_path = "~/Notes"        # Markdown folder; starter structure created if empty

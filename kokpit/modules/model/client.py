@@ -23,7 +23,7 @@ from ..health import store
 USES: dict[str, str] = {
     "events_translate": "event title and description",
     "events_classify": "event title, description and venue name",
-    "digest": "titles, tags and short summaries of selected items",
+    "digest": "titles, tags, short summaries and measured facts (stars, likes...) of selected items",
     "night": "text of the notes being organised",
 }
 

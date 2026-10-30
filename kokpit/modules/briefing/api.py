@@ -1,4 +1,4 @@
-"""What the Agenda tab shows. Reads the digest table filled by the ``agenda`` job; never fetches."""
+"""What the Briefing tab shows. Reads the digest table filled by the ``briefing`` job; never fetches."""
 from __future__ import annotations
 
 import json
@@ -10,27 +10,36 @@ from . import collect, tts
 
 
 def _items(rows) -> list[dict]:
-    return [{**dict(r), "tags": json.loads(r["tags"] or "[]"), "headline": bool(r["headline"]), "by_model": bool(r["by_model"])} for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        extra = json.loads(d.get("extra") or "{}")
+        ctx = extra.pop("personal_context", [])
+        vis = json.loads(d["visual"]) if d.get("visual") else None
+        out.append({**d, "tags": json.loads(d["tags"] or "[]"), "headline": bool(d["headline"]), "by_model": bool(d["by_model"]),
+                    "extra": extra, "visual": vis, "personal_context": ctx if isinstance(ctx, list) else []})
+    return out
 
 
 def view(cfg: Config) -> dict:
-    out = {"enabled": cfg.modules.get("agenda", False), "freshness": health_api.freshness(cfg, "agenda"),
+    out = {"enabled": cfg.modules.get("briefing", False), "freshness": health_api.freshness(cfg, "briefing"),
            "day": None, "sections": [], "speech": "", "audio": None,
-           "tts": {"provider": cfg.agenda["tts"]["provider"], "on": tts.enabled(cfg)}}
+           "tts": {"provider": cfg.briefing["tts"]["provider"], "on": tts.enabled(cfg)}}
     if not out["enabled"]:
         return out
-    if not cfg.agenda["topics"]:
-        out["reason"] = "No topics yet: add [[agenda.topics]] with feeds and keywords to kokpit.toml."
+    if not collect.has_sources(cfg):
+        out["reason"] = "No topics yet: add [[briefing.topics]] with feeds and keywords to kokpit.toml."
         return out
     try:
         conn = connect(cfg.db, readonly=True)
     except FileNotFoundError:
-        out["reason"] = "no database yet: run `kokpit run-job agenda`"
+        out["reason"] = "no database yet: run `kokpit run-job briefing`"
         return out
     try:
         try:
-            day = conn.execute("SELECT MAX(day) FROM agenda_items").fetchone()[0]
-            rows = conn.execute("SELECT * FROM agenda_items WHERE day=? ORDER BY project IS NULL, score DESC, title", (day,)).fetchall() if day else []
+            t = collect.table_name(conn)
+            day = conn.execute(f"SELECT MAX(day) FROM {t}").fetchone()[0]
+            rows = conn.execute(f"SELECT * FROM {t} WHERE day=? ORDER BY project IS NULL, score DESC, title", (day,)).fetchall() if day else []
         except Exception:  # table not created yet
             day, rows = None, []
     finally:
@@ -46,7 +55,7 @@ def view(cfg: Config) -> dict:
     if items:
         out["speech"] = collect.speech_text(day, [{**i, "project": i["project"]} for i in items])
     if day and tts.audio_path(cfg, day).is_file():
-        out["audio"] = "/api/agenda/audio"
+        out["audio"] = "/api/briefing/audio"
     out["count"] = len(items)
     return out
 

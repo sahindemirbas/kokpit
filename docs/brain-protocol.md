@@ -19,7 +19,7 @@ receipts and the "update, never rewrite" rule come from **Avenox Beyin**
 (`github.com/avenoxai/avenoxbeyin`, MIT licence, copyright Avenox). The
 reference instance runs a local fork of Beyin 3.11.0 that has diverged since
 October 2026 (multi-agent hooks, Turkish-language rules, the night organiser,
-the agenda link). The night organiser and the brain-driven agenda are Kokpit
+the briefing link). The night organiser and the brain-driven briefing are Kokpit
 additions, not part of upstream.
 
 What this means for the repository: this document is our own text and
@@ -131,15 +131,15 @@ durable journal per step, re-running the same plan produces no change,
 partial failure is reported and recoverable, multi-file writes are not
 globally atomic and the docs say so.
 
-## 4. Brain-driven agenda
+## 4. Brain-driven briefing
 
-The Agenda module can read the brain to decide what matters today instead of
+The Briefing module can read the brain to decide what matters today instead of
 using a fixed topic list.
 
 - Input: active threads, project names and rules, stated goals and current
   blockers from `Threads.md` and `projects/*/`. Only titles, tags and short
   summaries leave the vault; full note bodies do not.
-- Matching: each agenda item (news, release, podcast episode, event) gets
+- Matching: each briefing item (news, release, podcast episode, event) gets
   project tags when it clearly relates to an active thread. The tag shows the
   reason ("matches project X: keyword Y in thread Z"). Items without a clear
   reason get no tag; they are not hidden, just untagged.

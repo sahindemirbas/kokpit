@@ -50,11 +50,11 @@ Moved out of M2:
 - Approval through the bot. (done)
 - AI usage readers (Hermes, Claude Code, Codex) and the limits panel; advice rules with evidence. (done)
 
-## M5: agenda, bot, Docker
+## M5: briefing, bot, Docker
 
 - Model connection: done (M5 step 3, see docs/connections.md). Opt-in, one switch per use, key from the environment.
-- Topic configuration for the digest; optional TTS: done (step 4, `[agenda]`, tested with fake servers; real-feed quality not yet measured).
-- Brain-driven agenda matching with a rule-based fallback and a model opt-in: done in code and tests (title/tag/status keyword overlap with active threads; real vault precision not yet measured).
+- Topic configuration for the digest; optional TTS: done (step 4, `[briefing]`, tested with fake servers; real-feed quality not yet measured).
+- Brain-driven briefing matching with a rule-based fallback and a model opt-in: done in code and tests (title/tag/status keyword overlap with active threads; real vault precision not yet measured).
 - Translation target setting for events (moved from M2), using the same model connection: done (`[events] translate_to`).
 - [x] Night organiser as an opt-in module: categorise, link, conditions, enrich, sync; deterministic morning report. Proposals only, never edits a note; rule-based; precision on a real vault not yet measured.
 - Telegram bot as an optional module.

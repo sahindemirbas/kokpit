@@ -39,7 +39,7 @@ Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki
 
 - **Today:** takvim (salt okunur ICS), açık görevler, yaklaşan tarihler, Open-Meteo'dan canlı hava.
 - **Brain:** Markdown notların projeler ve açık işler olarak; hızlı not yalnız ekleme yapar, hiçbir notu yeniden yazmaz.
-- **Agenda:** `agenda = true` yap ve `[agenda]` altına kendi konularını (RSS/Atom ve anahtar kelimeler) yaz; aktif projelerinle eşleşen öğeler etiketlenir ve öne çıkar. Model özeti ve sesli okuma isteğe bağlı, varsayılan kapalı.
+- **Briefing:** `briefing = true` yap ve `[briefing]` altına kendi konularını (RSS/Atom ve anahtar kelimeler) yaz; aktif projelerinle eşleşen öğeler etiketlenir ve öne çıkar. Model özeti ve sesli okuma isteğe bağlı, varsayılan kapalı.
 - **Events:** AllEvents ve Eventbrite'tan şehrindeki etkinlikler; yerel adaptörler ve kendi dilinde kategori kuralları.
 - **Career:** yerel profil, yazılı gerekçeyle puanlanan ilanlar ("Python, SQL; Milano; uzaktan belirtilmemiş"), ilan yaşam döngüsü, pazar görünümü, CSV dışa aktarım.
 - **Health:** her işin son başarılı çalışması. Sessizce boş dönen bir kaynak "0 kayıt" olarak görünür, "OK" olarak değil.

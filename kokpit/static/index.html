@@ -61,6 +61,7 @@ details{margin:10px 0;border:2px solid var(--ink);border-radius:10px;padding:8px
 .br .t{height:16px;background:var(--w);border:2px solid var(--ink);border-radius:99px;overflow:hidden}.br .t i{display:block;height:100%;background:var(--c);border-right:2px solid var(--ink);width:0;animation:gr .7s cubic-bezier(.3,1.2,.5,1) forwards}@keyframes gr{to{width:var(--w)}}.br .v{font:500 12px var(--mono);text-align:right}
 .tw{padding:0 24px 50px;overflow:auto}table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:2px solid var(--ink);border-radius:12px;overflow:hidden;box-shadow:var(--sh)}
 th{font:500 11.5px var(--mono);text-transform:uppercase;text-align:left;padding:8px 10px;background:var(--ink);color:var(--bg);position:sticky;top:0}td{padding:8px 10px;border-top:1.5px solid var(--ink);font-size:14px;vertical-align:top}tr.cr{cursor:pointer;transition:background .1s}tr.cr:hover td{background:#ffc21a}
+body{overflow-x:clip}/* entrance animations overshoot by a subpixel */
 .sec{padding:20px 24px 8px;font:800 28px var(--sans);letter-spacing:-.03em;text-transform:uppercase}
 .leaflet-container{font-family:var(--sans)}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.card{opacity:1}.br .t i{width:var(--w)}}
@@ -282,11 +283,11 @@ tr.cr:hover td{background:var(--tc)}
 .gd-r h4{margin:0;font:700 16px/1.25 var(--sans);overflow-wrap:anywhere}.gd-r p{margin:3px 0 0;font:500 13.5px/1.4 var(--sans);opacity:.85}
 .gd-x{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.gd-x .mono{font-size:10.5px;opacity:.7}
 .gd-m.rd,.gd-r.rd{opacity:.5}.gd-m.rd:hover,.gd-r.rd:hover{opacity:.85}
-.gd-r.rd h4:after,.gd-m.rd h3:after{content:' okundu';font:500 10px var(--mono);text-transform:uppercase;vertical-align:middle;margin-left:6px}
+.gd-r.rd h4:after,.gd-m.rd h3:after{content:' read';font:500 10px var(--mono);text-transform:uppercase;vertical-align:middle;margin-left:6px}
 .afa .gd-m,.afa .gd-r{opacity:0;animation:afent .55s cubic-bezier(.2,.9,.25,1.15) forwards}
 .afa .gd-r.rd,.afa .gd-m.rd{animation-name:afentrd}@keyframes afentrd{from{opacity:0;transform:translateY(20px)}to{opacity:.5;transform:none}}
 
-/* gv-*: Gündem görsel kartlar */
+/* gv-*: Briefing visual cards */
 .gv-w{padding:6px 24px 8px}
 .gv-tg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
 .gv-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
@@ -315,7 +316,7 @@ tr.cr:hover td{background:var(--tc)}
 .gv-s{font:500 14px/1.4 var(--sans);opacity:.9;overflow-wrap:anywhere}
 .gv-y{background:var(--w);border:2px solid var(--ink);border-radius:12px;padding:8px 11px;font:500 13.5px/1.35 var(--sans)}.gv-y b{display:block;font:500 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
 .gv-more{margin-top:auto;font:500 11px var(--mono);text-transform:uppercase;border-bottom:2px solid var(--ink);align-self:flex-start}
-.gv-c.rd{opacity:1}.gv-c.rd:hover{opacity:1}.gv-c.rd .gv-h:after{content:' okundu';font:500 10px var(--mono);text-transform:uppercase;vertical-align:middle;margin-left:6px}
+.gv-c.rd{opacity:1}.gv-c.rd:hover{opacity:1}.gv-c.rd .gv-h:after{content:' read';font:500 10px var(--mono);text-transform:uppercase;vertical-align:middle;margin-left:6px}
 .gv-ov{font:500 15px/1.5 var(--sans);margin:0 0 8px}.gv-kp{margin:0 0 10px;padding-left:20px;line-height:1.45}.gv-kp li{margin:3px 0}
 .gv-nt{font:500 12px/1.4 var(--mono);background:var(--w3);border:2px solid var(--ink);border-radius:10px;padding:7px 10px;margin:0 0 10px}
 .gv-det{border:2px solid var(--ink);border-radius:12px;padding:8px 12px;margin:8px 0;background:var(--w2)}.gv-det summary{cursor:pointer;font:700 14px var(--sans)}
@@ -658,7 +659,9 @@ function afIcon(k,sz){const C='<path d="M20 62a18 18 0 0 1 10-33 24 24 0 0 1 46-
  return `<svg class="ic" width="${sz}" height="${sz}" viewBox="0 0 120 110" aria-hidden="true">${g}</svg>`}
 function afScroll(id){const e=$(id);if(e){e.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});e.focus({preventScroll:true})}}
 function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){const p=document.createElement('i');p.className='af-bu';const a=k/14*6.283;p.style.cssText=`left:${b.left+b.width/2-4}px;top:${b.top+b.height/2-4}px;background:${['#ffc21a','#ff5a3c','#4a9dff','#2fbf71'][k%4]};--x:${Math.cos(a)*56}px;--y:${Math.sin(a)*56}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),700)}}
-const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['ai','AI usage'],['so','Social'],['br','Brain'],['hl','Health'],['ag','Agenda'],['og','Organiser'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',ai_usage:'ai',social:'so',brain:'br',health:'hl',agenda:'ag',organiser:'og',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',ag:'agenda',og:'organiser',cn:'connections'};
+const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['ai','AI usage'],['so','Social'],['br','Brain'],['hl','Health'],['bi','Briefing'],['og','Organiser'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',ai_usage:'ai',social:'so',brain:'br',health:'hl',briefing:'bi',organiser:'og',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',bi:'briefing',og:'organiser',cn:'connections'};
+function legacyHash(){if(location.hash=='#agenda')history.replaceState(null,'','#briefing')}/* old name of the briefing tab */
+legacyHash();try{const o=localStorage.getItem('kokpit_agenda_read');if(o!==null){if(localStorage.getItem('kokpit_briefing_read')===null)localStorage.setItem('kokpit_briefing_read',o);localStorage.removeItem('kokpit_agenda_read')}}catch(e){}
 const S={hn:{},view:HASH[location.hash.replace('#','')]||'bg'};
 function nav(){$('nav').innerHTML=NAVT.map(([k,l])=>`<button type="button" class="btn${k==S.view?' on':''}" data-view="${k}">${l}</button>`).join('')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;location.hash=HASHR[S.view];render()}
@@ -799,7 +802,7 @@ async function evView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
 async function cnView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/connections');if(S.view!='cn')return;
  const tone=s=>/^ok$/.test(s)?'af-gd':/planned|off|not set|not created|not run/.test(s)?'':'af-wr';
  const last=l=>l?`${l.ok?'ok':'error'}${l.rows!=null?' · '+l.rows+' rows':''} · ${esc(l.finished)}${l.today?'':' (not today)'}`:'never';
- S.hn.cn=[[d.connections.filter(c=>c.status==='ok').length,'ok'],[d.connections.length,'total']];const groups=['today','brain','health','events','jobs','instagram','agenda','model','bot','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span></div>`;
+ S.hn.cn=[[d.connections.filter(c=>c.status==='ok').length,'ok'],[d.connections.length,'total']];const groups=['today','brain','health','events','jobs','instagram','briefing','model','bot','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span></div>`;
  for(const g of groups){const items=d.connections.filter(c=>c.module===g);if(!items.length)continue;
   for(const c of items)h+=`<div class="af-b s4 ${tone(c.status)}" ${afD(i++)}><h4>${esc(c.name)} ${c.enabled?'':'<span class="mono" style="font-size:10px">off</span>'}</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">${esc(c.module)} · ${esc(c.kind)}</p><p style="margin:0"><b>reads</b> ${esc(c.reads)}</p><p style="margin:0"><b>writes</b> ${esc(c.writes)}</p><p style="margin:0"><b>permission</b> ${esc(c.permission)}</p><p style="margin:0"><b>target</b> <span class="mono">${esc(c.target)}</span></p>${c.detail?`<p class="mono" style="font-size:10px;margin:6px 0 0">${esc(c.detail)}</p>`:''}<p class="mono" style="font-size:10px;margin:8px 0 0">status ${esc(c.status)} · last ${last(c.last)}</p>${c.last&&c.last.warnings&&c.last.warnings.length?`<p class="mono" style="font-size:10px;margin:4px 0 0">${c.last.warnings.map(esc).join('<br>')}</p>`:''}</div>`}
  v.innerHTML=h+'</div>'}
@@ -815,8 +818,6 @@ function agPlayer(d){const p=$('agp');if(!d||!d.enabled||(!d.audio&&!d.speech)){
 document.addEventListener('click',e=>{const b=e.target.closest('[data-agsay]');if(!b)return;
  if(speechSynthesis.speaking){speechSynthesis.cancel();b.textContent='Read digest aloud';return}
  const u=new SpeechSynthesisUtterance(AGP.text||'');u.onend=()=>{b.textContent='Read digest aloud'};speechSynthesis.speak(u);b.textContent='Stop reading'});
-function agItem(it,i){const tag=it.project?`<span class="af-st">${esc(it.project)}</span> `:'';
- return `<div class="af-b ${it.headline?'s12':'s6'}" ${afD(i)}><h4>${tag}<a href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a></h4>${it.summary?`<p style="margin:4px 0">${esc(it.summary)}</p>`:''}<p class="mono" style="font-size:11px;margin:2px 0">${it.by_model?'model: ':'why: '}${esc(it.why)}</p>${it.reason&&it.reason!==it.why?`<p class="mono" style="font-size:10px;margin:2px 0">${esc(it.reason)}</p>`:''}<p class="mono" style="font-size:10px;margin:2px 0">${esc(it.topic)}${it.tags.length?' · '+it.tags.slice(0,4).map(esc).join(', '):''}</p></div>`}
 async function ogView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/organiser');if(S.view!='og')return;
  if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Organiser module is off. Set <code>organiser = true</code> under [modules] in kokpit.toml. It only writes suggestions; it never edits a note.</p></div></div>`;return}
  S.hn.og=[[d.total||0,'open']];
@@ -825,14 +826,86 @@ async function ogView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
  if(!d.proposals.length)h+=`<div class="af-b s12" ${afD(i++)}><p>No open proposals.</p></div>`;
  for(const p of d.proposals)h+=`<div class="af-b s12" ${afD(i++)} style="padding:8px 18px"><span class="mono" style="font-size:10px">${esc(p.kind)} · ${esc(p.path||'vault')}</span><p style="margin:2px 0">${esc(p.text)}</p></div>`;
  v.innerHTML=h+'</div>'}
-async function agView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/agenda');if(S.view!='ag')return;
- if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Agenda module is off. Set <code>agenda = true</code> under [modules] and list topics under [agenda] in kokpit.toml.</p></div></div>`;return}
- agPlayer(d);S.hn.ag=[[d.count||0,'items']];
+/* ag-*: Briefing visual cards (card system ported from the reference design; measured numbers only) */
+const AGC=['#ff6b4a','#5bb6ff','#3ecf8e','#e0457b','#b48cff','#2fbf71'],AGK={'Matches your projects':'#ffc21a','GitHub':'#3ecf8e','Hugging Face':'#ffc21a'};let AGD=null;
+const agRD=()=>{try{return new Set(JSON.parse(localStorage.getItem('kokpit_briefing_read')||'[]'))}catch(e){return new Set()}};
+function agKey(u){u=String(u||'').toLowerCase().trim().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/[?#].*$/,'').replace(/\/+$/,'');if(u.startsWith('github.com/'))u=u.split('/').slice(0,3).join('/');return u}
+function agRead(g){const r=agRD(),k=agKey(g.url);r.delete(k);r.add(k);try{localStorage.setItem('kokpit_briefing_read',JSON.stringify([...r].slice(-600)))}catch(e){}document.querySelectorAll(`[data-ag="${g.id}"]`).forEach(e=>{const c=e.closest('.gv-c');if(c)c.classList.add('rd')})}
+function agCut(s,n){s=String(s||'').replace(/\s+/g,' ').trim();if(s.length<=n)return s;return s.slice(0,n).replace(/\s+\S*$/,'')+'...'}
+function agSent(s,k){const text=String(s||'').replace(/\s+/g,' ').trim(),m=text.match(/.+?(?:[.!?]+(?=\s|$)|$)/g);return m?m.slice(0,k).join('').trim():text}
+function agSpons(g){const x=g.extra||{};return !!(x.sponsored||x.sponsor||/\/spons(ored)?\//i.test(String(g.url||'')))}
+function agPick(items){const by=[...items].sort((a,b)=>(b.score||0)-(a.score||0)||a.id-b.id),out=[],seen=new Set();
+ for(const i of by){if(out.length<3&&!seen.has(i.sec)){out.push(i);seen.add(i.sec)}}
+ for(const i of by){if(out.length<3&&!out.includes(i))out.push(i)}return out}
+const agN=v=>Number(v).toLocaleString('en');
+function agLabels(g){const x=g.extra||{},o=[];
+ if(x.source_type=='github'){if(x.stars>0)o.push(agN(x.stars)+' stars');if(x.age_days!=null)o.push(x.age_days+'-day-old repo');if(x.lang)o.push(x.lang)}
+ else if(x.source_type=='huggingface'){if(x.kind)o.push(x.kind);if(x.params_b>0)o.push((x.params_b<1?Math.round(x.params_b*1000)+'M':x.params_b+'B')+' params');if(x.likes>0)o.push(agN(x.likes)+' likes');if(x.upvotes>0)o.push(agN(x.upvotes)+' upvotes');if(x.downloads>0)o.push(agN(x.downloads)+' downloads')}
+ if(g.topic&&!o.includes(g.topic))o.push(g.topic);return o.slice(0,3)}
+function agAgo(p){if(!p)return '';const h=Math.round((Date.now()-new Date(p))/36e5);if(!isFinite(h)||h<0)return '';return h<1?'just now':h<48?h+' h ago':Math.round(h/24)+' days ago'}
+function agFallback(g){const raw=String(g.summary||'').replace(/\s+/g,' ').trim(),sent=agSent(raw,1);return sent&&sent.length<=240?sent:(String(g.title||'').trim()||'No short summary stored for this item.')}
+function agMeasure(g){const x=g.extra||{},k=x.stars>0?'stars':x.likes>0?'likes':x.upvotes>0?'upvotes':'';if(!k)return '';
+ const mx=Math.max(...AGD.items.filter(i=>i.sec==g.sec).map(i=>Number((i.extra||{})[k])||0),1),v=Number(x[k]);
+ return `<span class="gv-br"><span class="gv-bl"><span>${esc(k[0].toUpperCase()+k.slice(1))}</span><b>${esc(agN(v))}</b></span><span class="gv-bt"><i style="width:${Math.max(3,Math.round(v/mx*100))}%;background:#161412"></i></span></span><span class="gv-cap">Measured · vs. top of section</span>`}
+function agChain(nodes,edges){if(edges.length<2)return null;const by=new Map(nodes.map(n=>[n.id,n])),nx=new Map(),ins=new Set();
+ for(const e of edges){if(!by.has(e.from)||!by.has(e.to)||nx.has(e.from)||ins.has(e.to))return null;nx.set(e.from,e.to);ins.add(e.to)}
+ const start=[...nx.keys()].filter(k=>!ins.has(k));if(start.length!=1)return null;const out=[];let k=start[0];while(k&&out.length<=edges.length){out.push(by.get(k));k=nx.get(k)}return out.length==edges.length+1?out:null}
+function agSpecVis(g){const v=g.visual;if(!v||!['concept','process','comparison','timeline','layers'].includes(v.diagram_type)||typeof v.takeaway!='string'||!Array.isArray(v.nodes)||!Array.isArray(v.metrics)||!Array.isArray(v.edges))return '';
+ const nodes=v.nodes.slice(0,4),edges=v.edges.slice(0,4),metrics=v.metrics.slice(0,4);let body='';
+ const chain=agChain(nodes,edges);
+ if(chain)body=`<span class="gvs-rel gvs-${v.diagram_type}"><span class="gv-fl">${chain.map((n,j)=>(j?'<span class="gv-ar" aria-label="order given in the source">→</span>':'')+`<span class="gv-n">${esc(n.label)}</span>`).join('')}</span></span>`;
+ else if(nodes.length&&edges.length){const by=new Map(nodes.map(n=>[n.id,n]));body=`<span class="gvs-rel gvs-${v.diagram_type}">${edges.filter(e=>by.has(e.from)&&by.has(e.to)).map(e=>`<span class="gv-fl"><span class="gv-n">${esc(by.get(e.from).label)}</span><span class="gv-ar" aria-label="order given in the source">→</span><span class="gv-n">${esc(by.get(e.to).label)}</span></span>`).join('')}</span>`}
+ else if(nodes.length)body=`<span class="gv-fl">${nodes.map(n=>`<span class="gv-n">${esc(n.label)}</span>`).join('')}</span>`;
+ const same=metrics.length>=2&&metrics.every(m=>m.unit===metrics[0].unit&&typeof m.value=='number'&&Number.isFinite(m.value)&&m.value>=0),mx=Math.max(1,...metrics.map(m=>Number.isFinite(m.value)?m.value:0));
+ if(v.diagram_type=='comparison'&&same){body+=metrics.map(m=>`<span class="gv-br"><span class="gv-bl"><span>${esc(m.label)}</span><b>${esc(agN(m.value))} ${esc(m.unit)}</b></span><span class="gv-bt"><i style="width:${Math.max(0,Math.min(100,m.value/mx*100))}%;background:#161412"></i></span></span>`).join('')+'<span class="gv-cap">Zero baseline · same unit</span>'}
+ else if(metrics.length)body+=`<span class="gvs-metrics">${metrics.map(m=>`<span class="gv-n">${esc(m.label)}: ${esc(agN(m.value))} ${esc(m.unit)}</span>`).join('')}</span>`;
+ const kind=v.schematic||!metrics.length?'<span class="gv-cap">Schematic · not a measurement</span>':'';
+ return `<span class="gvs-title">${esc(v.title)}</span>${body}${kind}<span class="gvs-take">${esc(v.takeaway)}</span>${v.caveat?`<span class="gvs-note">${esc(v.caveat)}</span>`:''}`}
+function agVis(g){const visual=agSpecVis(g);if(visual)return visual;
+ return `${agMeasure(g)}<span class="gvs-take">${esc(agFallback(g))}</span><span class="gv-cap">Source text · not a diagram</span>`}
+function agFlags(g){const f=[];if(agSpons(g))f.push('<span class="pv" style="background:var(--w3)">sponsored</span>');if(g.project)f.push(`<span class="pv" style="background:#161412;color:#f5ecd2">${esc(g.project)}</span>`);return f.join('')}
+function agCard(g,RD,top){const col=g.col,s=g.visual?(g.summary||''):(g.summary&&g.summary.trim()!=agFallback(g)?g.summary:'');
+ return `<article class="gv-c${top?' gv-top':''}${RD.has(agKey(g.url))?' rd':''}" style="--c:${col}"><button type="button" class="gv-open" data-ag="${esc(g.id)}"><span class="gv-v">${agVis(g)}</span><span class="gv-b"><span class="gv-k"><span class="pv" style="background:${col};color:#161412">${esc(g.secName)}</span>${agLabels(g).filter(l=>l!=g.secName).map(l=>`<span class="pv">${esc(l)}</span>`).join('')}${agFlags(g)}<span class="mono">${esc(agAgo(g.published))}</span></span><span class="gv-h">${esc(g.title)}</span>${s?`<span class="gv-s">${esc(s)}</span>`:''}${g.why?`<span class="gv-y"><b>Why you see this</b>${esc(top?g.why:agCut(agSent(g.why,1),120))}</span>`:''}<span class="gv-more mono">Open detail</span></span></button></article>`}
+function agLayout(items,secs,RD){const top=agPick(items),ids=new Set(top.map(i=>i.id));
+ const rest=secs.map(s=>({...s,items:s.items.filter(i=>!ids.has(i.id))})).filter(s=>s.items.length);
+ return {top,rest,html:`<div class="gv-tg">${top.map(g=>agCard(g,RD,1)).join('')}</div>`}}
+function agContext(g){const p=g.personal_context;if(!Array.isArray(p)||!p.length)return '';return `<details class="gv-det"><summary>Why this is personal</summary><p class="mono">Matched threads in your brain vault</p><ul>${p.slice(0,8).map(s=>`<li>${esc(s)}</li>`).join('')}</ul><p class="mono">These threads are personal context only; they do not verify the item.</p></details>`}
+function agDetail(g){const x=g.extra||{},ov=g.summary||agFallback(g);
+ const visual=g.visual?`<div class="gv-v" style="--c:var(--w3)">${agSpecVis(g)}</div><p class="mono">Visual: written by your model from this item; every number was checked against the source text and measured facts.</p>`:(agMeasure(g)?`<div class="gv-v" style="--c:var(--w3)">${agMeasure(g)}</div>`:'');
+ const notes=agSpons(g)?'<p class="gv-nt">Note: this is sponsored content, not neutral news.</p>':'';
+ const facts=agLabels(g).concat(x.forks>0?[agN(x.forks)+' forks']:[]);
+ return `${notes}${visual}<p class="gv-ov">${esc(ov)}</p>${g.why?`<dl class="info"><dt>Why</dt><dd>${esc(g.why)}</dd>${g.reason&&g.reason!=g.why?`<dt>Match</dt><dd>${esc(g.reason)}</dd>`:''}</dl>`:''}${agContext(g)}<details class="gv-det"><summary>All details</summary>${facts.length?`<p class="mono">${esc(facts.join(' · '))}</p>`:''}${g.tags&&g.tags.length?`<p class="mono">Tags: ${esc(g.tags.slice(0,8).join(', '))}</p>`:''}<p class="mono">${g.by_model?'Summary: model':'Summary: first sentence of the source text'}${g.published?' · published '+esc(String(g.published).slice(0,16).replace('T',' ')):''}</p></details>`}
+function agPop(h){$('tk').innerHTML=h;$('ov').classList.add('on');$('tk').scrollTop=0}
+function agClose(){$('ov').classList.remove('on');$('tk').innerHTML=''}
+function agOpen(id){const g=AGD&&AGD.items.find(x=>x.id==id);if(!g)return;agRead(g);
+ agPop(`<div class="th" style="background:${g.col}"><div class="big" style="font-size:30px">${esc(g.secName)}</div><span class="mono">${esc(agLabels(g).join(' / '))}</span></div><div class="tb"><h2>${esc(g.title)}</h2>${agDetail(g)}<div class="acts"><a class="btn bk" href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">Open source</a><button type="button" class="btn" data-x>Close</button></div></div>`)}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-ag]');if(b){agOpen(b.dataset.ag);return}
+ if(e.target.closest('[data-x]')||e.target.id=='ov'){agClose();return}
+ const f=e.target.closest('[data-agf]');if(f){S.agUnread=!S.agUnread;agRender();return}
+ const j=e.target.closest('[data-agj]');if(j){const t=$(j.dataset.agj);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return}
+ const p=e.target.closest('[data-agplay]');if(p){const a=$('agp').querySelector('audio');if(a){a.paused?a.play():a.pause()}else{const s=$('agp').querySelector('[data-agsay]');if(s)s.click()}agWave()}});
+document.addEventListener('keydown',e=>{if(e.key=='Escape'&&$('ov').classList.contains('on'))agClose()});
+function agWave(){const w=$('agwv');if(!w)return;const a=$('agp').querySelector('audio');
+ if(a&&!a._w){a._w=1;['play','pause','ended'].forEach(ev=>a.addEventListener(ev,agWave))}
+ const on=a?!a.paused:!!(window.speechSynthesis&&speechSynthesis.speaking);w.classList.toggle('on',on);const b=document.querySelector('[data-agplay]');if(b)b.textContent=on?'❚❚':'▶';
+ if(!a&&on){clearTimeout(agWave.t);agWave.t=setTimeout(agWave,700)}}
+function agRender(){const v=$('view'),d=AGD;if(!d||S.view!='bi')return;const RD=agRD();
+ const secs=d.secs.map(s=>({...s,items:S.agUnread?s.items.filter(i=>!RD.has(agKey(i.url))):s.items})).filter(s=>s.items.length),items=secs.flatMap(s=>s.items);
+ const unread=d.items.filter(i=>!RD.has(agKey(i.url))).length;let h='';
+ if(d.audio||d.speech)h+=`<div class="gd-au"><div class="af-wv" id="agwv">${Array.from({length:44},(_,j)=>`<i style="animation-delay:${((j*.07)%1).toFixed(2)}s"></i>`).join('')}</div><div style="display:flex;gap:14px;align-items:center"><button type="button" class="af-pl" data-agplay="1" aria-label="Play or pause the digest">▶</button><div><div class="mono">${d.audio?'Digest audio':'Digest, read by your browser'}</div><span style="font:600 14px var(--sans)">${d.items.length} items · ${esc(d.day||'')} · also in the top bar player</span></div></div></div>`;
+ const L=agLayout(items,secs,RD);
+ h+=`<div class="gd-jump"><span class="mono">${d.items.length} items · ${unread} unread</span><button type="button" class="chip${S.agUnread?' on':''}" style="--c:#ffc21a" data-agf="1" aria-pressed="${!!S.agUnread}"><span class="dot"></span>Unread only</button>${L.rest.map(s=>`<button type="button" class="chip" style="--c:${s.col}" data-agj="ags-${s.i}"><span class="dot"></span>${esc(s.name)} · ${s.items.filter(i=>!RD.has(agKey(i.url))).length}/${s.items.length}</button>`).join('')}</div><div class="gv-w">${afFresh(d.freshness)}</div>`;
+ if(!items.length){v.innerHTML=h+'<div class="gv-w"><p>Everything here is read. Turn off "Unread only" to see all items.</p></div>';agWave();return}
+ h+=`<div class="sec" style="--tc:#ffc21a">Top picks</div><div class="gv-w">${L.html}</div>`;
+ L.rest.forEach(s=>{h+=`<div class="sec" id="ags-${s.i}" style="--tc:${s.col}">${esc(s.name)}</div><div class="gv-w"><div class="gv-g" style="--c:${s.col}">${s.items.map(g=>agCard(g,RD,0)).join('')}</div></div>`});
+ v.innerHTML=h;agWave()}
+async function agView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/briefing');if(S.view!='bi')return;
+ if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Briefing module is off. Set <code>briefing = true</code> under [modules] and list topics under [briefing] in kokpit.toml.</p></div></div>`;return}
+ agPlayer(d);S.hn.bi=[[d.count||0,'items']];
  if(d.reason){v.innerHTML=`<div class="af"><div class="af-b s12"><p>${esc(d.reason)}</p>${afFresh(d.freshness)}</div></div>`;return}
- if(!d.sections.length){v.innerHTML=`<div class="af"><div class="af-b s12"><p>No digest yet. Run <code>kokpit run-job agenda</code>.</p>${afFresh(d.freshness)}</div></div>`;return}
- let h=`<div class="af"><div class="af-b s12">${afFresh(d.freshness)}<p class="mono" style="font-size:10px;margin:2px 0">digest ${esc(d.day)} · tagged items first · audio: ${d.tts.on?'provider on':'provider off, browser speech only'}</p></div>`,i=1;
- for(const s of d.sections){h+=`<div class="af-b s12" ${afD(i++)} style="padding:6px 18px"><h3 style="margin:0">${esc(s.name)}</h3></div>`;for(const it of s.items)h+=agItem(it,i++)}
- v.innerHTML=h+'</div>';counts(v)}
+ if(!d.sections.length){v.innerHTML=`<div class="af"><div class="af-b s12"><p>No digest yet. Run <code>kokpit run-job briefing</code>.</p>${afFresh(d.freshness)}</div></div>`;return}
+ let c=0;d.secs=d.sections.map((s,i)=>{const col=AGK[s.name]||AGC[(c++)%AGC.length];return {i,name:s.name,col,items:s.items.map(it=>({...it,sec:i,secName:s.name,col}))}});
+ d.items=d.secs.flatMap(s=>s.items);AGD=d;agRender();counts(v)}
 
 const JB={};
 const jbList=v=>(v||[]).join(', ');
@@ -936,10 +1009,10 @@ const AFH={ev:['Events','#ff6b4a',()=>'Around your city',()=>AFN('ev')],
  so:['Social','#ff7eb6',()=>'Instagram reach, posts, reels and stories',()=>AFN('so')],
  br:['Brain','#ffd23f',()=>'Open loops and where you left off',()=>AFN('br')],
  hl:['Health','#2fbf71',()=>'Nightly jobs, last runs and warnings',()=>AFN('hl')],
- ag:['Agenda','#c8e64a',()=>'Your topics, tagged with your projects',()=>AFN('ag')],
+ bi:['Briefing','#c8e64a',()=>'Your topics, tagged with your projects',()=>AFN('bi')],
  og:['Organiser','#e0a96d',()=>'Night suggestions about your notes. Nothing is changed for you',()=>AFN('og')],
  cn:['Connections','#7be0d0',()=>'What Kokpit reads, and when it last worked',()=>AFN('cn')]};
-const AFR={ev:'EVENTS',jb:'CAREER',ai:'AI USAGE',so:'SOCIAL',br:'BRAIN',hl:'HEALTH',ag:'AGENDA',og:'ORGANISER',cn:'CONNECTIONS'};
+const AFR={ev:'EVENTS',jb:'CAREER',ai:'AI USAGE',so:'SOCIAL',br:'BRAIN',hl:'HEALTH',bi:'BRIEFING',og:'ORGANISER',cn:'CONNECTIONS'};
 let afLast='',afT=0;
 function afRing(c){return (AFR[S.view]||c[0].toLocaleUpperCase('en'))+' · KOKPIT · '}
 function afHero(anim){const h=$('afhd'),c=AFH[S.view];document.body.style.setProperty('--tc',c?c[1]:'#ffc21a');if(!h)return;if(!c){h.innerHTML='';h.hidden=true;return}h.hidden=false;
@@ -955,8 +1028,8 @@ function afDecor(){const v=$('view'),key=S.view;
  v.querySelectorAll('.kpi b').forEach(b=>{const m=b.textContent.trim().match(/^(\d{1,7})$/);if(m)b.dataset.c=m[1]});afCount(v);
  clearTimeout(afT);afT=setTimeout(()=>v.classList.remove('afa'),2500)}
 new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
-async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:brView,hl:hlView,ag:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
-window.addEventListener('hashchange',()=>{const n=HASH[location.hash.replace('#','')]||'bg';if(n!=S.view){S.view=n;render()}});
+async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:brView,hl:hlView,bi:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+window.addEventListener('hashchange',()=>{legacyHash();const n=HASH[location.hash.replace('#','')]||'bg';if(n!=S.view){S.view=n;render()}});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`}).catch(()=>{});
 afClock();setInterval(afClock,15000);render();
 </script>

@@ -2,7 +2,7 @@
 
 Last reviewed: 30 October 2026.
 
-Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQLite, cron, Telegram bot) running on a small home server since 2025. The M1 to M3 modules and the AI usage readers are now in this repository. The rest (social, agenda digest, Telegram bot) still lives only in the reference instance and will be moved in module by module, stripped of personal data.
+Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQLite, cron, Telegram bot) running on a small home server since 2025. The M1 to M3 modules and the AI usage readers are now in this repository. The rest (social, briefing digest, Telegram bot) still lives only in the reference instance and will be moved in module by module, stripped of personal data.
 
 ## Working in the reference instance
 
@@ -12,7 +12,7 @@ Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQ
 - Career: LinkedIn guest search plus three company-site adapters, rule-based scoring with reasons, lifecycle tracking, market view, CSV export.
 - Social: Instagram analysis (account, posts, reels, stories insights) through the official API, working; content calendar with a Health guard and approved publishing (Approve button, publish switch, limit check) working, approval and reminders through the bot working (synthetic tests); TikTok read-only stats from a local collector generalise.
 - AI usage: Hermes `state.db` reader, per-model/session view, rule-based advice.
-- Agenda: daily digest with scored items and audio summary.
+- Briefing: daily digest with scored items and audio summary.
 - System health: per-job status, morning warnings.
 - Telegram bot: morning line, commands, approval buttons. In this repository (M5 step 1a): bot core with one allowed chat, `/help /today /health /plan`, morning line job, poll runner and callback registry, synthetic tests only; Instagram approval buttons and reminders in step 1b.
 
@@ -28,7 +28,7 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 | Career | Collection, keyword scoring with reasons, lifecycle, market view, CSV | translated titles for high-score jobs | working |
 | Social | Insights, approved publishing, calendar | caption/visual drafts | working for stats; drafting is model-only, no template path yet |
 | AI usage | Reader, per-model view, rule-based advice | nothing | working |
-| Agenda (digest) | Item scoring and listing | summary text, item selection, audio | scoring is rule-based; summary without a model falls back to the plain list, to be formalised |
+| Briefing (digest) | Item scoring and listing | summary text, item selection, audio | scoring is rule-based; summary without a model falls back to the plain list, to be formalised |
 | Morning report | Template text with verified times and temperatures | free-form wording | working; the template is also the safety fallback when model output fails verification |
 | System health | Full | nothing | working |
 | Telegram bot | Full | nothing | working |

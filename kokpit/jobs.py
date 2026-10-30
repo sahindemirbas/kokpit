@@ -10,7 +10,7 @@ from collections.abc import Callable
 from .config import Config
 from .db import connect
 from .modules.brain import reader
-from .modules.agenda import collect as agenda_collect
+from .modules.briefing import collect as briefing_collect
 from .modules.organiser import collect as organiser_collect
 from .modules.ai_usage import collect as ai_usage_collect
 from .modules.career import collect as career_collect
@@ -55,11 +55,11 @@ def events_collect(cfg: Config):
         conn.close()
 
 
-def agenda(cfg: Config):
+def briefing(cfg: Config):
     """Daily digest: reads the feeds of your topics, scores and tags them, stores the digest, writes audio when TTS is on."""
     conn = connect(cfg.db)
     try:
-        return agenda_collect.collect(cfg, conn)
+        return briefing_collect.collect(cfg, conn)
     finally:
         conn.close()
 
@@ -163,10 +163,14 @@ def calendar_job(cfg: Config):
     return len(data["events"]), info, data["errors"] + data["warnings"]
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "agenda": agenda, "organiser": organiser, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan, "bot-poll": bot_poll, "bot-morning": bot_morning, "bot-instagram-remind": bot_instagram_remind}
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "briefing": briefing, "organiser": organiser, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan, "bot-poll": bot_poll, "bot-morning": bot_morning, "bot-instagram-remind": bot_instagram_remind}
+
+
+ALIASES = {"agenda": "briefing"}  # old job name, kept so existing crontabs keep working; not listed
 
 
 def run(cfg: Config, name: str) -> bool:
+    name = ALIASES.get(name, name)
     if name not in REGISTRY:
         raise SystemExit(f"unknown job '{name}'. Available: {', '.join(sorted(REGISTRY))}")
     started = store.now_iso()
