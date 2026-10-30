@@ -46,6 +46,7 @@ SCHEDULE: tuple[Entry, ...] = (
     Entry("brain-check", "brain", every=60),
     Entry("events-collect", "events", at=("06:30",)),
     Entry("career", "jobs", at=("06:30",)),
+    Entry("agenda", "agenda", at=("06:45",)),
     Entry("ai_usage", "ai_usage", every=60),
     Entry("instagram", "instagram", at=("07:00", "19:00")),
     Entry("instagram-plan", "instagram", at=("07:00",)),

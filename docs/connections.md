@@ -23,7 +23,7 @@ The Connections screen is where a user enables modules and links accounts. It is
 | TikTok stats | Social | local analytics DB | statistics | none | optional, browser-based collector |
 | Telegram bot | all | bot token | commands from the owner chat only | sends messages to the owner | single allowed chat id; off by default, see below |
 | Model API | Agenda, Events, Career | API key (environment) | n/a | sends stated text to the provider | off by default; each use is listed with the data it sends; see below |
-| TTS provider | Agenda | API key | n/a | sends summary text | optional |
+| TTS provider | Agenda | API key (environment) | n/a | sends the digest summary text | off by default (`[agenda.tts] provider`); key named by `key_env`, never in the toml; shown on this screen |
 | AI tool logs | AI usage | local paths | usage rows | none | Hermes `state.db`, Claude Code, Codex |
 | Hermes agent | Brain, AI usage | local | vault files, usage rows | may append notes if enabled | not required; see `integrations/hermes` |
 

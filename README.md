@@ -114,6 +114,7 @@ Data lives in the `kokpit-data` volume. The port is bound to loopback because Ko
 | `python -m unittest discover -s tests` | run the tests |
 
 - **Calendar:** add one or more ICS addresses to `calendar_ics_urls` (or `KOKPIT_CALENDAR_ICS_URLS`). Treat an ICS address like a password.
+- **Agenda:** set `agenda = true` and list your own topics (RSS/Atom feeds and keywords) under `[agenda]`; items that match your active projects are tagged and come first. Optional model summaries and optional text to speech, both off by default.
 - **Events:** set `events = true` in `kokpit.toml`. Event page slugs are only written with `--confirm-slug`, after you have checked them on the site.
 - **Demo data:** the GIF uses the synthetic vault in [docs/demo-vault/](docs/demo-vault/) with the city set to Lodi, Italy:
   `python -m kokpit init --vault <copy> --db /tmp/demo.db --city "Lodi, Italy"`.

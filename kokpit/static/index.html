@@ -597,10 +597,11 @@ html[data-tema=dark] .bm-st.err{color:#ff8a7a}html[data-tema=dark] .bm-st.ok{col
 .subnav .btn:focus-visible,.nav .btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 @media(max-width:700px){.subnav{padding:10px 14px 0}}
 @media(max-width:360px){.subnav{gap:6px}.subnav .btn{padding:6px 10px}}
+.agp{display:flex;align-items:center;gap:8px}.agp audio{height:30px;max-width:240px}.ag-t{font:600 11px var(--mono,monospace);opacity:.8}
 </style><style>
 </style>
 </head><body>
-<div class="af-top"><div class="af-logo" data-view="bg">Kokpit</div><div class="af-clk" id="afclk">--:--<small id="afdt"></small></div><button type="button" class="af-tema" id="aftema" aria-label="Toggle dark mode"></button><div id="tag" hidden></div><div id="sr" hidden></div></div>
+<div class="af-top"><div class="af-logo" data-view="bg">Kokpit</div><div class="af-clk" id="afclk">--:--<small id="afdt"></small></div><button type="button" class="af-tema" id="aftema" aria-label="Toggle dark mode"></button><div id="agp" class="agp" hidden></div><div id="tag" hidden></div><div id="sr" hidden></div></div>
 <div class="nav" id="nav" role="navigation" aria-label="Sections"></div><div class="subnav" id="subnav" role="navigation" aria-label="Subsections" hidden></div><div id="afhd" hidden></div><div class="ctl" id="ctl"></div><div id="view"></div>
 <div class="ov" id="ov"><div class="tk" id="tk"></div></div>
 <script>
@@ -657,7 +658,7 @@ function afIcon(k,sz){const C='<path d="M20 62a18 18 0 0 1 10-33 24 24 0 0 1 46-
  return `<svg class="ic" width="${sz}" height="${sz}" viewBox="0 0 120 110" aria-hidden="true">${g}</svg>`}
 function afScroll(id){const e=$(id);if(e){e.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});e.focus({preventScroll:true})}}
 function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){const p=document.createElement('i');p.className='af-bu';const a=k/14*6.283;p.style.cssText=`left:${b.left+b.width/2-4}px;top:${b.top+b.height/2-4}px;background:${['#ffc21a','#ff5a3c','#4a9dff','#2fbf71'][k%4]};--x:${Math.cos(a)*56}px;--y:${Math.sin(a)*56}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),700)}}
-const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['ai','AI usage'],['so','Social'],['br','Brain'],['hl','Health'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',ai_usage:'ai',social:'so',brain:'br',health:'hl',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',cn:'connections'};
+const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['ai','AI usage'],['so','Social'],['br','Brain'],['hl','Health'],['ag','Agenda'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',ai_usage:'ai',social:'so',brain:'br',health:'hl',agenda:'ag',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',ag:'agenda',cn:'connections'};
 const S={hn:{},view:HASH[location.hash.replace('#','')]||'bg'};
 function nav(){$('nav').innerHTML=NAVT.map(([k,l])=>`<button type="button" class="btn${k==S.view?' on':''}" data-view="${k}">${l}</button>`).join('')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;location.hash=HASHR[S.view];render()}
@@ -798,10 +799,32 @@ async function evView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
 async function cnView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/connections');if(S.view!='cn')return;
  const tone=s=>/^ok$/.test(s)?'af-gd':/planned|off|not set|not created|not run/.test(s)?'':'af-wr';
  const last=l=>l?`${l.ok?'ok':'error'}${l.rows!=null?' · '+l.rows+' rows':''} · ${esc(l.finished)}${l.today?'':' (not today)'}`:'never';
- S.hn.cn=[[d.connections.filter(c=>c.status==='ok').length,'ok'],[d.connections.length,'total']];const groups=['today','brain','health','events','jobs','instagram','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span></div>`;
+ S.hn.cn=[[d.connections.filter(c=>c.status==='ok').length,'ok'],[d.connections.length,'total']];const groups=['today','brain','health','events','jobs','instagram','agenda','model','bot','planned'];let i=0,h=`<div class="af"><div class="af-b s12" style="padding:10px 18px" ${afD(i++)}><span class="mono">${esc(d.config)} · what Kokpit reads, with what permission, and when it last worked. Nothing here leaves this machine.</span></div>`;
  for(const g of groups){const items=d.connections.filter(c=>c.module===g);if(!items.length)continue;
   for(const c of items)h+=`<div class="af-b s4 ${tone(c.status)}" ${afD(i++)}><h4>${esc(c.name)} ${c.enabled?'':'<span class="mono" style="font-size:10px">off</span>'}</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">${esc(c.module)} · ${esc(c.kind)}</p><p style="margin:0"><b>reads</b> ${esc(c.reads)}</p><p style="margin:0"><b>writes</b> ${esc(c.writes)}</p><p style="margin:0"><b>permission</b> ${esc(c.permission)}</p><p style="margin:0"><b>target</b> <span class="mono">${esc(c.target)}</span></p>${c.detail?`<p class="mono" style="font-size:10px;margin:6px 0 0">${esc(c.detail)}</p>`:''}<p class="mono" style="font-size:10px;margin:8px 0 0">status ${esc(c.status)} · last ${last(c.last)}</p>${c.last&&c.last.warnings&&c.last.warnings.length?`<p class="mono" style="font-size:10px;margin:4px 0 0">${c.last.warnings.map(esc).join('<br>')}</p>`:''}</div>`}
  v.innerHTML=h+'</div>'}
+
+const AGP={on:false};
+function agPlayer(d){const p=$('agp');if(!d||!d.enabled||(!d.audio&&!d.speech)){return}
+ p.hidden=false;
+ if(d.audio){if(!p.querySelector('audio')){p.innerHTML='<audio controls preload="none" aria-label="Digest audio"></audio>'}
+  const a=p.querySelector('audio');if(a.dataset.src!=d.audio+'?'+d.day){const was=!a.paused;a.dataset.src=d.audio+'?'+d.day;if(!was){a.src=d.audio+'?'+d.day}}return}
+ if(!window.speechSynthesis){p.hidden=true;return}
+ if(!p.querySelector('[data-agsay]')){p.innerHTML='<button type="button" class="btn" data-agsay="1">Read digest aloud</button>'}
+ p.querySelector('[data-agsay]').textContent=speechSynthesis.speaking?'Stop reading':'Read digest aloud';AGP.text=d.speech}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-agsay]');if(!b)return;
+ if(speechSynthesis.speaking){speechSynthesis.cancel();b.textContent='Read digest aloud';return}
+ const u=new SpeechSynthesisUtterance(AGP.text||'');u.onend=()=>{b.textContent='Read digest aloud'};speechSynthesis.speak(u);b.textContent='Stop reading'});
+function agItem(it,i){const tag=it.project?`<span class="af-st">${esc(it.project)}</span> `:'';
+ return `<div class="af-b ${it.headline?'s12':'s6'}" ${afD(i)}><h4>${tag}<a href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a></h4>${it.summary?`<p style="margin:4px 0">${esc(it.summary)}</p>`:''}<p class="mono" style="font-size:11px;margin:2px 0">${it.by_model?'model: ':'why: '}${esc(it.why)}</p>${it.reason&&it.reason!==it.why?`<p class="mono" style="font-size:10px;margin:2px 0">${esc(it.reason)}</p>`:''}<p class="mono" style="font-size:10px;margin:2px 0">${esc(it.topic)}${it.tags.length?' · '+it.tags.slice(0,4).map(esc).join(', '):''}</p></div>`}
+async function agView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/agenda');if(S.view!='ag')return;
+ if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Agenda module is off. Set <code>agenda = true</code> under [modules] and list topics under [agenda] in kokpit.toml.</p></div></div>`;return}
+ agPlayer(d);S.hn.ag=[[d.count||0,'items']];
+ if(d.reason){v.innerHTML=`<div class="af"><div class="af-b s12"><p>${esc(d.reason)}</p>${afFresh(d.freshness)}</div></div>`;return}
+ if(!d.sections.length){v.innerHTML=`<div class="af"><div class="af-b s12"><p>No digest yet. Run <code>kokpit run-job agenda</code>.</p>${afFresh(d.freshness)}</div></div>`;return}
+ let h=`<div class="af"><div class="af-b s12">${afFresh(d.freshness)}<p class="mono" style="font-size:10px;margin:2px 0">digest ${esc(d.day)} · tagged items first · audio: ${d.tts.on?'provider on':'provider off, browser speech only'}</p></div>`,i=1;
+ for(const s of d.sections){h+=`<div class="af-b s12" ${afD(i++)} style="padding:6px 18px"><h3 style="margin:0">${esc(s.name)}</h3></div>`;for(const it of s.items)h+=agItem(it,i++)}
+ v.innerHTML=h+'</div>';counts(v)}
 
 const JB={};
 const jbList=v=>(v||[]).join(', ');
@@ -905,8 +928,9 @@ const AFH={ev:['Events','#ff6b4a',()=>'Around your city',()=>AFN('ev')],
  so:['Social','#ff7eb6',()=>'Instagram reach, posts, reels and stories',()=>AFN('so')],
  br:['Brain','#ffd23f',()=>'Open loops and where you left off',()=>AFN('br')],
  hl:['Health','#2fbf71',()=>'Nightly jobs, last runs and warnings',()=>AFN('hl')],
+ ag:['Agenda','#c8e64a',()=>'Your topics, tagged with your projects',()=>AFN('ag')],
  cn:['Connections','#7be0d0',()=>'What Kokpit reads, and when it last worked',()=>AFN('cn')]};
-const AFR={ev:'EVENTS',jb:'CAREER',ai:'AI USAGE',so:'SOCIAL',br:'BRAIN',hl:'HEALTH',cn:'CONNECTIONS'};
+const AFR={ev:'EVENTS',jb:'CAREER',ai:'AI USAGE',so:'SOCIAL',br:'BRAIN',hl:'HEALTH',ag:'AGENDA',cn:'CONNECTIONS'};
 let afLast='',afT=0;
 function afRing(c){return (AFR[S.view]||c[0].toLocaleUpperCase('en'))+' · KOKPIT · '}
 function afHero(anim){const h=$('afhd'),c=AFH[S.view];document.body.style.setProperty('--tc',c?c[1]:'#ffc21a');if(!h)return;if(!c){h.innerHTML='';h.hidden=true;return}h.hidden=false;
@@ -922,7 +946,7 @@ function afDecor(){const v=$('view'),key=S.view;
  v.querySelectorAll('.kpi b').forEach(b=>{const m=b.textContent.trim().match(/^(\d{1,7})$/);if(m)b.dataset.c=m[1]});afCount(v);
  clearTimeout(afT);afT=setTimeout(()=>v.classList.remove('afa'),2500)}
 new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
-async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:brView,hl:hlView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:brView,hl:hlView,ag:agView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 window.addEventListener('hashchange',()=>{const n=HASH[location.hash.replace('#','')]||'bg';if(n!=S.view){S.view=n;render()}});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`}).catch(()=>{});
 afClock();setInterval(afClock,15000);render();

@@ -93,6 +93,7 @@ def view(cfg: Config) -> dict:
     items.append(_instagram_item(cfg))
     items.append(_bot_item(cfg))
     items.append(_model_item(cfg))
+    items.append(_tts_item(cfg))
     for name in ("CV file",):
         items.append({"id": name.lower().replace(" ", "-"), "name": name, "module": "planned", "kind": "planned",
                       "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
@@ -123,6 +124,34 @@ def _model_item(cfg: Config) -> dict:
         "permission": f"API key in the environment variable {d['key_env']}", "target": d["base_host"] or "-",
         "detail": "Key configured: " + ("yes" if d["key_present"] else "no") + ". " + " | ".join(lines) + ". The key is never shown.",
         "status": status, "last": next((r for r in reversed(runs) if r), None),
+    }
+
+
+def _tts_item(cfg: Config) -> dict:
+    from ..agenda import tts
+    t = cfg.agenda["tts"]
+    on = cfg.modules.get("agenda", False) and t["provider"] != "none"
+    run = _last_run(cfg, "tts:agenda")
+    if not on:
+        status = "off"
+    elif not (t["base_url"] and t["model"]) or not tts.key(cfg):
+        status = "not configured"
+    elif run and not run["ok"]:
+        status = "warning"
+    elif run:
+        status = "ok"
+    else:
+        status = "not run yet"
+    try:
+        host = t["base_url"].split("/")[2]
+    except IndexError:
+        host = ""
+    return {
+        "id": "tts-agenda", "name": "TTS provider (Agenda audio)", "module": "agenda", "kind": "API with key", "enabled": on,
+        "reads": "nothing", "writes": f"sends {tts.FIELDS} to the provider" if on else "nothing (off)",
+        "permission": f"API key in the environment variable {t['key_env']}", "target": host or "-",
+        "detail": "Key configured: " + ("yes" if tts.key(cfg) else "no") + ". Without TTS the Agenda tab can read the digest with the browser's own speech, which sends nothing. The key is never shown.",
+        "status": status, "last": run,
     }
 
 

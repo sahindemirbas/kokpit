@@ -33,6 +33,7 @@ events = {events}
 jobs = false                  # career: profile, scoring, listings (off until you set it up)
 ai_usage = false              # reads local usage logs of AI tools (off until you set it up)
 instagram = false             # Instagram analysis through the official API (off until you add a token)
+agenda = false                # daily digest of the RSS/Atom feeds you list under [agenda] (off until you set topics)
 bot = false                   # Telegram bot: commands and a morning message (off until you add a token and chat id)
 
 [today]
@@ -107,6 +108,20 @@ events_classify = false
 digest = false
 night = false
 
+[agenda]                      # digest topics: you choose them, nothing is built in. Example (remove the leading # to use):
+# max_per_topic = 5           # items kept per topic (1 to 20)
+# max_age_days = 7            # older feed entries are ignored
+# [[agenda.topics]]
+# name = "open source releases"
+# feeds = ["https://example.org/releases.atom"]
+# keywords = ["release", "security", "python"]
+# [agenda.tts]                # optional audio summary, off. The key is read from the environment, never from this file
+# provider = "none"           # "none" | "openai_compatible" (POST <base_url>/audio/speech)
+# base_url = "https://provider.example/v1"
+# model = ""
+# voice = ""
+# key_env = "KOKPIT_TTS_API_KEY"
+
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
 quick_capture = true          # allow appending a note or task from the dashboard
@@ -138,6 +153,7 @@ class Config:
     instagram: dict = field(default_factory=lambda: _instagram({}), repr=False)  # switches, token_file, media_limit; token is secret
     model: dict = field(default_factory=lambda: _model({}), repr=False)  # no secret inside: the key lives in the environment
     bot: dict = field(default_factory=lambda: _bot({}), repr=False)  # token and chat_id are secret-like
+    agenda: dict = field(default_factory=lambda: _agenda({}), repr=False)  # topics, feeds, tts (no key inside)
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
     @property
@@ -226,6 +242,8 @@ def load(path: str | Path) -> Config:
     cfg.modules.setdefault("instagram", False)
     cfg.instagram = _instagram(raw.get("instagram", {}))
     cfg.model = _model(raw.get("model", {}))
+    cfg.modules.setdefault("agenda", False)
+    cfg.agenda = _agenda(raw.get("agenda", {}))
     cfg.modules.setdefault("bot", False)
     cfg.bot = _bot(raw.get("bot", {}))
     today = raw.get("today", {})
@@ -299,6 +317,31 @@ def _model(a: dict) -> dict:
         "key_env": str(a.get("key_env", "KOKPIT_MODEL_API_KEY")).strip() or "KOKPIT_MODEL_API_KEY",
         "timeout": max(1, min(300, _int(a.get("timeout"), 30))),
         "uses": {k: bool(uses.get(k, False)) for k in ("events_translate", "events_classify", "digest", "night")},
+    }
+
+
+def _agenda(a: dict) -> dict:
+    topics = []
+    for t in a.get("topics", []) if isinstance(a.get("topics"), list) else []:
+        if not isinstance(t, dict) or not str(t.get("name", "")).strip():
+            continue
+        feeds = [u for u in _str_list(t.get("feeds"), []) if u.lower().startswith(("http://", "https://"))]
+        topics.append({"name": str(t["name"]).strip()[:80], "feeds": feeds,
+                       "keywords": [k.lower() for k in _str_list(t.get("keywords"), [])]})
+    tts = a.get("tts", {}) if isinstance(a.get("tts"), dict) else {}
+    prov = str(tts.get("provider", "none")).strip().lower()
+    return {
+        "topics": topics,
+        "max_per_topic": max(1, min(20, _int(a.get("max_per_topic"), 5))),
+        "max_age_days": max(1, min(60, _int(a.get("max_age_days"), 7))),
+        "tts": {
+            "provider": prov if prov in ("none", "openai_compatible") else "none",
+            "base_url": str(tts.get("base_url", "")).strip(),
+            "model": str(tts.get("model", "")).strip(),
+            "voice": str(tts.get("voice", "")).strip(),
+            "key_env": str(tts.get("key_env", "KOKPIT_TTS_API_KEY")).strip() or "KOKPIT_TTS_API_KEY",
+            "timeout": max(1, min(300, _int(tts.get("timeout"), 60))),
+        },
     }
 
 

@@ -10,6 +10,7 @@ from collections.abc import Callable
 from .config import Config
 from .db import connect
 from .modules.brain import reader
+from .modules.agenda import collect as agenda_collect
 from .modules.ai_usage import collect as ai_usage_collect
 from .modules.career import collect as career_collect
 from .modules.events import api as events_api
@@ -49,6 +50,15 @@ def events_collect(cfg: Config):
     conn = connect(cfg.db)
     try:
         return events_api.collect(cfg, conn)
+    finally:
+        conn.close()
+
+
+def agenda(cfg: Config):
+    """Daily digest: reads the feeds of your topics, scores and tags them, stores the digest, writes audio when TTS is on."""
+    conn = connect(cfg.db)
+    try:
+        return agenda_collect.collect(cfg, conn)
     finally:
         conn.close()
 
@@ -143,7 +153,7 @@ def calendar_job(cfg: Config):
     return len(data["events"]), info, data["errors"] + data["warnings"]
 
 
-REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan, "bot-poll": bot_poll, "bot-morning": bot_morning, "bot-instagram-remind": bot_instagram_remind}
+REGISTRY: dict[str, Job] = {"weather": weather_job, "calendar": calendar_job, "heartbeat": heartbeat, "brain-check": brain_check, "events-collect": events_collect, "career": career, "agenda": agenda, "ai_usage": ai_usage, "instagram": instagram, "instagram-plan": instagram_plan, "bot-poll": bot_poll, "bot-morning": bot_morning, "bot-instagram-remind": bot_instagram_remind}
 
 
 def run(cfg: Config, name: str) -> bool:

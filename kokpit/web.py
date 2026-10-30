@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .config import Config
+from .modules.agenda import api as agenda_api
 from .modules.ai_usage import api as ai_usage_api
 from .modules.instagram import api as instagram_api, planapi as instagram_plan
 from .modules.brain import api as brain_api
@@ -78,6 +79,20 @@ def make_handler(cfg: Config):
                     return self._json(today_api.view(cfg))
                 if path == "/api/brain":
                     return self._json(brain_api.view(cfg))
+                if path == "/api/agenda":
+                    return self._json(agenda_api.view(cfg))
+                if path == "/api/agenda/audio":
+                    f = agenda_api.audio_file(cfg) if cfg.modules.get("agenda", False) else None
+                    if f is None:
+                        return self._json({"error": "no audio"}, HTTPStatus.NOT_FOUND)
+                    body = f.read_bytes()
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "audio/mpeg")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 if path == "/api/health":
                     return self._json(health_api.view(cfg))
                 if path == "/api/events":

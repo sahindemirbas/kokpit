@@ -83,7 +83,11 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 - Brain-driven matching: active threads, project names and current blockers from the vault steer what is selected. Items that clearly relate to an active project are tagged with the project and a stated reason; tagged items come first in the digest and the audio summary. Only titles, tags and short summaries leave the vault. A rule-based fallback works without any model. Details in `docs/brain-protocol.md`, section 4.
 - Model connection (`kokpit/modules/model`, M5): `complete(cfg, purpose, system, user, max_tokens)`, one switch per use, `ModelDisabled` before any network call when off. Events translation (`[events] translate_to`) is its first user.
 - Connections: a model API key for summaries (opt-in, stated), a TTS provider (optional), the brain vault (read-only).
-- Status: digest **working** for the author's topic set; brain-driven matching **working** in a first version tied to the author's vault paths (**generalise**); topic configuration **planned**.
+- Topics are yours: `[[agenda.topics]]` with `name`, `feeds` (RSS or Atom addresses) and `keywords` in `kokpit.toml`; nothing is built in. Module off by default (`agenda = false`). Daily job `agenda` (06:45) fetches with the standard library, scores by keyword overlap in title and feed tags plus freshness, keeps `max_per_topic` per topic, and stores the digest in `agenda_items`. A feed that fails is a warning, never a stop.
+- Brain matching reads only thread titles and the first 200 characters of their status; a match adds a project tag and a reason (`matches project X: keyword Y in thread Z`). No match, no tag, the item stays. Tagged items come first; the top item of each section is the headline.
+- Summary: with `[model.uses] digest = true` each item gets one sentence and a "why it matters" line (sent: title, tags, short feed summary); otherwise the feed's own summary is cut to 200 characters. Never required.
+- Audio: `[agenda.tts] provider = "openai_compatible"` writes `digest-<day>.mp3` under the data folder (tagged items first); the tab keeps a persistent player in the top bar. With provider `none` the tab offers a button using the browser's own speech, which sends nothing.
+- Status: topic configuration, rule-based matching, optional model summaries and optional TTS **working** (tested with fake feed, model and TTS servers); brain matching depends on the Threads file layout described in `docs/brain-protocol.md`. Measured on real feeds: not yet.
 
 ## System health
 
