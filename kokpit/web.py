@@ -133,6 +133,8 @@ def make_handler(cfg: Config):
                     return self._json(instagram_api.view(cfg))
                 if path == "/api/career":
                     return self._json(career_api.view(cfg))
+                if path == "/api/career/skills":
+                    return self._json(career_api.skills_view(cfg))
                 if path == "/api/connections":
                     return self._json(connections_api.view(cfg))
                 if path == "/api/meta":
@@ -151,6 +153,8 @@ def make_handler(cfg: Config):
                     raise ValueError("JSON object expected")
                 if path == "/api/career/profile":
                     return self._json(career_api.save_profile(cfg, data))
+                if path == "/api/career/skills":
+                    return self._json(career_api.save_skill(cfg, data))
                 if path == "/api/career/cv":
                     return self._json(career_api.cv_proposal(cfg, str(data.get("text", ""))))
                 return self._json(career_api.score_preview(cfg, data))
@@ -192,7 +196,7 @@ def make_handler(cfg: Config):
             path = urlparse(self.path).path
             if path == "/api/instagram/plan" or path.startswith("/api/instagram/plan/"):
                 return self._plan_post(path)
-            if path in ("/api/career/profile", "/api/career/cv", "/api/career/score"):
+            if path in ("/api/career/profile", "/api/career/cv", "/api/career/score", "/api/career/skills"):
                 return self._career_post(path)
             if path not in ("/api/brain/capture", "/api/brain/done"):
                 return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)

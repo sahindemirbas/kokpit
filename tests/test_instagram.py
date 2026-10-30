@@ -144,6 +144,9 @@ class InstagramTest(unittest.TestCase):
         self.assertTrue(all(u.startswith("https://graph.instagram.com/v") for u in fake.urls))
         d = api.view(cfg, NOW)
         self.assertEqual(d["followers"], [{"day": "2026-03-10", "followers": 120}])
+        self.assertEqual(d["account"][-1]["day"], "2026-03-10")
+        self.assertEqual(set(d["account_7d"]), {"reach", "views", "profile_views", "interactions"})
+        self.assertEqual(d["account_7d"]["reach"], d["account"][-1]["reach"] or 0)
         self.assertEqual((len(d["posts"]), len(d["reels"]), len(d["stories"])), (2, 1, 1))
         self.assertEqual(d["reels"][0]["avg_watch_ms"], 5)  # reel-only metric requested
         self.assertIsNone(d["posts"][0]["avg_watch_ms"])

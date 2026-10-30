@@ -18,7 +18,7 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
         return {"enabled": False}
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     out = {"enabled": True, "analyse": cfg.instagram["analyse"], "publish": cfg.instagram["publish"], "configured": configured(cfg),
-           "freshness": health_api.freshness(cfg, "instagram"), "followers": [], "posts": [], "reels": [], "stories": [],
+           "freshness": health_api.freshness(cfg, "instagram"), "followers": [], "account": [], "account_7d": {}, "posts": [], "reels": [], "stories": [],
            "best_30d": None, "totals_30d": {}, "errors": [], "last_collect": None, "last_success": None, "available": False}
     if not cfg.db.exists():
         return out
@@ -30,6 +30,8 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
         meta = store.meta(conn)
         out["last_collect"], out["last_success"] = meta.get("last_collect"), meta.get("last_success")
         out["followers"] = [dict(r) for r in conn.execute("SELECT day, followers FROM ig_account WHERE followers IS NOT NULL ORDER BY day DESC LIMIT 60")][::-1]
+        out["account"] = [dict(r) for r in conn.execute("SELECT day, followers, reach, views, profile_views, interactions FROM ig_account ORDER BY day DESC LIMIT 60")][::-1]
+        out["account_7d"] = {k: sum(r[k] or 0 for r in out["account"][-7:]) for k in ("reach", "views", "profile_views", "interactions")}
         since = (now - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
         for key, cond in (("posts", "m.product NOT IN ('REELS','STORY')"), ("reels", "m.product = 'REELS'"), ("stories", "m.product = 'STORY'")):
             out[key] = [dict(r) for r in conn.execute(f"{SNAP_JOIN} WHERE {cond} ORDER BY m.posted_at DESC LIMIT 10")]
