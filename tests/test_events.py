@@ -78,10 +78,14 @@ class EventsTests(unittest.TestCase):
             assert [e["category"] for e in evs] == ["food", "talk"]
             assert store.upcoming(conn, days=5, today="2099-01-11")[0]["title"] == "Sagra della zucca"  # multi-day still listed
             assert store.counts(conn, today="2099-02-01")["upcoming"] == 0
+            seen = conn.execute("SELECT substr(first_seen,1,10) FROM events LIMIT 1").fetchone()[0]
+            assert store.new_today(conn, today=seen) == 2 and store.new_today(conn, today="1999-01-01") == 0
+            assert store.new_today(conn, today="2099-02-01") == 0  # first seen elsewhere / already over
             conn.close()
             v = api.view(cfg, days=14)
             assert v["enabled"] and v["configured"] and v["place"]["city"] == "Testville" and v["counts"]["total"] == 2
             assert api.view(cfg, days=3650)["days"] == 3650
+            assert "new_today" in v and "lat" in v["place"] and "lon" in v["place"]
             assert v["events"] == []  # 2099 is beyond the 14-day window; the table still has them
             ev = api.one(cfg, 1)
             assert ev and ev["title"] == "Sagra della zucca" and api.one(cfg, 999) is None

@@ -479,6 +479,17 @@ html[data-tema=dark] .bm-st.err{color:#ff8a7a}html[data-tema=dark] .bm-st.ok{col
 .ef-z{opacity:.5}.ef-z:hover,.ef-z:focus-visible{opacity:1}
 @media(min-width:1000px){.ef-bd{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)}.ef-c+.ef-c{border-left:2px solid var(--ink)}.ef-c+.ef-c .ef-r:first-child{border-top:0}}
 @media(max-width:700px){.ef-r{grid-template-columns:minmax(0,1fr)}.ef-rail{flex-wrap:nowrap;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:thin}.ef-rail .chip{flex:none}.ef-bt .btn,.ef .chip,.ef-sw,.ef input[type=search]{min-height:44px}.ef-tg,.ef-rs{min-height:40px}.ef-sm{padding:10px}}
+.ef-top{padding-bottom:0}.ef-body .kp{padding-top:14px}
+.ef-card{font:inherit;color:var(--ink);text-align:left;padding:0;width:100%;animation:up .45s both}.ef-card:focus-visible,.pl:focus-visible,.ef-pt:focus-visible{outline:3px solid #ff5a3c;outline-offset:3px}
+.ef-t{display:block;margin:0 0 6px;font:700 18px/1.15 var(--sans);letter-spacing:-.01em;overflow-wrap:anywhere}.ef-pl{display:block;font-size:11.5px}
+.ef-cal .cd{cursor:default}.ef-cal .pl{cursor:pointer;color:var(--ink)}
+.ef-map{padding:18px 24px 40px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px;align-items:start}
+.ef-mv{background:var(--card);border:2.5px solid var(--ink);border-radius:16px;box-shadow:5px 5px 0 var(--shd,var(--ink));padding:8px;aspect-ratio:1}.ef-mv svg{width:100%;height:100%;display:block}
+.ef-mlg{background:var(--card);border:2.5px solid var(--ink);border-radius:16px;padding:14px 16px;font:500 14px/1.45 var(--sans)}.ef-mlg>b{font:800 30px var(--sans)}.ef-mlg .pv{color:var(--ink)}
+.ef-ax{stroke:var(--ink);stroke-width:.3;stroke-dasharray:2 2;opacity:.45}.ef-rg{fill:none;stroke:var(--ink);stroke-width:.5;stroke-dasharray:3 2;opacity:.6}
+.ef-tx{font:500 5px var(--mono);fill:var(--ink);opacity:.75}.ef-n0{text-anchor:middle;font-weight:800}.ef-ct0{font:800 6px var(--sans);opacity:1}.ef-me{fill:var(--ink)}
+.ef-pt{cursor:pointer}.ef-pt circle{stroke:var(--ink);stroke-width:1;transition:r .15s}.ef-pt:hover circle{stroke-width:1.8}.ef-pn{font:800 5px var(--sans);fill:var(--ink);text-anchor:middle;pointer-events:none}
+@media(max-width:700px){.ef-map{grid-template-columns:minmax(0,1fr);padding:12px 14px 30px}.ef-body .grid{padding:12px 14px 16px;grid-template-columns:minmax(0,1fr);gap:14px}.ef-body .day{padding:14px 14px 0;flex-wrap:wrap}.ef-body .day b{font-size:24px}.ef-cal{padding:8px 8px 30px}.ef-cal h2{font-size:24px;min-width:0}.ef-cal .cg{gap:3px}.ef-cal .cd{padding:3px 2px;min-height:62px}.ef-cal .pl{font-size:9px;padding:1px 2px}.ef-cal .cd .m{font-size:9px}.ef-cal .cg .h{font-size:10px}}
 
 /* ===== AI kullanımı (ax-) ===== */
 .ax{padding:4px 24px 44px;display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -768,44 +779,95 @@ async function hlView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
   <div class="af-b s12" ${afD(2)}><h4>Last run per job</h4><table><thead><tr><th>job</th><th>result</th><th>rows</th><th>finished</th><th>warnings</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;counts(v)}
 
 const EFR=[['today','Today'],['week','7 days'],['weekend','Weekend'],['month','30 days'],['all','All'],['ongoing','Ongoing']],EFL={today:'today',week:'7 days',weekend:'weekend',month:'30 days',all:'all',ongoing:'ongoing'};
-const EF={rng:'week',q:'',long:false,city:new Set(),cat:new Set(),ev:[],cats:[]};
+const EFV=[['list','List'],['cal','Calendar'],['map','Map']],EFM=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const EF={mode:'list',rng:'week',q:'',long:false,city:new Set(),cat:new Set(),ev:[],cats:[],labels:{},page:1,cm:null,place:{}};
 const efToday=()=>fmt(new Date()),efAdd=n=>{const x=ND(efToday());x.setDate(x.getDate()+n);return fmt(x)};
+const efLbl=k=>EF.labels[k]||k,efDm=k=>{const x=ND(k);return x.getDate()+' '+ML[x.getMonth()]};
 function efNorm(e){const d=String(e.start||'').slice(0,10),f=String(e.end||e.start||'').slice(0,10)||d;return Object.assign({},e,{_d:d,_e:f<d?d:f,_long:(ND(f)-ND(d))/864e5>45,_c:e.city||'',_k:e.category||'other'})}
 function efInRng(e){const r=EF.rng,t=efToday();
  if(r=='today')return e._d<=t&&e._e>=t;if(r=='week')return e._e>=t&&e._d<=efAdd(7);if(r=='month')return e._e>=t&&e._d<=efAdd(30);if(r=='all')return e._e>=t;if(r=='ongoing')return e._d<t&&e._e>=t;
  if(r=='weekend'){const w=ND(t).getDay(),sat=w==0?efAdd(-1):efAdd(6-w),sun=w==0?t:efAdd(7-w);return e._e>=(w==0||w==6?t:sat)&&e._d<=sun}return true}
-function efBase(skip){const q=EF.q.trim().toLowerCase();return EF.ev.filter(e=>(EF.long||!e._long)&&(skip=='c'||!EF.city.size||EF.city.has(e._c))&&(skip=='k'||!EF.cat.size||EF.cat.has(e._k))&&(!q||[e.title,e.venue,e.city].join(' ').toLowerCase().includes(q))&&efInRng(e))}
+function efMonth(){const c=EF.cm,y=c.getFullYear(),m=c.getMonth();return [fmt(new Date(y,m,1)),fmt(new Date(y,m+1,0))]}
+function efRange(e){if(EF.mode=='cal'){const [a,b]=efMonth();return e._e>=a&&e._d<=b}if(EF.mode=='map')return e._e>=efToday()&&e._d<=efAdd(30);return efInRng(e)}
+function efMatch(e,skip){const q=EF.q.trim().toLowerCase();return (EF.long||!e._long)&&(skip=='c'||!EF.city.size||EF.city.has(e._c))&&(skip=='k'||!EF.cat.size||EF.cat.has(e._k))&&(!q||[e.title,e.title_tr,e.venue,e.city].join(' ').toLowerCase().includes(q))}
+function efBase(skip){return EF.ev.filter(e=>efMatch(e,skip)&&efRange(e))}
 function efCnt(dim){const m={};efBase(dim).forEach(e=>{const k=dim=='c'?e._c:e._k;m[k]=(m[k]||0)+1});return k=>m[k]||0}
-function efActive(){const a=[];if(EF.q.trim())a.push(['q','Search: '+(EF.q.length>20?EF.q.slice(0,19)+'...':EF.q)]);[...EF.city].forEach(k=>a.push(['c:'+k,k]));[...EF.cat].forEach(k=>a.push(['k:'+k,k]));if(EF.long)a.push(['long','45+ day events']);return a}
+function efActive(){const a=[];if(EF.q.trim())a.push(['q','Search: '+(EF.q.length>20?EF.q.slice(0,19)+'...':EF.q)]);[...EF.city].forEach(k=>a.push(['c:'+k,k]));[...EF.cat].forEach(k=>a.push(['k:'+k,efLbl(k)]));if(EF.long)a.push(['long','45+ day events']);return a}
+function efWhat(){if(EF.mode=='cal')return 'events · '+EFM[EF.cm.getMonth()]+' '+EF.cm.getFullYear();if(EF.mode=='map')return 'events · next 30 days';return 'events · '+EFL[EF.rng]}
 function efSummary(){const a=efActive(),n=efBase().length;
- return `<span class="ef-cnt"><b>${n}</b>events · ${esc(EFL[EF.rng])}</span><div class="ef-ac">${a.length?`<span class="ef-ct">${a.length} ${a.length==1?'filter':'filters'}</span>`+a.map(([k,l])=>`<button type="button" class="ef-tg" data-efclr="${esc(k)}" aria-label="Remove filter ${esc(l)}">${esc(l)}<i aria-hidden="true">x</i></button>`).join('')+'<button type="button" class="ef-rs" data-efclr="all">Reset</button>':'<span class="ef-ct">No filters</span>'}</div>`}
-function efClear(k){if(k=='all'){EF.q='';EF.city.clear();EF.cat.clear();EF.long=false}else if(k=='q')EF.q='';else if(k=='long')EF.long=false;else if(k.slice(0,2)=='c:')EF.city.delete(k.slice(2));else if(k.slice(0,2)=='k:')EF.cat.delete(k.slice(2));efSync(true)}
-function efList(){let i=0,h='',day='';const list=efBase();
- for(const e of list){if(e._d!==day){day=e._d;const x=ND(day);h+=`<div class="af-b s12" style="padding:8px 18px" ${afD(i++)}><span class="mono">${DSK[x.getDay()]} ${x.getDate()} ${ML[x.getMonth()]}</span></div>`}
-  h+=`<div class="af-b s6" ${afD(i++)}><div class="af-row"><span class="tx"><a href="${esc(e.url||'#')}" target="_blank" rel="noopener"${e.title_tr?` title="${esc(e.title)}"`:''}>${esc(e.title_tr||e.title)}</a><span class="mono" style="display:block;font-size:10px;margin-top:3px">${esc([e.venue,e.city,e.distance_km!=null?Math.round(e.distance_km)+' km':''].filter(Boolean).join(' · '))}</span></span><i style="background:${afTag(e._k)}">${esc(e._k)}</i></div><p class="mono" style="font-size:10px;margin:8px 0 0">${esc(e.source)} · <a href="/api/events/${e.id}.ics">add to calendar</a></p></div>`}
- if(!list.length)h+=`<div class="af-b s12" ${afD(i++)}><p>Nothing matches these filters. Try a wider date range, or run <code>kokpit run-job events-collect</code>.</p></div>`;return h}
-function efSync(full){const v=$('view');if(S.view!='ev'||!$('efsum'))return;$('efsum').innerHTML=efSummary();const cc=efCnt('c'),ck=efCnt('k');
+ return `<span class="ef-cnt"><b>${n}</b>${esc(efWhat())}</span><div class="ef-ac">${a.length?`<span class="ef-ct">${a.length} ${a.length==1?'filter':'filters'}</span>`+a.map(([k,l])=>`<button type="button" class="ef-tg" data-efclr="${esc(k)}" aria-label="Remove filter ${esc(l)}">${esc(l)}<i aria-hidden="true">x</i></button>`).join('')+'<button type="button" class="ef-rs" data-efclr="all">Reset</button>':'<span class="ef-ct">No filters</span>'}</div>`}
+function efClear(k){if(k=='all'){EF.q='';EF.city.clear();EF.cat.clear();EF.long=false}else if(k=='q')EF.q='';else if(k=='long')EF.long=false;else if(k.slice(0,2)=='c:')EF.city.delete(k.slice(2));else if(k.slice(0,2)=='k:')EF.cat.delete(k.slice(2));EF.page=1;efSync(true)}
+function efEmpty(){return `<div class="empty">${EF.ev.length?'No events match these filters. Try a wider date range.':'No events collected yet. Run <code>kokpit run-job events-collect</code>.'}${efActive().length?'<div style="margin-top:12px"><button type="button" class="btn" data-efclr="all">Clear filters</button></div>':''}</div>`}
+function efDayLbl(k){if(k==efToday())return 'Today';if(k==efAdd(1))return 'Tomorrow';return DS[ND(k).getDay()]}
+function efCard(e,i,k){const d=ND(k),r=[-.8,.5,-.3,.7,-.5][i%5],pl=[e.venue,e.distance_km!=null?Math.round(e.distance_km)+' km':''].filter(Boolean).join(' · '),tm=String(e.start||'').slice(11,16);
+ return `<button type="button" class="card ef-card" data-evid="${e.id}" style="--c:${afTag(e._k)};--r:${r}deg;animation-delay:${Math.min(i,14)*30}ms"><span class="dt"><b>${d.getDate()}</b><span>${ML[d.getMonth()]}</span></span><span class="ct"><span class="ef-t">${esc(e.title_tr||e.title)}</span>${pl?`<span class="mono ef-pl">${esc(pl)}</span>`:''}${e._c?`<span class="pv">${esc(e._c)}</span>`:''}<span class="pv">${esc(efLbl(e._k))}</span>${e._e!=e._d?`<span class="pv">${efDm(e._d)} - ${efDm(e._e)}</span>`:tm&&tm!='00:00'?`<span class="pv">${tm}</span>`:''}${e.price=='free'?'<span class="pv">free</span>':''}</span></button>`}
+function efList(){const all=efBase(),t=efToday();if(!all.length)return efEmpty();
+ const g=all.map(e=>({e,k:e._d<t?t:e._d})).sort((a,b)=>a.k<b.k?-1:a.k>b.k?1:String(a.e.start)<String(b.e.start)?-1:1),shown=g.slice(0,EF.page*48);
+ let h=`<div class="kp"><div class="kpi"><b>${all.length}</b><span>events</span></div><div class="kpi"><b>${all.filter(e=>e._d<=t&&e._e>=t).length}</b><span>on today</span></div><div class="kpi"><b>${new Set(all.map(e=>e._c).filter(Boolean)).size}</b><span>cities</span></div><div class="kpi"><b>${all.filter(e=>String(e.first_seen||'').slice(0,10)==t).length}</b><span>new today</span></div></div>`;
+ let last='',buf='',i=0;const flush=()=>{if(buf)h+=`<div class="grid">${buf}</div>`;buf=''};
+ shown.forEach(({e,k})=>{if(k!=last){flush();last=k;const n=g.filter(x=>x.k==k).length;h+=`<div class="day"><b>${efDayLbl(k)}</b><span>${efDm(k)} / ${n} ${n==1?'event':'events'}</span></div>`}buf+=efCard(e,i++,k)});flush();
+ if(g.length>shown.length)h+=`<button type="button" class="btn more" data-efmore="1">Show more (${g.length-shown.length} left)</button>`;return h}
+function efCal(){const t=efToday(),c=EF.cm,y=c.getFullYear(),m=c.getMonth(),f=(new Date(y,m,1).getDay()+6)%7,n=new Date(y,m+1,0).getDate(),rows=Math.ceil((f+n)/7),list=EF.ev.filter(e=>efMatch(e));
+ let h=`<div class="cal ef-cal"><div class="nv"><button type="button" class="btn" data-efm="-1" aria-label="Previous month">&lt;</button><h2>${EFM[m]} ${y}</h2><button type="button" class="btn" data-efm="1" aria-label="Next month">&gt;</button><button type="button" class="btn" data-efm="0">This month</button></div><div class="cg">`+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x=>`<div class="h">${x}</div>`).join('');
+ for(let i=0;i<rows*7;i++){const d=new Date(y,m,1-f+i),k=fmt(d);if(d.getMonth()!=m){h+='<div class="cd o" aria-hidden="true"></div>';continue}
+  const all=list.filter(e=>e._d<=k&&e._e>=k),st=all.filter(e=>e._d==k);
+  h+=`<div class="cd${k==t?' t':''}${all.length?'':' z'}"><b>${d.getDate()}</b>${all.length?`<span class="n">${all.length}</span>`:''}`;
+  st.slice(0,3).forEach(e=>h+=`<button type="button" class="pl" style="--c:${afTag(e._k)}" data-evid="${e.id}" title="${esc(e.title_tr||e.title)}">${esc(e.title_tr||e.title)}</button>`);
+  const on=all.length-st.length,more=st.length-3;if(more>0||on>0)h+=`<div class="m">${more>0?'+'+more+' more':''}${more>0&&on>0?' / ':''}${on>0?on+' ongoing':''}</div>`;h+='</div>'}
+ h+='</div>';if(!efBase().length)h+=`<p class="ef-ht" style="margin-top:12px">No events in ${EFM[m]} for these filters.</p>`;return h+'</div>'}
+function efMap(){const p=EF.place||{};if(p.lat==null||p.lon==null)return '<div class="empty">The map needs the coordinates of your place. Run <code>kokpit init --city "Your city" --force</code>.</div>';
+ const all=efBase(),kx=111.32*Math.cos(p.lat*Math.PI/180),ky=110.57,grp={};
+ all.filter(e=>e.lat!=null&&e.lon!=null).forEach(e=>{const x=(e.lon-p.lon)*kx,y=(e.lat-p.lat)*ky,k=x.toFixed(1)+','+y.toFixed(1);(grp[k]=grp[k]||{x,y,ev:[]}).ev.push(e)});
+ const G=Object.values(grp),rad=+p.radius_km||40,R=Math.max(rad,...G.map(g=>Math.hypot(g.x,g.y)))*1.12,s=100/R,nPts=G.reduce((a,g)=>a+g.ev.length,0);
+ const ring=r=>`<circle cx="0" cy="0" r="${(r*s).toFixed(1)}" class="ef-rg"/><text x="${(r*s*.71+2).toFixed(1)}" y="${(-r*s*.71-2).toFixed(1)}" class="ef-tx">${Math.round(r)} km</text>`;
+ const pts=G.map(g=>{const e=g.ev[0],lbl=g.ev.length>1?g.ev.length+' events at '+(e.venue||'one place'):(e.title_tr||e.title);
+  return `<g class="ef-pt" data-evid="${g.ev.map(x=>x.id).join(',')}" tabindex="0" role="button" aria-label="${esc(lbl)}" transform="translate(${(g.x*s).toFixed(1)} ${(-g.y*s).toFixed(1)})"><title>${esc(lbl)}</title><circle r="${g.ev.length>1?6:4.2}" fill="${afTag(e._k)}"/>${g.ev.length>1?`<text class="ef-pn" y="2.2">${g.ev.length}</text>`:''}</g>`}).join('');
+ const cats=[...new Set(all.map(e=>e._k))];
+ return `<div class="ef-map"><div class="ef-mv"><svg viewBox="-105 -105 210 210" role="img" aria-label="Events by distance and direction from ${esc(p.city||'your place')}"><line x1="-104" y1="0" x2="104" y2="0" class="ef-ax"/><line x1="0" y1="-104" x2="0" y2="104" class="ef-ax"/>${ring(rad/2)}${ring(rad)}<text x="0" y="-96" class="ef-tx ef-n0">N</text><circle r="3" class="ef-me"/><text x="5" y="10" class="ef-tx ef-ct0">${esc(p.city||'')}</text>${pts}</svg></div>`+
+  `<div class="ef-mlg"><b>${nPts}</b> of ${all.length} events in the next 30 days have coordinates and are plotted here; the rest are only in the list.<p class="ef-ht">Plotted by distance and direction from ${esc(p.city||'your place')} (rings at ${Math.round(rad/2)} and ${Math.round(rad)} km). No map tiles or external service: each event links to OpenStreetMap.</p><div class="ef-bt">${cats.map(k=>`<span class="pv" style="background:${afTag(k)}">${esc(efLbl(k))}</span>`).join('')}</div></div></div>`}
+function efBody(){return EF.mode=='cal'?efCal():EF.mode=='map'?efMap():efList()}
+function efOpen(ids){const L=String(ids).split(',').map(i=>EF.ev.find(x=>x.id==i)).filter(Boolean);if(!L.length)return;
+ if(L.length>1)return agPop(`<div class="th" style="background:${afTag(L[0]._k)}"><div class="big" style="font-size:30px">${L.length} events</div><span class="mono">${esc([L[0].venue,L[0]._c].filter(Boolean).join(' / '))}</span></div><div class="tb">${L.map(e=>`<button type="button" class="dl" style="--c:${afTag(e._k)}" data-evid="${e.id}"><small>${efDm(e._d)}${e._e!=e._d?' - '+efDm(e._e):''} / ${esc(efLbl(e._k))}</small>${esc(e.title_tr||e.title)}</button>`).join('')}<div class="acts"><button type="button" class="btn" data-x>Close</button></div></div>`);
+ const e=L[0],d=ND(e._d),tm=String(e.start||'').slice(11,16),ds=e.description_tr||e.description||'',where=[e.venue,e.address].filter(Boolean).join(', ');
+ const osm=e.lat!=null&&e.lon!=null?`https://www.openstreetmap.org/?mlat=${e.lat}&mlon=${e.lon}#map=16/${e.lat}/${e.lon}`:where?'https://www.openstreetmap.org/search?query='+encodeURIComponent([where,e._c].filter(Boolean).join(', ')):'';
+ const cut=x=>x.length>1200?x.slice(0,1199)+'...':x;
+ agPop(`<div class="th" style="background:${afTag(e._k)}"><div class="big">${d.getDate()} ${ML[d.getMonth()]}</div><span class="mono">${DS[d.getDay()]}${tm&&tm!='00:00'?' '+tm:''}${e._e!=e._d?' / until '+efDm(e._e):''}${e._c?' / '+esc(e._c):''}</span></div><div class="tb"><h2>${esc(e.title_tr||e.title)}</h2>${e.title_tr&&e.title_tr!=e.title?`<div class="it">${esc(e.title)}</div>`:''}`+
+  `<dl class="info"><dt>Place</dt><dd>${esc(where||'-')}</dd>${e.distance_km!=null?`<dt>Distance</dt><dd>${Math.round(e.distance_km)} km from ${esc(EF.place.city||'your place')}</dd>`:''}<dt>Category</dt><dd>${esc(efLbl(e._k))}</dd><dt>Price</dt><dd>${esc(e.price||'unknown')}</dd><dt>Source</dt><dd>${esc(e.source)}</dd></dl>`+
+  `<p>${ds?esc(cut(ds)):'The source gives no description for this event.'}</p>${e.description_tr&&e.description?`<details><summary>Original text</summary><p>${esc(cut(e.description))}</p></details>`:''}`+
+  `<div class="acts">${e.url?`<a class="btn bk" href="${esc(e.url)}" target="_blank" rel="noopener">Open source page</a>`:''}${osm?`<a class="btn" href="${esc(osm)}" target="_blank" rel="noopener">Open in map</a>`:''}<a class="btn" href="/api/events/${e.id}.ics">Add to calendar</a><button type="button" class="btn" data-x>Close</button></div></div>`)}
+function efSync(full){if(S.view!='ev'||!$('efsum'))return;$('efsum').innerHTML=efSummary();const cc=efCnt('c'),ck=efCnt('k');
  document.querySelectorAll('#ctl [data-rng]').forEach(b=>{const on=b.dataset.rng==EF.rng;b.classList.toggle('on',on);b.setAttribute('aria-pressed',on)});
  document.querySelectorAll('#ctl [data-city],#ctl [data-cat]').forEach(b=>{const isC=b.dataset.city!=null,key=isC?b.dataset.city:b.dataset.cat,on=(isC?EF.city:EF.cat).has(key),n=(isC?cc:ck)(key);b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);b.querySelector('.ef-n').textContent=n;b.classList.toggle('ef-z',n===0&&!on)});
- const l=$('evl');if(l)l.innerHTML=efList();const lg=$('efl');if(lg)lg.checked=EF.long;const q=$('efq');if(q&&full&&q.value!==EF.q)q.value=EF.q}
-function efChips(attr,keys,set){const f=attr=='city'?efCnt('c'):efCnt('k');return keys.map(k=>`<button type="button" class="chip${set.has(k)?' on':''}" data-${attr}="${esc(k)}" aria-pressed="${set.has(k)}" style="--c:${afTag(k)}"><span class="dot"></span>${esc(k)}<span class="ef-n">${f(k)}</span></button>`).join('')}
+ const l=$('evl');if(l)l.innerHTML=efBody();const lg=$('efl');if(lg)lg.checked=EF.long;const q=$('efq');if(q&&full&&q.value!==EF.q)q.value=EF.q}
+function efChips(attr,keys,set){const f=attr=='city'?efCnt('c'):efCnt('k');return keys.map(k=>`<button type="button" class="chip${set.has(k)?' on':''}" data-${attr}="${esc(k)}" aria-pressed="${set.has(k)}" style="--c:${afTag(k)}"><span class="dot"></span>${esc(attr=='cat'?efLbl(k):k)}<span class="ef-n">${f(k)}</span></button>`).join('')}
 function efPanel(){const cities=[...new Set(EF.ev.map(e=>e._c).filter(Boolean))].sort();
- const dt=EFR.map(([k,v])=>`<button type="button" class="btn${EF.rng==k?' on':''}" data-rng="${k}" aria-pressed="${EF.rng==k}">${v}</button>`).join('');
+ const vw=EFV.map(([k,v])=>`<button type="button" class="btn${EF.mode==k?' on':''}" data-efmode="${k}" aria-pressed="${EF.mode==k}">${v}</button>`).join('');
+ const dt=EF.mode=='list'?EFR.map(([k,v])=>`<button type="button" class="btn${EF.rng==k?' on':''}" data-rng="${k}" aria-pressed="${EF.rng==k}">${v}</button>`).join(''):`<span class="ef-ht">${EF.mode=='cal'?'Use the month arrows. Date ranges apply to the list.':'The map shows the next 30 days. Date ranges apply to the list.'}</span>`;
  return `<div class="ef" role="group" aria-label="Event filters"><div class="ef-sm" id="efsum" role="status" aria-live="polite">${efSummary()}</div><div class="ef-bd"><div class="ef-c">`+
+  `<div class="ef-r"><span class="ef-l">View</span><div class="ef-bt">${vw}</div></div>`+
   `<div class="ef-r"><span class="ef-l">Date</span><div class="ef-bt">${dt}</div></div>`+
   `<div class="ef-r"><label class="ef-l" for="efq">Search</label><div class="ef-bt"><input type="search" id="efq" placeholder="Search events or places" value="${esc(EF.q)}" autocomplete="off"><label class="ef-sw"><input type="checkbox" id="efl"${EF.long?' checked':''}>Include events longer than 45 days</label></div></div></div>`+
   `<div class="ef-c"><div class="ef-r"><span class="ef-l">City</span><div class="ef-bt ef-rail">${efChips('city',cities,EF.city)||'<span class="ef-ht">No cities yet</span>'}</div></div><div class="ef-r"><span class="ef-l">Category</span><div class="ef-bt ef-rail">${efChips('cat',EF.cats,EF.cat)}</div></div></div></div></div>`}
+document.addEventListener('click',ev=>{if(S.view!='ev')return;const t=ev.target.closest('[data-evid],[data-efmore],[data-efm],[data-efclr]');if(!t)return;
+ if(t.dataset.evid!=null){if($('view').contains(t)||$('tk').contains(t))efOpen(t.dataset.evid);return}
+ if(!$('view').contains(t))return;
+ if(t.dataset.efclr!=null)return efClear(t.dataset.efclr);
+ if(t.dataset.efmore){EF.page++;$('evl').innerHTML=efBody();return}
+ const n=+t.dataset.efm,c=new Date();EF.cm=n?new Date(EF.cm.getFullYear(),EF.cm.getMonth()+n,1):new Date(c.getFullYear(),c.getMonth(),1);efSync()});
+document.addEventListener('keydown',ev=>{if(S.view!='ev'||(ev.key!='Enter'&&ev.key!=' '))return;const g=ev.target.closest&&ev.target.closest('g[data-evid]');if(g){ev.preventDefault();efOpen(g.dataset.evid)}});
 async function evView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/events?days=3650');if(S.view!='ev')return;
  if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Events module is off. Set <code>events = true</code> under [modules] in kokpit.toml.</p></div></div>`;return}
  if(!d.configured){v.innerHTML=`<div class="af"><div class="af-b s12"><p>No place yet. Run <code>kokpit init --city "Your city" --force</code>.</p></div></div>`;return}
  if(d.reason){v.innerHTML=`<div class="af"><div class="af-b s12"><p>${esc(d.reason)}</p>${afFresh(d.freshness)}</div></div>`;return}
- EF.ev=(d.events||[]).map(efNorm);EF.cats=d.categories||[];
- const c=$('ctl');c.innerHTML=efPanel();v.innerHTML=`<div class="af"><div class="af-b s12">${afFresh(d.freshness)}</div><div id="evl" style="display:contents">${efList()}</div></div>`;counts(v);
- c.onclick=ev=>{const t=ev.target.closest('[data-efclr],[data-rng],[data-city],[data-cat]');if(!t||!c.contains(t))return;
+ EF.ev=(d.events||[]).map(efNorm);EF.cats=d.categories||[];EF.labels=d.category_labels||{};EF.place=d.place||{};EF.page=1;if(!EF.cm){const c=new Date();EF.cm=new Date(c.getFullYear(),c.getMonth(),1)}
+ S.hn=S.hn||{};S.hn.ev=[[(d.counts||{}).upcoming||0,'upcoming'],[d.new_today||0,'new today']];
+ const c=$('ctl');c.innerHTML=efPanel();v.innerHTML=`<div class="af ef-top"><div class="af-b s12">${afFresh(d.freshness)}</div></div><div id="evl" class="ef-body">${efBody()}</div>`;counts(v);
+ c.onclick=ev=>{const t=ev.target.closest('[data-efclr],[data-rng],[data-city],[data-cat],[data-efmode]');if(!t||!c.contains(t))return;EF.page=1;
   if(t.dataset.efclr!=null)return efClear(t.dataset.efclr);
-  if(t.dataset.rng){EF.rng=t.dataset.rng}else{const s=t.dataset.city!=null?EF.city:EF.cat,k=t.dataset.city!=null?t.dataset.city:t.dataset.cat;s.has(k)?s.delete(k):s.add(k)}efSync()};
- c.oninput=ev=>{if(ev.target.id=='efq'){EF.q=ev.target.value;efSync()}};
- c.onchange=ev=>{if(ev.target.id=='efl'){EF.long=ev.target.checked;efSync()}}}
+  if(t.dataset.efmode){if(EF.mode!=t.dataset.efmode){EF.mode=t.dataset.efmode;const sc=[...c.querySelectorAll('.ef-rail')].map(x=>x.scrollLeft);c.innerHTML=efPanel();c.querySelectorAll('.ef-rail').forEach((x,i)=>{x.scrollLeft=sc[i]||0});const b=c.querySelector(`[data-efmode="${EF.mode}"]`);if(b)b.focus({preventScroll:true})}}
+  else if(t.dataset.rng){EF.rng=t.dataset.rng}else{const s=t.dataset.city!=null?EF.city:EF.cat,k=t.dataset.city!=null?t.dataset.city:t.dataset.cat;s.has(k)?s.delete(k):s.add(k)}efSync()};
+ c.oninput=ev=>{if(ev.target.id=='efq'){EF.q=ev.target.value;EF.page=1;efSync()}};
+ c.onchange=ev=>{if(ev.target.id=='efl'){EF.long=ev.target.checked;EF.page=1;efSync()}}}
 
 async function cnView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/connections');if(S.view!='cn')return;
  const tone=s=>/^ok$/.test(s)?'af-gd':/planned|off|not set|not created|not run/.test(s)?'':'af-wr';

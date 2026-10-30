@@ -68,10 +68,11 @@ def payload(cfg: Config, conn: sqlite3.Connection, days: int = 14) -> dict:
     evs = store.upcoming(conn, days=days, limit=2000)
     return {
         "configured": True,
-        "place": {k: cfg.place.get(k) for k in ("city", "country", "radius_km")},
+        "place": {k: cfg.place.get(k) for k in ("city", "country", "radius_km", "lat", "lon")},
         "days": days,
         "events": evs,
         "counts": store.counts(conn),
+        "new_today": store.new_today(conn),
         "categories": categories.CATEGORIES,
         "category_labels": categories.LABELS,
     }

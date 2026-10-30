@@ -76,6 +76,16 @@ def counts(conn: sqlite3.Connection, today: str | None = None) -> dict:
     return {"total": total, "upcoming": future, "by_source": by_source}
 
 
+def new_today(conn: sqlite3.Connection, today: str | None = None) -> int:
+    """Upcoming events first seen today: a measured count, no model involved."""
+    ensure_schema(conn)
+    if not has_table(conn):
+        return 0
+    t0 = today or date.today().isoformat()
+    return conn.execute("SELECT COUNT(*) FROM events WHERE substr(first_seen,1,10) = ? "
+                        "AND substr(COALESCE(end, start),1,10) >= ?", (t0, t0)).fetchone()[0]
+
+
 def ics(ev: dict) -> str:
     """One VEVENT; all-day when the source gave only a date."""
     def esc(s):
