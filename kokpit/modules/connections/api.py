@@ -89,6 +89,7 @@ def view(cfg: Config) -> dict:
     items.append({"id": "google-calendar", "name": "Google Calendar (read-only)", "module": "planned", "kind": "planned",
                   "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
     items.extend(_career_items(cfg))
+    items.extend(_ai_usage_items(cfg))
     for name in ("CV file", "Instagram", "Telegram bot", "Model API"):
         items.append({"id": name.lower().replace(" ", "-"), "name": name, "module": "planned", "kind": "planned",
                       "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
@@ -115,5 +116,35 @@ def _career_items(cfg: Config) -> list[dict]:
         "detail": "Off by default. LinkedIn's User Agreement restricts automated access; use is at your own risk, it can break or be blocked at any time, and Kokpit does not bypass blocks.",
         "status": ("ok" if per.get(linkedin.SOURCE) else "0 records") if (li and run and linkedin.SOURCE in per) else ("not run yet" if li else "off"),
         "last": {**run, "rows": per.get(linkedin.SOURCE)} if run and linkedin.SOURCE in per else None,
+    })
+    return out
+
+
+def _ai_usage_items(cfg: Config) -> list[dict]:
+    from ..ai_usage import collect as aiu
+    on = cfg.modules.get("ai_usage", False)
+    run = _last_run(cfg, "ai_usage")
+    per = (run or {}).get("info", {}).get("readers", {}) if run else {}
+    labels = {"hermes": ("Hermes usage log", "session and model usage rows in state.db"),
+              "claude_code": ("Claude Code usage logs", "token usage of assistant messages in the project JSONL logs"),
+              "codex": ("Codex usage logs", "token_count totals in the session JSONL logs")}
+    src = aiu.paths(cfg)
+    out = []
+    for tool, (name, reads) in labels.items():
+        enabled = on and tool in cfg.ai_usage["readers"]
+        out.append({
+            "id": f"ai-usage-{tool}", "name": name, "module": "ai_usage", "kind": "local files", "enabled": enabled,
+            "reads": reads if enabled else "nothing (off)", "writes": "nothing", "permission": "read-only (database opened read-only)" if tool == "hermes" else "read-only",
+            "target": src[tool].name, "detail": "Counts and model names only; session ids are kept as a short hash. Nothing leaves this machine.",
+            "status": (("ok" if per.get(tool) else "0 records") if tool in per else "not run yet") if enabled else "off",
+            "last": {**run, "rows": per.get(tool)} if run and tool in per else None,
+        })
+    refresh = cfg.ai_usage["price_refresh"]
+    out.append({
+        "id": "ai-usage-prices", "name": "Model price list", "module": "ai_usage", "kind": "public API (models.dev)", "enabled": on and refresh,
+        "reads": "one GET of https://models.dev/api.json, at most every 24 hours" if refresh else "nothing (off; prices come from your local prices file)",
+        "writes": "nothing", "permission": "none (no key)", "target": "models.dev" if refresh else "-",
+        "detail": "Opt-in. Nothing about you or your usage is sent.", "status": "ok" if (on and refresh and run and run.get("info", {}).get("price_refresh") != "failed") else ("not run yet" if on and refresh else "off"),
+        "last": run if (on and refresh) else None,
     })
     return out

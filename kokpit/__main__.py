@@ -1,4 +1,4 @@
-"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters | career"""
+"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters | career | ai-usage summary"""
 from __future__ import annotations
 
 import argparse
@@ -236,6 +236,12 @@ def cmd_career(args) -> int:
     return 0
 
 
+def cmd_ai_usage(args) -> int:
+    from .modules.ai_usage import api as ai_usage_api
+    print(ai_usage_api.summary_text(_load(args)))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="kokpit", description=f"Kokpit {__version__}")
     ap.add_argument("--config", help="path to kokpit.toml (default: ./kokpit.toml, then ~/.config/kokpit/)")
@@ -288,6 +294,10 @@ def main(argv=None) -> int:
     q.set_defaults(fn=cmd_career)
     q = csub.add_parser("market", help="per-company counts, weekly trend and top skills")
     q.set_defaults(fn=cmd_career)
+    p = sub.add_parser("ai-usage", help="AI usage totals from the local usage table")
+    asub = p.add_subparsers(dest="ai_cmd", required=True)
+    q = asub.add_parser("summary", help="totals for today, 7 and 30 days, per tool, readers, limits and advice ids")
+    q.set_defaults(fn=cmd_ai_usage)
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)
     args = ap.parse_args(argv)

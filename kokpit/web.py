@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import __version__
 from .config import Config
+from .modules.ai_usage import api as ai_usage_api
 from .modules.brain import api as brain_api
 from .modules.career import api as career_api
 from .modules.events import api as events_api
@@ -94,6 +95,18 @@ def make_handler(cfg: Config):
                     self.end_headers()
                     self.wfile.write(body)
                     return
+                if path.startswith("/api/ai_usage"):
+                    q = parse_qs(urlparse(self.path).query)
+                    num = lambda k, d, lo, hi: max(lo, min(hi, int(q.get(k, [str(d)])[0])))
+                    sub = path[len("/api/ai_usage"):].strip("/")
+                    if sub == "":
+                        return self._json(ai_usage_api.view(cfg))
+                    if sub == "sessions":
+                        return self._json(ai_usage_api.sessions_view(cfg, num("days", 30, 1, 3650), num("limit", 10, 1, 200)))
+                    views = {"advice": ai_usage_api.advice_view, "limits": ai_usage_api.limits_view, "prices": ai_usage_api.prices_view}
+                    if sub in views:
+                        return self._json(views[sub](cfg))
+                    return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
                 if path == "/api/career":
                     return self._json(career_api.view(cfg))
                 if path == "/api/connections":
