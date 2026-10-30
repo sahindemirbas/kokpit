@@ -1,4 +1,4 @@
-"""ai_usage_rows and ai_usage_readers tables. A reader run replaces that tool's rows in one transaction,
+"""ai_usage_hours and ai_usage_readers tables. Hour rows (session, model, UTC hour). A reader run replaces that tool's rows in one transaction,
 so a failed reader keeps the previous rows."""
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 from .normalize import normalize_model
 
 SCHEMA = (Path(__file__).parent / "schema.sql").read_text(encoding="utf-8")
-COLS = ("tool", "model_raw", "model", "session_hash", "place", "started_at", "last_seen",
+COLS = ("tool", "model_raw", "model", "session_hash", "place", "started_at", "last_seen", "bucket", "approx",
         "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens")
 
 
@@ -22,7 +22,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
 
 
 def has_tables(conn: sqlite3.Connection) -> bool:
-    return conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('ai_usage_rows','ai_usage_readers')").fetchone()[0] == 2
+    return conn.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('ai_usage_hours','ai_usage_readers')").fetchone()[0] == 2
 
 
 def now_iso() -> str:
@@ -32,10 +32,10 @@ def now_iso() -> str:
 def replace_tool(conn: sqlite3.Connection, tool: str, rows: list[dict], source_mtime: str | None, status: str = "ok") -> None:
     ensure_schema(conn)
     with conn:
-        conn.execute("DELETE FROM ai_usage_rows WHERE tool=?", (tool,))
+        conn.execute("DELETE FROM ai_usage_hours WHERE tool=?", (tool,))
         conn.executemany(
-            f"INSERT OR REPLACE INTO ai_usage_rows({', '.join(COLS)}) VALUES ({', '.join('?' for _ in COLS)})",
-            [tuple({**r, "tool": tool, "model": normalize_model(r["model_raw"])}[c] for c in COLS) for r in rows])
+            f"INSERT OR REPLACE INTO ai_usage_hours({', '.join(COLS)}) VALUES ({', '.join('?' for _ in COLS)})",
+            [tuple({**r, "tool": tool, "model": normalize_model(r["model_raw"]), "bucket": r.get("bucket") or r["last_seen"] or "", "approx": r.get("approx", 0)}[c] for c in COLS) for r in rows])
         last = max((r["last_seen"] for r in rows if r.get("last_seen")), default=None)
         conn.execute("INSERT OR REPLACE INTO ai_usage_readers(tool, last_run, status, error, rows, last_data, source_mtime) VALUES (?,?,?,?,?,?,?)",
                      (tool, now_iso(), status, None, len(rows), last, source_mtime))
@@ -53,7 +53,7 @@ def set_reader_error(conn: sqlite3.Connection, tool: str, status: str, error: st
 def rows(conn: sqlite3.Connection) -> list[dict]:
     if not has_tables(conn):
         return []
-    return [dict(r) for r in conn.execute("SELECT * FROM ai_usage_rows")]
+    return [dict(r) for r in conn.execute("SELECT * FROM ai_usage_hours")]
 
 
 def readers(conn: sqlite3.Connection) -> list[dict]:

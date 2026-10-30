@@ -2,7 +2,9 @@
 
 Three numbers stay apart: real API spend (what you enter, "not configured" otherwise), subscription fee (what you
 enter per tool) and the list-price equivalent of the usage (an estimate, not a bill). A usage row is one session
-with one model; it counts in the window that contains its ``last_seen`` (a session that spans midnight is not split).
+with one model in one UTC hour; windows sum the hour rows inside them, so a session that spans midnight is split. A window
+start is rounded down to the hour (edge error under one hour). Sources with only session totals (Hermes) are prorated
+evenly over the hours between first and last activity and marked approximate.
 """
 from __future__ import annotations
 
@@ -45,7 +47,8 @@ def totals(rows: list[dict]) -> dict:
     'known' (every token priced, or no tokens at all), 'partial' (some tokens unpriced) or 'unknown' (tokens exist, none priced;
     then ``estimate_usd`` is None, never 0)."""
     t = {"sessions": len({(r["tool"], r["session_hash"]) for r in rows}), "input_tokens": 0, "output_tokens": 0, "cache_read_tokens": 0,
-         "cache_write_tokens": 0, "estimate_usd": 0.0, "priced_tokens": 0, "unpriced_tokens": 0}
+         "cache_write_tokens": 0, "estimate_usd": 0.0, "priced_tokens": 0, "unpriced_tokens": 0,
+         "approximate": any(r.get("approx") for r in rows)}
     unpriced: dict[str, int] = {}
     for r in rows:
         for k in ("input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens"):
@@ -72,8 +75,13 @@ def money(t: dict) -> str:
     return s + f" (partial, {t['unpriced_tokens']:,} unpriced tokens)".replace(",", " ") if t["estimate_state"] == "partial" else s
 
 
+def _hour(since: str) -> str:
+    return since[:13] + ":00:00"
+
+
 def _in_window(rows: list[dict], since: str) -> list[dict]:
-    return [r for r in rows if (r["last_seen"] or "") >= since]
+    h = _hour(since)
+    return [r for r in rows if (r["bucket"] or "") >= h]
 
 
 def _group(rows: list[dict], key) -> list[dict]:
@@ -103,7 +111,7 @@ def limits(cfg: Config, rows: list[dict], now: datetime) -> dict:
     items = []
     for lim in cfgd:
         since = _stamp(now - timedelta(hours=lim["window_hours"]))
-        used = sum(r["input_tokens"] + r["output_tokens"] for r in rows if r["tool"] == lim["tool"] and (r["last_seen"] or "") >= since)
+        used = sum(r["input_tokens"] + r["output_tokens"] for r in rows if r["tool"] == lim["tool"] and (r["bucket"] or "") >= _hour(since))
         reset = None
         if lim.get("resets_at"):
             try:
@@ -116,7 +124,7 @@ def limits(cfg: Config, rows: list[dict], now: datetime) -> dict:
         items.append({"tool": lim["tool"], "name": lim["name"], "window_hours": lim["window_hours"], "limit_tokens": lim["tokens"], "used_tokens": used,
                       "percent": round(100 * used / lim["tokens"], 1) if lim["tokens"] else None,
                       "resets_at": _stamp(reset) if reset else None,
-                      "note": "used = input + output tokens of sessions last active inside the window (cache excluded); a rolling approximation, not the provider's own counter"})
+                      "note": "used = input + output tokens of hour rows inside the window (cache excluded; Hermes is spread evenly over each session's active hours); a rolling approximation, not the provider's own counter"})
     return {"configured": True, "items": items}
 
 
@@ -161,15 +169,16 @@ def _data(cfg: Config, now: datetime):
         conn.close()
 
 
-def reader_status(cfg: Config, stored: list[dict]) -> list[dict]:
+def reader_status(cfg: Config, stored: list[dict], rows: list[dict] | None = None) -> list[dict]:
     by = {r["tool"]: r for r in stored}
+    approx = {r["tool"] for r in rows or [] if r.get("approx")}
     out = []
     for tool in ("hermes", "claude_code", "codex"):
         on = tool in cfg.ai_usage["readers"]
         r = by.get(tool)
         out.append({"tool": tool, "enabled": on, "status": (r["status"] if r else "never run") if on else "off", "rows": r["rows"] if r else None,
                     "last_data": r["last_data"] if r else None, "source_mtime": r["source_mtime"] if r else None, "last_run": r["last_run"] if r else None,
-                    "error": r["error"] if r else None})
+                    "error": r["error"] if r else None, "approximate": tool in approx})
     return out
 
 
@@ -187,13 +196,14 @@ def view(cfg: Config, now: datetime | None = None) -> dict:
     in_win = {k: _in_window(rows, s) for k, s in starts.items()}
     windows = {k: totals(v) for k, v in in_win.items()}
     for k, v in in_win.items():
-        windows[k]["by_tool"] = {x["name"]: {kk: x[kk] for kk in ("tokens", "estimate_usd", "estimate_state", "unpriced_tokens", "unpriced_models", "sessions")} for x in _group(v, lambda r: r["tool"])}
+        windows[k]["by_tool"] = {x["name"]: {kk: x[kk] for kk in ("tokens", "approximate", "estimate_usd", "estimate_state", "unpriced_tokens", "unpriced_models", "sessions")} for x in _group(v, lambda r: r["tool"])}
     d30 = in_win["30d"]
     return {"enabled": True, "generated": _stamp(now), "label": LABEL, "freshness": health_api.freshness(cfg, "ai_usage"),
-            "readers": reader_status(cfg, stored), "windows": windows, "numbers": numbers(cfg, windows),
+            "readers": reader_status(cfg, stored, rows), "windows": windows, "numbers": numbers(cfg, windows),
             "by_tool": _group(d30, lambda r: r["tool"]), "by_model": _group(d30, lambda r: f"{r['tool']} / {r['model']}"),
             "top_sessions": sessions(d30), "limits": limits(cfg, rows, now), "advice": advice_for(cfg, rows, stored, now),
-            "notes": ["Rows are sessions; a session counts in the window of its last activity.",
+            "notes": ["Usage is stored per session, model and UTC hour; a window sums the hours inside it (a session over midnight is split).",
+                      "Sources marked approximate only have session totals; those are spread evenly over the session's active hours.",
                       "Advice items are independent estimates: do not add them together.",
                       "Session ids are stored only as a short hash."]}
 

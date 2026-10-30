@@ -1,6 +1,7 @@
 """Readers: one per tool, all read-only. Each returns normalised rows and never writes to the source.
 
-Row keys: tool, model_raw, session_hash, place, started_at, last_seen, input_tokens, output_tokens,
+Row = one session, one model, one UTC hour: tool, model_raw, session_hash, place, started_at and last_seen (both the hour start),
+approx (1 when the source only has session totals and they were prorated over the hours), input_tokens, output_tokens,
 cache_read_tokens, cache_write_tokens. ``input_tokens`` never includes cache reads.
 A reader raises ``ReaderError`` for a missing or unreadable source; the job turns it into a warning.
 """
@@ -8,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -43,26 +44,43 @@ def _n(v) -> int:
         return 0
 
 
-def _merge(acc: dict, key: tuple, base: dict, tokens: dict, started: str | None, last: str | None) -> None:
-    r = acc.get(key)
+def bucket_of(ts: str | None) -> str | None:
+    """UTC ISO seconds -> start of its hour. Usage is stored per hour so windows can sum events inside them."""
+    return ts[:13] + ":00:00" if ts else None
+
+
+def _merge(acc: dict, key: tuple, base: dict, tokens: dict, ts: str | None) -> None:
+    """Add tokens of one event (at ``ts``) to its (session, model, hour) row."""
+    b = bucket_of(ts) or "1970-01-01T00:00:00"
+    k = key + (b,)
+    r = acc.get(k)
     if r is None:
-        r = acc[key] = {**base, "started_at": started, "last_seen": last, **{k: 0 for k in TOKEN_KEYS}}
-    for k in TOKEN_KEYS:
-        r[k] += tokens.get(k, 0)
-    if started and (not r["started_at"] or started < r["started_at"]):
-        r["started_at"] = started
-    if last and (not r["last_seen"] or last > r["last_seen"]):
-        r["last_seen"] = last
+        r = acc[k] = {**base, "started_at": b, "last_seen": b, "approx": base.get("approx", 0), **{x: 0 for x in TOKEN_KEYS}}
+    for x in TOKEN_KEYS:
+        r[x] += tokens.get(x, 0)
+
+
+def _spread(acc: dict, key: tuple, base: dict, tokens: dict, first: str | None, last: str | None) -> None:
+    """Session-level totals only: prorate evenly over the hours between first and last activity (approximate)."""
+    f, l = bucket_of(first or last), bucket_of(last or first)
+    if not f or not l or l < f:
+        f = l = f or l
+    hours = []
+    if f:
+        d, end = datetime.fromisoformat(f), datetime.fromisoformat(l)
+        while d <= end and len(hours) < 24 * 400:
+            hours.append(d.strftime("%Y-%m-%dT%H:%M:%S"))
+            d += timedelta(hours=1)
+    if not hours:
+        hours = [None]
+    n = len(hours)
+    for i, h in enumerate(hours):
+        part = {x: tokens[x] // n + (tokens[x] % n if i == n - 1 else 0) for x in TOKEN_KEYS}
+        _merge(acc, key, {**base, "approx": 1}, part, (h or ""))
 
 
 def _finish(acc: dict) -> list[dict]:
-    out = []
-    for r in acc.values():
-        if any(r[k] for k in TOKEN_KEYS):
-            r["last_seen"] = r["last_seen"] or r["started_at"]
-            r["started_at"] = r["started_at"] or r["last_seen"]
-            out.append(r)
-    return out
+    return [r for r in acc.values() if any(r[k] for k in TOKEN_KEYS)]
 
 
 def newest_mtime(paths) -> str | None:
@@ -104,7 +122,7 @@ def read_hermes(path: Path) -> tuple[list[dict], dict]:
         base = {"tool": "hermes", "model_raw": r["model"] or "unknown", "session_hash": session_hash(r["session_id"]), "place": r["source"] or ""}
         tokens = {"input_tokens": _n(r["input_tokens"]), "output_tokens": _n(r["output_tokens"]),
                   "cache_read_tokens": _n(r["cache_read_tokens"]), "cache_write_tokens": _n(r["cache_write_tokens"])}
-        _merge(acc, (r["session_id"], base["model_raw"]), base, tokens, started, last)
+        _spread(acc, (r["session_id"], base["model_raw"]), base, tokens, started, last)
     return _finish(acc), {"files": 1, "source_mtime": newest_mtime([path])}
 
 
@@ -171,7 +189,7 @@ def read_claude_code(root: Path) -> tuple[list[dict], dict]:
     acc: dict = {}
     for m in msgs.values():
         base = {"tool": "claude_code", "model_raw": m["model"], "session_hash": session_hash(m["session"]), "place": m["place"]}
-        _merge(acc, (m["session"], m["model"]), base, {k: m[k] for k in TOKEN_KEYS}, m["ts"], m["ts"])
+        _merge(acc, (m["session"], m["model"]), base, {k: m[k] for k in TOKEN_KEYS}, m["ts"])
     return _finish(acc), {"files": len(files), "messages": len(msgs), "source_mtime": newest_mtime(files)}
 
 
@@ -210,7 +228,7 @@ def read_codex(root: Path) -> tuple[list[dict], dict]:
                           "cache_read_tokens": delta["cached"], "cache_write_tokens": 0}
                 ts = iso(o.get("timestamp"))
                 base = {"tool": "codex", "model_raw": model, "session_hash": session_hash(sid), "place": place}
-                _merge(acc, (sid, model), base, tokens, ts, ts)
+                _merge(acc, (sid, model), base, tokens, ts)
     return _finish(acc), {"files": len(files), "source_mtime": newest_mtime(files)}
 
 

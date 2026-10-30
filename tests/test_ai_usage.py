@@ -106,10 +106,11 @@ class ReaderTests(Base):
         make_hermes(self.tmp / "state.db", [("s1", "cron", "vendor/m-a", 100, 50, 1000, 20, 2), ("s1", "cron", "m-b", 10, 5, 0, 0, 1),
                                             ("s2", "cli", "m-a", 0, 0, 0, 0, 1)])
         rows, meta = readers.read_hermes(self.tmp / "state.db")
-        self.assertEqual(len(rows), 2)  # all-zero usage row is dropped
-        a = next(r for r in rows if r["model_raw"] == "vendor/m-a")
-        self.assertEqual((a["input_tokens"], a["cache_read_tokens"], a["cache_write_tokens"], a["place"]), (100, 1000, 20, "cron"))
-        self.assertEqual(len(a["session_hash"]), 12)
+        self.assertEqual({r["model_raw"] for r in rows}, {"vendor/m-a", "m-b"})  # all-zero usage row is dropped
+        a = [r for r in rows if r["model_raw"] == "vendor/m-a"]
+        self.assertGreaterEqual(len(a), 2)  # session totals are spread over the hours it was active
+        self.assertEqual((sum(r["input_tokens"] for r in a), sum(r["cache_read_tokens"] for r in a), sum(r["cache_write_tokens"] for r in a)), (100, 1000, 20))
+        self.assertTrue(all(r["approx"] == 1 and r["place"] == "cron" and len(r["session_hash"]) == 12 for r in a))
         self.assertIsNotNone(meta["source_mtime"])
 
     def test_hermes_opened_read_only_and_missing(self):
@@ -227,8 +228,9 @@ class JobAndApiTests(Base):
         self.populate()
         cfg = self.cfg()
         rows, info, warns = self.run_job(cfg)
-        self.assertEqual((rows, warns), (4, []))
-        self.assertEqual(info["readers"], {"hermes": 2, "claude_code": 1, "codex": 1})
+        self.assertGreaterEqual(rows, 4)  # Hermes totals are spread over hour rows
+        self.assertEqual(warns, [])
+        self.assertEqual({k: v > 0 for k, v in info["readers"].items()}, {"hermes": True, "claude_code": True, "codex": True})
         self.run_job(cfg)  # idempotent: rows are replaced, not added
         v = api.view(cfg, NOW)
         self.assertEqual(v["windows"]["30d"]["sessions"], 3)  # h2 is older than 30 days
@@ -295,6 +297,67 @@ class JobAndApiTests(Base):
         claude = next(i for i in items if i["tool"] == "claude_code")
         self.assertEqual(claude["used_tokens"], 0)  # message is 2 h old, window 1 h
         self.assertIsNone(claude["resets_at"])
+
+    def test_session_over_midnight_is_split(self):
+        write_jsonl(self.tmp / "claude" / "p" / "a.jsonl", [
+            {**claude_line("m1", "claude-x-20250101", "S1", 100, 10, 0, 0), "timestamp": "2026-03-10T23:30:00Z"},
+            {**claude_line("m2", "claude-x-20250101", "S1", 200, 20, 0, 0), "timestamp": "2026-03-11T00:30:00Z"}])
+        rows, _ = readers.read_claude_code(self.tmp / "claude")
+        self.assertEqual(sorted(r["last_seen"][:13] for r in rows), ["2026-03-10T23", "2026-03-11T00"])
+        self.assertTrue(all(r["approx"] == 0 for r in rows))
+        enriched = api.enrich([{**r, "bucket": r["last_seen"], "model": normalize_model(r["model_raw"])} for r in rows], {})
+        yesterday = api._in_window(enriched, "2026-03-10T00:00:00")
+        today = api._in_window(enriched, "2026-03-11T00:00:00")
+        self.assertEqual((api.totals(yesterday)["input_tokens"], api.totals(today)["input_tokens"]), (300, 200))
+        self.assertEqual(api.totals(today)["sessions"], 1)
+        self.assertFalse(api.totals(today)["approximate"])
+
+    def test_limit_window_counts_only_events_inside(self):
+        write_jsonl(self.tmp / "codex" / "a.jsonl", codex_events("C1", "gpt-x", [(1000, 0, 100)], hours=0.5))
+        write_jsonl(self.tmp / "codex" / "b.jsonl", codex_events("C2", "gpt-x", [(5000, 0, 500)], hours=3.5))
+        cfg = self.cfg(extra='\n[[ai_usage.limits]]\ntool = "codex"\nwindow_hours = 2\ntokens = 10000\n')
+        self.run_job(cfg)
+        item = api.limits_view(cfg, NOW)["items"][0]
+        self.assertEqual(item["used_tokens"], 1100)  # the event 3.5 h ago is outside the 2 h window
+        cfg3 = self.cfg(extra='\n[[ai_usage.limits]]\ntool = "codex"\nwindow_hours = 5\ntokens = 10000\n')
+        self.assertEqual(api.limits_view(cfg3, NOW)["items"][0]["used_tokens"], 6600)
+
+    def test_session_totals_source_is_prorated_and_approximate(self):
+        make_hermes(self.tmp / "state.db", [("h1", "cli", "m", 300, 30, 0, 0, 0.5)])
+        c = sqlite3.connect(self.tmp / "state.db")
+        c.execute("UPDATE session_model_usage SET first_seen=?, last_seen=?", (datetime(2026, 3, 10, 22, 10, tzinfo=timezone.utc).timestamp(), datetime(2026, 3, 11, 0, 50, tzinfo=timezone.utc).timestamp()))
+        c.commit()
+        c.close()
+        rows, _ = readers.read_hermes(self.tmp / "state.db")
+        self.assertEqual(sorted(r["last_seen"][:13] for r in rows), ["2026-03-10T22", "2026-03-10T23", "2026-03-11T00"])
+        self.assertEqual((sum(r["input_tokens"] for r in rows), sum(r["output_tokens"] for r in rows)), (300, 30))
+        self.assertTrue(all(r["approx"] == 1 for r in rows))
+        t = api.totals(api.enrich([{**r, "bucket": r["last_seen"], "model": "m"} for r in rows], {}))
+        self.assertTrue(t["approximate"])
+
+    def test_approximate_exposed_per_source_in_view(self):
+        self.populate()
+        cfg = self.cfg()
+        self.run_job(cfg)
+        v = api.view(cfg, NOW)
+        self.assertEqual({r["tool"]: r["approximate"] for r in v["readers"]}, {"hermes": True, "claude_code": False, "codex": False})
+        self.assertTrue(v["windows"]["7d"]["by_tool"]["hermes"]["approximate"])
+        self.assertFalse(v["windows"]["7d"]["by_tool"]["codex"]["approximate"])
+
+    def test_old_per_session_table_is_ignored_and_rebuilt(self):
+        cfg = self.cfg()
+        conn = connect(cfg.db)
+        conn.execute("CREATE TABLE ai_usage_rows (tool TEXT, model_raw TEXT, session_hash TEXT, last_seen TEXT, input_tokens INT)")
+        conn.execute("INSERT INTO ai_usage_rows VALUES ('codex', 'x', 'abc', ?, 5)", (ts(1),))
+        conn.commit()
+        conn.close()
+        self.assertEqual(api.view(cfg, NOW)["windows"]["30d"]["sessions"], 0)  # old rows are not read
+        write_jsonl(self.tmp / "codex" / "a.jsonl", codex_events("C1", "gpt-x", [(1000, 0, 100)], hours=1))
+        self.run_job(cfg)
+        self.assertEqual(api.view(cfg, NOW)["windows"]["30d"]["sessions"], 1)
+        conn = connect(cfg.db)
+        self.assertEqual(conn.execute("SELECT COUNT(*) FROM ai_usage_rows").fetchone()[0], 1)  # left alone
+        conn.close()
 
     def test_missing_and_broken_sources_are_warnings_not_crashes(self):
         make_hermes(self.tmp / "state.db", [("h1", "cli", "cheap", 1, 1, 0, 0, 1)])
