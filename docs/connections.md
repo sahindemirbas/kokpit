@@ -19,6 +19,8 @@ The Connections screen is where a user enables modules and links accounts. It is
 | CV file | Career | local path | text of the CV | none | parsing is local; model-assisted parsing opt-in |
 | Job adapters | Career | per-source adapter | listings | none | shipped disabled; offline `example-careers` template |
 | LinkedIn guest search | Career | public guest pages, no login | listings of the last 7 days | none | OFF by default; see the notice below |
+| Indeed (browser) | Career | local headless browser, no account | public search and posting pages | none | OFF by default; optional Playwright; see "Browser sources" |
+| Jooble (browser) | Career | local headless browser, no account | public search and posting pages | none | OFF by default; optional Playwright; see "Browser sources" |
 | Instagram | Social | user's own Meta app, Instagram Login | insights, media | publish only with the publish toggle and an approval | token stored locally; separate toggles |
 | TikTok stats | Social | local analytics DB | statistics | none | optional, browser-based collector |
 | Telegram bot | all | bot token | commands from the owner chat only | sends messages to the owner | single allowed chat id; off by default, see below |
@@ -91,6 +93,15 @@ Only that one chat is answered. Anything from other chats is ignored and counted
 - LinkedIn's User Agreement restricts automated access. Use is at your own risk.
 - It can break or be blocked at any time. On the first HTTP 429 Kokpit stops, records a warning in Health and keeps what it already fetched. Kokpit makes no promise to bypass blocks and does not try.
 - Nothing is sent to LinkedIn except the search words and places from your profile.
+
+## Browser sources: Indeed and Jooble (off by default)
+
+`[career] browser_sources = ["indeed", "jooble"]` makes the `career` job open the public search pages of these sites in a local headless Chromium, using the target roles and places of your profile (Indeed also gets a "<role> remote" search when the remote preference is remote or any). The site follows `[place] country` (table `SITES` in `kokpit/modules/career/browser.py`; a country not in the table gives one warning and no search). With `browser_detail = true` the posting page is opened for the full text, at most `browser_max_detail` pages per source and run.
+
+- What is read: search result cards and posting pages. Nothing is sent except the search words and places; no account, no login, no form.
+- The sites' terms of use apply and you read them before switching this on. Use is at your own risk.
+- Block policy: a pause of `browser_delay_s` between pages; `browser_max_fails` consecutive errors or block pages stop that source for the run with a warning in Health. A blocked Indeed posting page stops Indeed; three blocked Jooble posting pages switch the rest of the run to card summaries. Kokpit does not try to get around a block.
+- Setup: `pip install playwright` (or `pip install kokpit[browser]`) and a system Chromium (`chromium`, `chromium-browser` or `google-chrome` on PATH), or `playwright install chromium` with `browser_executable` set to its path. `python -m kokpit career sources --check` shows the state without using the network. Without Playwright the sources are skipped with one warning; other sources are not affected.
 
 ## AI usage: local files (off by default)
 

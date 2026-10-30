@@ -1,7 +1,8 @@
 """Career collect job: enabled sources -> job_listings, then score every row against the profile.
 
-Sources: job adapters named in ``[career] adapters`` and, only when ``[career] linkedin_guest`` is
-true, the LinkedIn guest search. A source that fails is a warning, never a crash; a source that returns
+Sources: job adapters named in ``[career] adapters``, only when ``[career] linkedin_guest`` is
+true the LinkedIn guest search, and last the optional browser sources in ``[career] browser_sources``
+(Indeed, Jooble; Playwright is imported only when one is enabled). A source that fails is a warning, never a crash; a source that returns
 0 records is reported as such.
 """
 from __future__ import annotations
@@ -10,7 +11,7 @@ import sqlite3
 from datetime import datetime
 
 from ...config import Config
-from . import adapters, lifecycle, linkedin, profile, scoring, store
+from . import adapters, browser, lifecycle, linkedin, profile, scoring, store
 
 
 def remote_flag(value: str | None) -> bool | None:
@@ -23,7 +24,8 @@ def scorer(prof: dict):
     return run
 
 
-def collect(cfg: Config, conn: sqlite3.Connection, linkedin_get=None, sleep=None, now: datetime | None = None) -> tuple[int, dict, list[str]]:
+def collect(cfg: Config, conn: sqlite3.Connection, linkedin_get=None, sleep=None, now: datetime | None = None,
+            browser_launcher=None) -> tuple[int, dict, list[str]]:
     """Returns (rows, info, warnings) in the job contract. ``rows`` = records fetched this run."""
     prof = profile.load(cfg)
     warnings: list[str] = []
@@ -54,9 +56,16 @@ def collect(cfg: Config, conn: sqlite3.Connection, linkedin_get=None, sleep=None
         per_source[linkedin.SOURCE] = len(got)
         warnings.extend(warns)
         records.extend(got)
-    if not plan and not cfg.career.get("linkedin_guest"):
-        warnings.append("no source enabled: set [career] adapters or linkedin_guest in kokpit.toml")
     now = now or datetime.now()
+    for name in cfg.career.get("browser_ignored", []):
+        warnings.append(f"browser: unknown source {name!r} in [career] browser_sources ignored (allowed: {', '.join(browser.SOURCES)})")
+    if cfg.career.get("browser_sources"):
+        got, warns, per = browser.search(cfg, prof, now, launcher=browser_launcher, sleep=sleep)
+        per_source.update(per)
+        warnings.extend(warns)
+        records.extend(got)
+    if not plan and not cfg.career.get("linkedin_guest") and not cfg.career.get("browser_sources"):
+        warnings.append("no source enabled: set [career] adapters, linkedin_guest or browser_sources in kokpit.toml")
     res = store.upsert(conn, records, now.isoformat(timespec="seconds"))
     live = {n for n, c in per_source.items() if c > 0}
     life, lwarns = lifecycle.apply(conn, now, cfg.career.get("close_after_days", 3), live, check_get=linkedin_get,

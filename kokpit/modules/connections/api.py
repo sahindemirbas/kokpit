@@ -196,7 +196,7 @@ def _bot_item(cfg: Config) -> dict:
 
 
 def _career_items(cfg: Config) -> list[dict]:
-    from ..career import adapters as job_adapters, linkedin
+    from ..career import adapters as job_adapters, browser, linkedin
     on = cfg.modules.get("jobs", False)
     run = _last_run(cfg, "career")
     per = (run or {}).get("info", {}).get("sources", {}) if run else {}
@@ -205,7 +205,7 @@ def _career_items(cfg: Config) -> list[dict]:
         "id": "job-adapters", "name": "Job adapters", "module": "jobs", "kind": "per-source adapter", "enabled": bool(names) and on,
         "reads": ", ".join(sorted(names)) if names else "none enabled", "writes": "nothing", "permission": "none",
         "target": f"{len(names)} enabled", "status": "ok" if names and on else "off",
-        "last": {**run, "rows": sum(per.get(n, 0) for n in per if n != linkedin.SOURCE)} if run and names else None,
+        "last": {**run, "rows": sum(per.get(n, 0) for n in per if n != linkedin.SOURCE and n not in browser.SOURCES)} if run and names else None,
     }]
     li = bool(cfg.career.get("linkedin_guest"))
     out.append({
@@ -216,6 +216,22 @@ def _career_items(cfg: Config) -> list[dict]:
         "status": ("ok" if per.get(linkedin.SOURCE) else "0 records") if (li and run and linkedin.SOURCE in per) else ("not run yet" if li else "off"),
         "last": {**run, "rows": per.get(linkedin.SOURCE)} if run and linkedin.SOURCE in per else None,
     })
+    enabled = cfg.career.get("browser_sources") or []
+    state = browser.status(cfg)
+    site, _ = browser.site_for(cfg)
+    for name in browser.SOURCES:
+        b_on = name in enabled
+        out.append({
+            "id": f"browser-{name}", "name": f"{browser.NAMES[name]} (browser)", "module": "jobs", "kind": "local headless browser (no login)",
+            "enabled": b_on and on,
+            "reads": "public search and posting pages, keywords and places from your profile" if b_on else "nothing (off)",
+            "writes": "none", "permission": "none (no account)", "target": (site or {}).get(name) or "no site for this country",
+            "detail": "Off by default. Needs the optional Playwright package and a local Chromium. The site's terms apply; "
+                      "Kokpit pauses between pages, stops after repeated errors or a block page and does not bypass blocks.",
+            "status": ("off" if not b_on else state if state != "on" else
+                       ((("ok" if per.get(name) else "0 records") if name in per else "not run yet"))),
+            "last": {**run, "rows": per.get(name)} if run and name in per else None,
+        })
     return out
 
 

@@ -42,6 +42,7 @@ Moved out of M2:
 
 - Profile form (skills, targets, locations, remote) and local CV text extraction.
 - LinkedIn guest search and the adapter contract for `adapters/jobs/`.
+- (browser sources added later: Indeed, Jooble; optional dependency)
 - Scoring with reasons, lifecycle, market view, CSV export.
 
 ## M4: social and AI usage (done)

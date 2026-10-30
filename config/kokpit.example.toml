@@ -100,6 +100,15 @@ locations = ["Milan", "Remote"]
 remote = "hybrid"             # remote | hybrid | onsite | any
 must_have = ["SQL", "Python"]
 nice_to_have = ["Power BI", "dbt"]
+# Optional browser sources (off by default). Needs `pip install playwright` and a local Chromium
+# (system package, or `playwright install chromium` with browser_executable pointing at it).
+# browser_sources = ["indeed", "jooble"]   # sites follow [place] country
+# browser_executable = ""       # empty = chromium, chromium-browser or google-chrome on PATH
+# browser_pages = 2             # result pages per search (1-5)
+# browser_delay_s = 2.5         # pause between pages, seconds (1-10)
+# browser_detail = true         # open posting pages for the full text; false = card summary only
+# browser_max_fails = 2         # consecutive errors or blocks that stop a source for the run
+# browser_max_detail = 20       # posting pages per source and run
 
 [social]
 analyse = false

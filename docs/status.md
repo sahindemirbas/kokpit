@@ -9,7 +9,7 @@ Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQ
 - Today tab with calendar, tasks, upcoming dates, decisions waiting, weather for two cities, counts from other modules, system health.
 - Brain tab over a local Markdown vault: threads, lanes, timeline, quick capture.
 - Events: multi-source collection, dedupe, category rules, translation, list/calendar/map views, `.ics` per event, optional public static page.
-- Career: LinkedIn guest search plus three company-site adapters, rule-based scoring with reasons, lifecycle tracking, market view, CSV export.
+- Career: LinkedIn guest search plus three company-site adapters, Indeed and Jooble through an optional local headless browser, rule-based scoring with reasons, lifecycle tracking, market view, CSV export.
 - Social: Instagram analysis (account, posts, reels, stories insights) through the official API, working; content calendar with a Health guard and approved publishing (Approve button, publish switch, limit check) working, approval and reminders through the bot working (synthetic tests); TikTok read-only stats from a local collector generalise.
 - AI usage: Hermes `state.db` reader, per-model/session view, rule-based advice.
 - Briefing: daily digest with scored items and audio summary.

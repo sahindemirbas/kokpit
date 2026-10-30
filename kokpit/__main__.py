@@ -259,6 +259,41 @@ def _career_market(cfg) -> int:
     return 0
 
 
+def _career_sources(cfg, check: bool) -> int:
+    """Enabled career sources and the browser setup. Never touches the network."""
+    from .modules.career import adapters as job_adapters, browser, profile
+    names = job_adapters.enabled_names(cfg)
+    print(f"jobs module:      {'on' if cfg.modules.get('jobs', False) else 'off'}")
+    print(f"job adapters:     {', '.join(sorted(names)) or 'none'}")
+    print(f"linkedin guest:   {'on' if cfg.career.get('linkedin_guest') else 'off'}")
+    enabled = cfg.career.get("browser_sources") or []
+    print(f"browser sources:  {', '.join(enabled) or 'none (off)'}")
+    for n in cfg.career.get("browser_ignored", []):
+        print(f"  ignored unknown source {n!r} (allowed: {', '.join(browser.SOURCES)})")
+    exe = browser.executable(cfg)
+    want = cfg.career.get("browser_executable") or ""
+    print(f"browser path:     {exe or 'not found'}" + (f" (configured: {want})" if want else f" (searched: {', '.join(browser.BROWSERS)})"))
+    print(f"playwright:       {'installed' if browser.playwright_installed() else 'missing (pip install playwright)'}")
+    site, why = browser.site_for(cfg)
+    print(f"sites:            {('indeed ' + site['indeed'] + ', jooble ' + site['jooble']) if site else why}")
+    if not check:
+        return 0
+    problems = []
+    if enabled:
+        if not browser.playwright_installed():
+            problems.append("playwright is not installed: pip install playwright")
+        if not exe:
+            problems.append("no Chromium found: install one or set [career] browser_executable")
+        if not site:
+            problems.append(why)
+        if not profile.load(cfg).get("target_roles"):
+            problems.append("profile has no target roles")
+    for p in problems:
+        print(f"problem: {p}")
+    print(f"check: {'ok' if not problems else 'not ready'} ({browser.status(cfg)}; no network used)")
+    return 0 if not problems else 1
+
+
 def cmd_career(args) -> int:
     """career profile show | import-cv PATH [--apply] | set FIELD VALUE; career score --title ..."""
     import json
@@ -274,6 +309,8 @@ def cmd_career(args) -> int:
         return 0
     if args.career_cmd == "market":
         return _career_market(cfg)
+    if args.career_cmd == "sources":
+        return _career_sources(cfg, args.check)
     if args.career_cmd == "score":
         text = Path(args.file).read_text(encoding="utf-8") if args.file else ""
         remote = {"yes": True, "no": False}.get(args.remote)
@@ -489,6 +526,9 @@ def main(argv=None) -> int:
     q.add_argument("--out", help="file to write (default: stdout)")
     q.set_defaults(fn=cmd_career)
     q = csub.add_parser("market", help="per-company counts, weekly trend and top skills")
+    q.set_defaults(fn=cmd_career)
+    q = csub.add_parser("sources", help="enabled listing sources, browser path and Playwright state")
+    q.add_argument("--check", action="store_true", help="installation check only (no network); exit 1 when an enabled browser source is not ready")
     q.set_defaults(fn=cmd_career)
     p = sub.add_parser("ai-usage", help="AI usage totals from the local usage table")
     asub = p.add_subparsers(dest="ai_cmd", required=True)

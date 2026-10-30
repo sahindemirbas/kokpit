@@ -65,6 +65,13 @@ adapter_dirs = []             # extra folders holding your own <name>/collect.py
 linkedin_guest = false        # OFF. Reads LinkedIn's public guest job pages; see docs/connections.md before enabling
 linkedin_pages = 3            # result pages (10 each) per search; 7-day window
 close_after_days = 3          # adapter listings missing this many days are marked closed (LinkedIn is never closed this way)
+browser_sources = []          # OFF. "indeed", "jooble": public search pages through a local headless browser (needs Playwright); see docs/connections.md
+browser_executable = ""       # Chromium path; empty = chromium, chromium-browser or google-chrome on PATH
+browser_pages = 2             # result pages per search (1-5)
+browser_delay_s = 2.5         # pause between pages, seconds (1-10)
+browser_detail = true         # open each posting page for the full text; false = card summary only
+browser_max_fails = 2         # consecutive errors or blocks that stop a source for the run
+browser_max_detail = 20       # posting pages per source and run (0-100)
 
 [ai_usage]
 readers = []                  # which local logs to read: "hermes", "claude_code", "codex" (each one is separate; all off by default)
@@ -305,6 +312,7 @@ def load(path: str | Path) -> Config:
         "linkedin_guest": bool(car.get("linkedin_guest", False)),
         "linkedin_pages": max(1, min(5, _int(car.get("linkedin_pages"), 3))),
         "close_after_days": max(1, min(60, _int(car.get("close_after_days"), 3))),
+        **_browser(car),
     }
     cfg.modules.setdefault("ai_usage", False)
     cfg.ai_usage = _ai_usage(raw.get("ai_usage", {}))
@@ -551,6 +559,38 @@ def _str_list(v, default: list[str]) -> list[str]:
         v = [v]
     out = [str(x).strip() for x in (v or []) if str(x).strip()] if isinstance(v, list) else []
     return out or list(default)
+
+
+BROWSER_SOURCES = ("indeed", "jooble")
+
+
+def _browser(car: dict) -> dict:
+    """[career] browser_* keys: optional headless-browser sources (off by default), bounded."""
+    raw = car.get("browser_sources", [])
+    if isinstance(raw, str):
+        raw = [raw]
+    names, ignored = [], []
+    for x in raw if isinstance(raw, list) else []:
+        n = str(x).strip().lower()
+        if n in BROWSER_SOURCES:
+            if n not in names:
+                names.append(n)
+        elif n:
+            ignored.append(n)  # reported as a career-run warning
+    try:
+        delay = float(car.get("browser_delay_s", 2.5))
+    except (TypeError, ValueError):
+        delay = 2.5
+    return {
+        "browser_sources": names,
+        "browser_ignored": ignored,
+        "browser_executable": str(car.get("browser_executable", "") or "").strip(),
+        "browser_pages": max(1, min(5, _int(car.get("browser_pages"), 2))),
+        "browser_delay_s": max(1.0, min(10.0, delay)),
+        "browser_detail": bool(car.get("browser_detail", True)),
+        "browser_max_fails": max(1, min(10, _int(car.get("browser_max_fails"), 2))),
+        "browser_max_detail": max(0, min(100, _int(car.get("browser_max_detail"), 20))),
+    }
 
 
 def _int(v, default: int) -> int:

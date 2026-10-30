@@ -13,6 +13,9 @@ license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 authors = [{ name = "Sahin Demirbas" }]
 dependencies = []
 
+[project.optional-dependencies]
+browser = ["playwright"]
+
 [project.scripts]
 kokpit = "kokpit.__main__:main"
 

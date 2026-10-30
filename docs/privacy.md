@@ -15,6 +15,7 @@ Enforcement: `.gitignore` for the obvious patterns, a pre-commit secret scan bef
 - Any module that sends data to an external model or service lists the fields it sends on the Connections screen, and the switch is off by default.
 - CV matching needs skills, experience and targets. It does not need name, phone, e-mail or address, and these are never sent.
 - Publishing to a social platform happens only after an explicit approval per item.
+- Career browser sources (Indeed, Jooble; off by default) run a headless browser on your own device. The search text sent to the site is the profile's target roles and places; no other profile field, no CV text and no account data is sent.
 - A calendar ICS address is treated as a secret: it is never stored in the database, and API answers, the health log and error messages show it masked to scheme and host only.
 
 ## Briefing podcast

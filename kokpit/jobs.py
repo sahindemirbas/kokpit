@@ -79,7 +79,7 @@ def organiser(cfg: Config):
 
 
 def career(cfg: Config):
-    """Collects job listings from the enabled sources (adapters, optional LinkedIn guest) and scores them."""
+    """Collects job listings from the enabled sources (adapters, optional LinkedIn guest and browser sources) and scores them."""
     conn = connect(cfg.db)
     try:
         rows, info, warnings = career_collect.collect(cfg, conn)
