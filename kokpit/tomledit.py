@@ -86,7 +86,7 @@ def _value_end(s: str) -> int:
             if depth == 0:
                 return i + 1
         elif ch == "#" and depth == 0:
-            return i
+            return len(s[:i].rstrip())  # the spaces before the comment belong to the comment
         i += 1
     return n if depth == 0 else -1
 
