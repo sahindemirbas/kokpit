@@ -6,7 +6,7 @@ import sqlite3
 
 from ...config import Config
 from ..health import api as health_api
-from . import cv, market, profile, scoring, skills, store, weekly
+from . import cv, market, profile, scoring, store
 
 
 def view(cfg: Config) -> dict:
@@ -47,49 +47,15 @@ def score_preview(cfg: Config, listing: dict) -> dict:
 def _listings(cfg: Config, limit: int = 300) -> dict:
     """Stored listings (best score first) and counts. Never fetches; reads the table the career job fills."""
     from ...db import connect
-    empty = {"listings": [], "counts": {"total": 0, "open": 0, "closed": 0, "by_source": {}}, "market": None,
-             "weekly": weekly.view(cfg, sqlite3.connect(":memory:"))}
+    empty = {"listings": [], "counts": {"total": 0, "open": 0, "closed": 0, "by_source": {}}, "market": None}
     try:
         conn = connect(cfg.db, readonly=True)
     except FileNotFoundError:
         return {**empty, "reason": "no database yet: run `kokpit run-job career`"}
     try:
-        return {"listings": store.listings(conn, "open", limit), "counts": store.counts(conn), "market": market.view(conn),
-                "weekly": weekly.view(cfg, conn)}
+        return {"listings": store.listings(conn, "open", limit), "counts": store.counts(conn), "market": market.view(conn)}
     except sqlite3.OperationalError:
         return empty
-    finally:
-        conn.close()
-
-
-def skills_view(cfg: Config) -> dict:
-    """Skills plan for the Career tab: gaps between stored listings and the profile, with the user's marks. Read-only."""
-    from ...db import connect
-    if not cfg.modules.get("jobs", False):
-        return {"enabled": False, "plan": None}
-    prof = profile.load(cfg)
-    try:
-        conn = connect(cfg.db, readonly=True)
-    except FileNotFoundError:
-        return {"enabled": True, "plan": skills.plan(sqlite3.connect(":memory:"), prof), "reason": "no database yet: run `kokpit run-job career`"}
-    try:
-        return {"enabled": True, "plan": skills.plan(conn, prof)}
-    except sqlite3.OperationalError:
-        return {"enabled": True, "plan": skills.plan(sqlite3.connect(":memory:"), prof)}
-    finally:
-        conn.close()
-
-
-def save_skill(cfg: Config, data: dict) -> dict:
-    """Set or clear one mark (learning / known / skip) and its note. The only write is one row in career_skills."""
-    from ...db import connect
-    if not cfg.modules.get("jobs", False):
-        raise PermissionError("career module is off: set jobs = true under [modules]")
-    status, note = data.get("status"), data.get("note")
-    conn = connect(cfg.db)
-    try:
-        return skills.save(conn, str(data.get("skill") or ""), None if status is None else str(status),
-                           None if note is None else str(note))
     finally:
         conn.close()
 

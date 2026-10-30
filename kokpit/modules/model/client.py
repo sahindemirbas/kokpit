@@ -25,7 +25,6 @@ USES: dict[str, str] = {
     "events_classify": "event title, description and venue name",
     "digest": "titles, tags, short summaries and measured facts (stars, likes...) of selected items",
     "night": "text of the notes being organised",
-    "career_weekly": "weekly listing counts, top companies, listing titles, requested skills and the profile's target roles, locations, seniority and skills (no name or contact)",
 }
 
 

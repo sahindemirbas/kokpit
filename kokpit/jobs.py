@@ -13,7 +13,7 @@ from .modules.brain import reader
 from .modules.briefing import collect as briefing_collect
 from .modules.organiser import collect as organiser_collect
 from .modules.ai_usage import collect as ai_usage_collect
-from .modules.career import collect as career_collect, profile as career_profile, weekly as career_weekly
+from .modules.career import collect as career_collect
 from .modules.events import api as events_api
 from .modules.instagram import collect as instagram_collect, planapi as instagram_planapi
 from .modules.bot import instagram as bot_instagram, runner as bot_runner
@@ -77,12 +77,7 @@ def career(cfg: Config):
     """Collects job listings from the enabled sources (adapters, optional LinkedIn guest) and scores them."""
     conn = connect(cfg.db)
     try:
-        rows, info, warnings = career_collect.collect(cfg, conn)
-        if cfg.modules.get("jobs", False):
-            note, more = career_weekly.write(cfg, conn, career_profile.load(cfg))
-            info["weekly_note"] = bool(note)
-            warnings = warnings + more
-        return rows, info, warnings
+        return career_collect.collect(cfg, conn)
     finally:
         conn.close()
 
