@@ -22,6 +22,7 @@
   <img src="https://img.shields.io/badge/dependencies-stdlib%20only-2ea44f?style=flat-square" alt="Standard library only">
   <img src="https://img.shields.io/badge/runs%20on-Raspberry%20Pi-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white" alt="Runs on Raspberry Pi">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT licence">
+  <a href="https://github.com/sahindemirbas/kokpit/actions/workflows/tests.yml"><img src="https://github.com/sahindemirbas/kokpit/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
 </p>
 
 <p align="center">
@@ -30,7 +31,7 @@
 
 Kokpit gathers the things you check every morning (calendar, tasks, your notes, events in your city, job listings, the health of your own scripts) into one small web page that runs on your own device. It reads only the data you connect, and keeps everything in SQLite and plain Markdown.
 
-> **Status:** early. Milestones M1 to M3 are done; the dashboard below runs today with `./run`. Social, AI usage, the daily digest, the Telegram bot and Docker are planned. The design comes from a single-user instance that has run every day on a Raspberry Pi since 2025. Full breakdown: [docs/status.md](docs/status.md). The repository stays private until the pre-public checklist in the roadmap is done.
+> **Status:** early. Milestones M1 to M3 are done, and the AI usage tab from M4 is done; the dashboard below runs today with `./run`. Instagram and social, the daily digest, the Telegram bot and Docker are planned. The design comes from a single-user instance that has run every day on a small home server since 2025. Full breakdown: [docs/status.md](docs/status.md).
 
 ## Features
 
@@ -42,11 +43,11 @@ Kokpit gathers the things you check every morning (calendar, tasks, your notes, 
 - **Career:** a local profile, job listings scored with a written reason ("Python, SQL; Milan; remote not stated"), listing lifecycle, market view, CSV export.
 - **Health:** the last successful run of every job. A source that silently returns nothing shows "0 records", not "OK".
 - **Connections:** one screen with every data source, what it reads and when it last worked. Everything is off until you switch it on.
+- **AI usage:** reads the local logs of Hermes, Claude Code and Codex (read-only, each reader its own switch). Tokens per model and hour, an approximate cost from models.dev list prices, and rule-based advice with its evidence. A model without a known price is shown as unknown, not as 0. Optional token limits that you enter yourself. The only network call is the opt-in price refresh.
 
 **Planned** ([roadmap](docs/roadmap.md))
 
-- Social media statistics and approved publishing
-- AI usage per tool and model, with provider limits
+- Instagram and social media statistics, approved publishing
 - Daily news digest linked to your projects, optional audio
 - Telegram bot with the morning line and approval buttons
 - `pip install kokpit` and `docker compose up`
@@ -57,6 +58,18 @@ Kokpit gathers the things you check every morning (calendar, tasks, your notes, 
 - **No model required.** Collection is plain code and every module has a rule-based path. A model is an opt-in connection that adds summaries and translation.
 - **Unknown is not zero.** A price, quota or measurement that cannot be determined is shown as unknown, never as 0. Features are labelled working, needs generalisation or planned.
 - **Your device, your data.** There is no hosted service. Delete the app and your notes and database are still there.
+
+## How it works
+
+- **Standard library only.** `dependencies = []` in `pyproject.toml`; the server is `http.server`, storage is `sqlite3`, config is `tomllib`.
+- **SQLite store.** One local database file plus plain Markdown notes. No hosted service.
+- **Jobs record their own freshness.** Collection is plain Python. Every run stores its status and record count, so a source that returns nothing shows "0 records", not "OK".
+- **Career scoring is rule based.** Each listing gets a score and a written reason you can read and argue with.
+- **AI usage readers dedupe.** One API message that appears on several log lines is counted once. Unknown prices stay unknown.
+- **Privacy by default.** Everything is local and off until enabled. Session ids are stored only as a short sha256 prefix, and message text is never read into the database.
+- **Tests run on CI.** GitHub Actions runs the unit tests on Python 3.11, 3.12 and 3.13.
+
+More in [docs/architecture.md](docs/architecture.md).
 
 ## Quick start
 
@@ -119,6 +132,10 @@ Guides: [add-your-city.md](docs/add-your-city.md) · [adapter contract](adapters
 ## Who it is for
 
 People who have a device that stays on and do not mind editing a config file. It is not a hosted service, a phone app or a team workspace; each person runs their own instance.
+
+## Project status and support
+
+Kokpit is a personal project, built and used by its author. Issues and pull requests are welcome, but there is no support and no response-time guarantee. Breaking changes are possible before 1.0.
 
 ## Licence and credits
 

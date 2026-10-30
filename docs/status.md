@@ -1,8 +1,8 @@
 # Status: what exists today
 
-Last reviewed: 29 October 2026.
+Last reviewed: 30 October 2026.
 
-Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQLite, cron, Telegram bot) running on a Raspberry Pi 5 since 2025. This repository does not contain that code yet; the code will be moved in module by module, stripped of personal data, once the design below is settled.
+Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQLite, cron, Telegram bot) running on a small home server since 2025. The M1 to M3 modules and the AI usage readers are now in this repository. The rest (social, agenda digest, Telegram bot) still lives only in the reference instance and will be moved in module by module, stripped of personal data.
 
 ## Working in the reference instance
 
@@ -10,7 +10,7 @@ Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQ
 - Brain tab over a local Markdown vault: threads, lanes, timeline, quick capture.
 - Events: multi-source collection, dedupe, category rules, translation, list/calendar/map views, `.ics` per event, optional public static page.
 - Career: LinkedIn guest search plus three company-site adapters, rule-based scoring with reasons, lifecycle tracking, market view, CSV export.
-- Social: Instagram insights (account, media, stories) through the official API, approved publishing, content calendar with reminders, TikTok read-only stats from a local collector.
+- Social: Instagram analysis (account, posts, reels, stories insights) through the official API, working; approved publishing, content calendar with reminders planned; TikTok read-only stats from a local collector generalise.
 - AI usage: Hermes `state.db` reader, per-model/session view, rule-based advice.
 - Agenda: daily digest with scored items and audio summary.
 - System health: per-job status, morning warnings.
