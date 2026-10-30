@@ -32,6 +32,8 @@ The Connections screen is where a user enables modules and links accounts. It is
 
 Any OpenAI-compatible chat-completions endpoint. In `kokpit.toml` set `[model] enabled = true`, `base_url`, `model`, and switch on single uses under `[model.uses]` (`events_translate`, `events_classify`, `digest`, `night`, `career_weekly`, `podcast`; all false by default). The key is read from the environment variable named by `key_env` (default `KOKPIT_MODEL_API_KEY`) and is never written to the toml, the database or the screen. A use that is off, or a missing key, stops the call before any network traffic. The Connections row shows which uses are on, the fields each one sends, the host, and the last successful call; every call (and failure) is a row in the `runs` table under `model:<use>`, so Health shows it.
 
+What `night` sends (night organiser, only when the module and the use are both on): the full text of `inbox/` notes and of notes changed today, at most `[organiser] max_notes` notes (default 20) and `max_chars` characters each (default 4000); for every other note only its path, title, aliases and first 200 characters, so the model can name a target. The bodies of `Threads.md`, `Last-Session.md` and `To-Do.md` are never sent. A second short call sends the sentences of the open proposals for a two-sentence summary. The answer is only a list of proposals; each one is checked in code and nothing is written to a note.
+
 ### Option B: through a local Hermes agent
 
 If the [Hermes agent](https://hermes-agent.nousresearch.com/) is installed on the same machine, Kokpit can send model calls through it instead of an API endpoint. No key is entered into Kokpit:

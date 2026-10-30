@@ -29,7 +29,7 @@ USES: dict[str, str] = {
     "events_translate": "event title and description",
     "events_classify": "event title, description and venue name",
     "digest": "titles, tags, short summaries and measured facts (stars, likes...) of selected items",
-    "night": "text of the notes being organised",
+    "night": "full text (capped by [organiser] max_notes / max_chars) of inbox/ notes and notes changed today, plus path, title, aliases and the first 200 characters of other notes; never Threads.md, Last-Session.md or To-Do.md bodies; then the open proposal sentences for a short summary",
     "career_weekly": "weekly listing counts, top companies, listing titles, requested skills and the profile's target roles, locations, seniority and skills (no name or contact)",
     "podcast": "titles, tags and summaries of the day's digest items, the last lines of the previous segment, the optional listener first name and, only with [briefing.podcast] brain_context = true, the bounded personal context",
 }

@@ -39,6 +39,9 @@ calendar_ics_urls = []        # e.g. ["https://calendar.example.org/feeds/<secre
 # short_summary = 20
 # apply_report_to_vault = false   # true: one new file Organiser/organiser-report.md inside the vault
 # report_folder = "Organiser"
+# todo_undated_days = 14          # an open task with no due: date and an older ISO date on its line or heading
+# max_notes = 20                  # model on ([model.uses] night): at most this many notes sent in full
+# max_chars = 4000                # model on: characters sent per note
 # [organiser.folders]
 # project = "projects"
 

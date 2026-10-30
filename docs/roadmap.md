@@ -56,7 +56,7 @@ Moved out of M2:
 - Topic configuration for the digest; optional TTS: done (step 4, `[briefing]`, tested with fake servers; real-feed quality not yet measured).
 - Brain-driven briefing matching with a rule-based fallback and a model opt-in: done in code and tests (title/tag/status keyword overlap with active threads; real vault precision not yet measured).
 - Translation target setting for events (moved from M2), using the same model connection: done (`[events] translate_to`).
-- [x] Night organiser as an opt-in module: categorise, link, conditions, enrich, sync; deterministic morning report. Proposals only, never edits a note; rule-based; precision on a real vault not yet measured.
+- [x] Night organiser as an opt-in module, proposals only (never edits, moves or deletes a note): rule kinds categorise, link, conditions, enrich, sync and todo; optional model proposals (`[model.uses] night`) checked in code before they are stored; a plan file per run in the data folder; Done and Dismiss decisions in the Organiser tab; `--dry-run`; deterministic morning report. Tested with synthetic notes and a stubbed model; precision on a real vault not yet measured.
 - Telegram bot as an optional module.
 - Briefing podcast: done (two voices, model script per topic, Gemini multi-speaker or OpenAI-compatible TTS, Range-served audio; tested with fake servers only, not against the live providers).
 - `docker compose up` path: done (M5 step 2, see docs/docker.md).

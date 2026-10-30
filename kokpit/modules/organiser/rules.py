@@ -104,6 +104,90 @@ def enrich(notes: list[dict], required: list[str], short: int) -> list[dict]:
     return out
 
 
+TASK = re.compile(r"^\s*[-*]\s*\[( |x|X)\]\s*(.+?)\s*$")
+DUE = re.compile(r"due:\s*(20\d\d-\d\d-\d\d)", re.I)
+ISO_DAY = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
+HEAD = re.compile(r"^#{1,6}\s+(.*)$")
+
+
+def _task_key(text: str) -> str:
+    """Normalised task text for comparison: no due field, no links, no punctuation runs, lower case."""
+    t = DUE.sub("", text)
+    t = re.sub(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", lambda m: m.group(2) or m.group(1), t)
+    t = re.sub(r"[^\w]+", " ", t.lower())
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _day(s: str) -> date | None:
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def open_tasks(text: str) -> list[dict]:
+    """Open checkbox lines with their due date and the ISO date found on the line or the nearest heading above.
+
+    Completed lines ([x]) are skipped. Nothing is guessed: a task with no date anywhere has ``seen = None``.
+    """
+    out, heading_day = [], None
+    for line in text.splitlines():
+        h = HEAD.match(line)
+        if h:
+            m = ISO_DAY.search(h.group(1))
+            heading_day = _day(m.group(1)) if m else None
+            continue
+        m = TASK.match(line)
+        if not m or m.group(1).lower() == "x":
+            continue
+        body = m.group(2)
+        due = DUE.search(body)
+        rest = DUE.sub("", body)
+        own = ISO_DAY.search(rest)
+        seen = _day(own.group(1)) if own else heading_day
+        label = re.sub(r"\s+", " ", rest.replace("()", "")).strip(" -")
+        out.append({"text": label, "key": _task_key(body), "due": _day(due.group(1)) if due else None, "seen": seen})
+    return out
+
+
+def todo(todo_text: str, notes: list[dict], today: date, undated_days: int, todo_path: str = "To-Do.md") -> list[dict]:
+    """Three To-Do checks, no model: overdue, undated and old, the same open task in more than one place."""
+    out = []
+    tasks = open_tasks(todo_text)
+    for t in tasks:
+        if not t["key"]:
+            continue
+        if t["due"] and t["due"] < today:
+            n = (today - t["due"]).days
+            out.append(dict(kind="todo", path=todo_path, target="", detail="overdue:" + t["key"][:80],
+                            text=f"Task '{t['text'][:120]}' was due {t['due'].isoformat()} ({n} day(s) ago). Mark it done, drop it or give it a new date."))
+        elif not t["due"] and t["seen"] and (today - t["seen"]).days >= undated_days:
+            n = (today - t["seen"]).days
+            out.append(dict(kind="todo", path=todo_path, target="", detail="undated-stale:" + t["key"][:80],
+                            text=f"Task '{t['text'][:120]}' has no due date and has been open since {t['seen'].isoformat()} ({n} days). Give it a date or drop it."))
+    where: dict[str, list[str]] = {}
+    label: dict[str, str] = {}
+    for t in tasks:
+        if t["key"]:
+            where.setdefault(t["key"], []).append(todo_path)
+            label.setdefault(t["key"], t["text"])
+    for n in notes:
+        for t in open_tasks(n["body"]):
+            if t["key"]:
+                where.setdefault(t["key"], []).append(n["path"])
+                label.setdefault(t["key"], t["text"])
+    for key in sorted(where):
+        places = where[key]
+        if len(places) < 2:
+            continue
+        uniq = sorted(set(places), key=lambda p: (p != todo_path, p))
+        others = uniq[1:] or uniq[:1]
+        times = f"{len(places)} times" if len(uniq) == 1 else f"in {len(uniq)} places"
+        out.append(dict(kind="todo", path=uniq[0], target=others[0], detail="duplicate-task:" + key[:80],
+                        text=f"Open task '{label[key][:120]}' appears {times} ({', '.join(uniq)}). Keep one."))
+    return out
+
+
 def sync(notes: list[dict], threads: list[dict], today: date, stale_days: int) -> list[dict]:
     out = []
     by: dict[str, list[dict]] = {}

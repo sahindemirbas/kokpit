@@ -139,7 +139,8 @@ def make_handler(cfg: Config):
                 if path in ("/api/briefing", "/api/agenda"):  # /api/agenda: old name, kept as an alias
                     return self._json(briefing_api.view(cfg))
                 if path == "/api/organiser":
-                    return self._json(organiser_api.view(cfg))
+                    show = parse_qs(urlparse(self.path).query).get("dismissed", [""])[0] == "1"
+                    return self._json(organiser_api.view(cfg, show_dismissed=show))
                 if path in ("/api/briefing/audio", "/api/agenda/audio"):
                     f = briefing_api.audio_file(cfg) if cfg.modules.get("briefing", False) else None
                     if f is None:
@@ -271,8 +272,30 @@ def make_handler(cfg: Config):
             except (ValueError, json.JSONDecodeError) as exc:
                 return self._json({"ok": False, "code": "invalid", "error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
+        def _organiser_post(self):
+            """A decision on one proposal. JSON content type and the X-Kokpit header are required, so a page on
+            another site cannot trigger it (a cross-site form can set neither). Writes the database, never a note."""
+            try:
+                if not (self.headers.get("Content-Type") or "").startswith("application/json") or not self.headers.get("X-Kokpit"):
+                    return self._json({"error": "JSON content type and X-Kokpit header required"}, HTTPStatus.FORBIDDEN)
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > 10_000:
+                    return self._json({"error": "request too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(data, dict):
+                    raise ValueError("JSON object expected")
+                return self._json(organiser_api.decide(cfg, data))
+            except LookupError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.NOT_FOUND)
+            except PermissionError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.FORBIDDEN)
+            except (ValueError, json.JSONDecodeError) as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+
         def do_POST(self):
             path = urlparse(self.path).path
+            if path == "/api/organiser/decide":
+                return self._organiser_post()
             if path == "/api/instagram/plan" or path.startswith("/api/instagram/plan/"):
                 return self._plan_post(path)
             if path in ("/api/career/profile", "/api/career/cv", "/api/career/score", "/api/career/skills"):

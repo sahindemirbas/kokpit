@@ -527,6 +527,10 @@ def _organiser(a: dict) -> dict:
         "folders": {str(k).lower(): str(v).strip().strip("/") for k, v in folders.items() if str(v).strip()},
         "apply_report_to_vault": a.get("apply_report_to_vault") is True,
         "report_folder": str(a.get("report_folder", "Organiser")).strip().strip("/") or "Organiser",
+        "max_notes": max(1, min(200, _int(a.get("max_notes"), 20))),
+        "max_chars": max(200, min(20000, _int(a.get("max_chars"), 4000))),
+        "todo_undated_days": max(1, min(365, _int(a.get("todo_undated_days"), 14))),
+        "plan_keep_days": 30,
     }
 
 

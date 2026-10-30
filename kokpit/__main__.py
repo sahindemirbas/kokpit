@@ -68,6 +68,13 @@ def cmd_run(args) -> int:
 def cmd_run_job(args) -> int:
     from . import jobs
     cfg = _load(args)
+    if getattr(args, "dry_run", False):
+        name = jobs.ALIASES.get(args.name, args.name)
+        if name != "organiser":
+            raise SystemExit("--dry-run is supported for the organiser job only")
+        from .modules.organiser import collect as organiser
+        print(organiser.dry_run(cfg))  # writes nothing: no plan file, no database, no report
+        return 0
     return 0 if jobs.run(cfg, args.name) else 1
 
 
@@ -413,6 +420,7 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("run-job", help="run one scheduled job now")
     p.add_argument("name")
+    p.add_argument("--dry-run", action="store_true", help="organiser only: detect and print, write nothing")
     p.set_defaults(fn=cmd_run_job)
     p = sub.add_parser("schedule", help="run the jobs of the enabled modules in a foreground loop (Docker scheduler)")
     p.set_defaults(fn=cmd_schedule)

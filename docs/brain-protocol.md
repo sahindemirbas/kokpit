@@ -11,7 +11,7 @@ Status: the conventions are in daily use in the reference instance. The
 read-only context hook is in this repository (`kokpit brain hook` for Claude
 Code, Codex, Antigravity and any tool that runs a command, `kokpit context`
 for plain text, the Hermes plugin under `integrations/hermes/kokpit-brain/`);
-the night organiser is **planned** (see `docs/roadmap.md`).
+the night organiser is in this repository as a proposals-only module (§3).
 
 ## 0. Origin and credit
 
@@ -39,7 +39,7 @@ vault/
   Threads.md            active threads: where we left off, open items
   To-Do.md              ## Open with checkbox lines, optional "due: YYYY-MM-DD"
   Last-Session.md       short card written at the end of a work session
-  inbox/                quick captures, unsorted; the night organiser files them
+  inbox/                quick captures, unsorted; the night organiser proposes where they go
   notes/<area>/         filed notes (areas chosen by the user)
   projects/<name>/      per-project rules, decisions, logs
   people/               optional
@@ -55,7 +55,7 @@ Markdown. Nothing proprietary.
 |---|---|---|---|
 | Context hook (any agent) | Threads, Last-Session, relevant notes | nothing | writes |
 | Working agent (Hermes, Claude Code, Codex, ...) | whole vault | Last-Session card, Threads update, the note the work belongs to, a receipt line | rewrites old text, deletes |
-| Night organiser (scheduled) | `inbox/`, today's changed notes, unreviewed notes | moves inbox notes to a folder, adds links, appends dated status blocks | edits text meaning, touches files outside its journal |
+| Night organiser (scheduled, opt-in) | the vault's notes, `Threads.md`, `To-Do.md`; with the model on, sends only `inbox/` notes, today's changed notes and a short catalogue | proposals in the Kokpit database, a plan file in the data folder, one report file (data folder, or one marked file in the vault when `apply_report_to_vault = true`) | edits, moves, renames or deletes a note |
 | Kokpit web app | whole vault | quick capture (append a line to `inbox/` or `To-Do.md`); the marked meeting-notes section of configured notes | rewrites, deletes |
 | User | everything | everything | - |
 
@@ -189,44 +189,74 @@ context: the context hook never reads `receipts/` or `archive/`.
   written to the calendar automatically; that needs explicit approval per
   item.
 
-## 3. Night organiser (planned module)
+## 3. Night organiser (proposals only)
 
-A scheduled job, default 04:00 local time, that uses a language model and
-therefore appears in the Connections screen as an opt-in with the model
-provider, the exact data sent (note bodies from `inbox/` and today's changed
-notes) and the last successful run.
+An opt-in module (`organiser = true` under `[modules]`, off by default) with
+one scheduled job, `organiser`, at 03:30 local time. It reads the vault and
+writes suggestions for you to decide on. It never edits, moves, renames or
+deletes a note; the only vault file it can ever write is its own report, and
+only with `apply_report_to_vault = true` (one new file under `report_folder`,
+never a file it did not create).
 
-Steps, in order, each with its own journal and recovery:
+Each run, in order:
 
-1. **Preflight**: recover any half-finished operation from the journal.
-2. **Categorise**: move each `inbox/` note into a folder that fits its
-   meaning, give it a filename that fits the content, fix spelling without
-   changing meaning. Original bytes are kept in a backup outside the vault;
-   frontmatter is kept as is.
-3. **Link**: add reciprocal wikilinks between notes that genuinely relate.
-   Each link carries a reason type: `Condition`, `Continuation`,
-   `Preparation`, `Shared goal (interpretation)`. No keyword matching, no
-   quota of links per note. Older notes are read-only here except for a
-   one-way link.
-4. **Conditions**: if a new note states that a condition in an older note has
-   come true, append a dated status block to the older note with a link to the
-   source. Earlier text is not changed. Ambiguous evidence is not resolved
-   automatically.
-5. **Enrich**: fold new information into the note it belongs to (a course
-   detail into the course note, a status change into the project note); split
-   standalone ideas into `ideas/` and people into `people/`. An idea is not an
-   active project and not a task.
-6. **Sync**: run the vault's own sync if one is configured; report conflicts,
-   never resolve them silently.
+1. **Scan**: every Markdown note except dot folders and the vault-root
+   `Threads.md`, `Last-Session.md` and `To-Do.md` (`Threads.md` and
+   `To-Do.md` are read only by the sync and To-Do checks).
+2. **Rules** (no model, always): `categorise` (missing or unknown type, folder
+   that does not match `[organiser.folders]`), `link` (a note names another
+   note's title or alias without linking it), `conditions` (a "waiting for"
+   note and a later note that says it arrived), `enrich` (short summary,
+   missing frontmatter fields), `sync` (duplicate titles, active threads
+   unchanged for `stale_days`), `todo` (an open task past its `due:` date; an
+   open task with no `due:` and an ISO date on its line or heading older than
+   `todo_undated_days`; the same open task in more than one place). Done tasks
+   are skipped; a task with no date anywhere is skipped, no date is guessed.
+3. **Model proposals** (only with `[model] enabled` and `[model.uses] night =
+   true`; otherwise nothing is sent): the full text of `inbox/` notes and of
+   notes changed today, at most `max_notes` notes and `max_chars` characters
+   each, plus a catalogue of the other notes (path, title, aliases, first 200
+   characters) to choose targets from. The bodies of `Threads.md`,
+   `Last-Session.md` and `To-Do.md` are never sent. The model answers with a
+   JSON list of `categorise` (folder and file name, with a reason), `link`
+   (with one reason type: `Condition`, `Continuation`, `Preparation`, `Shared
+   goal (interpretation)`), `conditions` (an older note's condition with a
+   quote from the newer note) and `enrich` (the note the information belongs
+   in, or a separate idea or person note). Every item is checked in code: real
+   paths from this scan (or a configured folder), quotes found word for word in
+   the source note, allowed reason, short text, no unknown fields, newer note
+   after older note. Rejected items are counted in the warnings and the plan
+   file, never stored. A model error or broken answer leaves the rule
+   proposals as they are, with one warning.
+4. **Store**: proposals go to the `organiser_proposals` table with their
+   source (`rule` or `model`), reason and quote. A rule proposal wins over a
+   model one with the same key. Status is `open`, `gone` (the cause
+   disappeared; it reopens when the cause comes back), `dismissed` or `done`.
+   A run never reopens a dismissed or done proposal.
+5. **Plan file**: `<data>/organiser/plan-YYYY-MM-DD.json` with the input
+   paths and hashes, the proposals, the rejected model items, counts and
+   whether the model was used. Re-running on the same day with the same inputs
+   gives the same proposals and inputs (only `generated_at` changes; the model
+   is not asked again). Plan files older than 30 days are removed. The plan is
+   never written into the vault.
+6. **Report**: one deterministic Markdown report of the open proposals and a
+   morning line (counts plus the first five) for Today and the bot. An
+   optional two-sentence model summary when `night` is on.
 
-Morning report, default 07:00: a deterministic summary of what the night job
-did (moved, linked, updated, skipped, errors). No model call. Delivered to the
-Kokpit Today tab and, if the bot module is on, to Telegram.
+`kokpit run-job organiser --dry-run` does the scan and the checks, prints the
+counts and the first ten proposals, and writes nothing (no plan file, no
+database, no report).
 
-Guarantees the implementation must keep: external backup before any write,
-durable journal per step, re-running the same plan produces no change,
-partial failure is reported and recoverable, multi-file writes are not
-globally atomic and the docs say so.
+Decisions are yours. The Organiser tab filters by kind, shows the source, the
+reason and the quote, and has Done and Dismiss buttons (`POST
+/api/organiser/decide`, JSON with the `X-Kokpit` header). A decision changes
+the proposal's status in the database and nothing else; carrying it out in
+your notes is up to you. Dismissed proposals can be shown and reopened.
+
+The reference instance goes further: its night job moves inbox notes, adds
+reciprocal links, appends dated status blocks and folds information into
+notes, with backups and a journal per step. The package deliberately proposes
+only, so a mistake costs one click instead of a repaired note.
 
 ## 4. Brain-driven briefing
 

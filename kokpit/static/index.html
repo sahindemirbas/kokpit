@@ -624,6 +624,11 @@ html[data-tema=dark] .bm-st.err{color:#ff8a7a}html[data-tema=dark] .bm-st.ok{col
 @media(max-width:700px){.subnav{padding:10px 14px 0}}
 @media(max-width:360px){.subnav{gap:6px}.subnav .btn{padding:6px 10px}}
 .agp{display:flex;align-items:center;gap:8px}.agp audio{height:30px;max-width:240px}.ag-t{font:600 11px var(--mono,monospace);opacity:.8}
+.og-f{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}.og-f .chip{font:700 12px var(--mono);text-transform:uppercase;padding:5px 11px}.og-f .chip.on{background:#ffc21a;color:#161412}.og-f .og-sd{margin-left:auto}
+.og-p{display:flex;flex-direction:column;gap:6px}.og-h{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.og-h .og-pt{min-width:0;overflow-wrap:anywhere}
+.og-s{font:700 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;border:2px solid var(--ink);border-radius:6px;padding:1px 6px;background:var(--w);color:var(--ink)}.og-s.model{background:#b48cff;color:#161412}.og-s.dis{background:var(--bg)}
+.og-r{font:500 12px/1.4 var(--mono);margin:0}.og-e{font:italic 500 13px/1.45 var(--sans);margin:0;padding:6px 10px;border:2px solid var(--ink);border-radius:8px;background:var(--bg);overflow-wrap:anywhere}
+.og-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}.og-a .btn{font:700 11.5px var(--mono);text-transform:uppercase;padding:5px 11px}.og-m{font:500 11px var(--mono)}
 </style><style>
 </style>
 </head><body>
@@ -957,14 +962,33 @@ function agPlayer(d){const p=$('agp');if(!d||!d.enabled||(!d.audio&&!d.speech)){
 document.addEventListener('click',e=>{const b=e.target.closest('[data-agsay]');if(!b)return;
  if(speechSynthesis.speaking){speechSynthesis.cancel();b.textContent='Read digest aloud';return}
  const u=new SpeechSynthesisUtterance(AGP.text||'');u.onend=()=>{b.textContent='Read digest aloud'};speechSynthesis.speak(u);b.textContent='Stop reading'});
-async function ogView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/organiser');if(S.view!='og')return;
+const OGS={k:'all',dis:false};
+async function ogView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/organiser'+(OGS.dis?'?dismissed=1':''));if(S.view!='og')return;
  if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Organiser module is off. Set <code>organiser = true</code> under [modules] in kokpit.toml. It only writes suggestions; it never edits a note.</p></div></div>`;return}
  S.hn.og=[[d.total||0,'open']];
  if(d.reason){v.innerHTML=`<div class="af"><div class="af-b s12"><p>${esc(d.reason)}</p>${afFresh(d.freshness)}</div></div>`;return}
- let h=`<div class="af"><div class="af-b s12">${afFresh(d.freshness)}<p class="mono" style="font-size:10px;margin:2px 0">${esc(Object.entries(d.counts).map(([k,n])=>n+' '+k).join(' · '))} · report: ${esc(d.mode)}</p>${d.summary?`<p>${esc(d.summary)}</p>`:''}</div>`,i=1;
- if(!d.proposals.length)h+=`<div class="af-b s12" ${afD(i++)}><p>No open proposals.</p></div>`;
- for(const p of d.proposals)h+=`<div class="af-b s12" ${afD(i++)} style="padding:8px 18px"><span class="mono" style="font-size:10px">${esc(p.kind)} · ${esc(p.path||'vault')}</span><p style="margin:2px 0">${esc(p.text)}</p></div>`;
- v.innerHTML=h+'</div>'}
+ const P=d.proposals||[],kinds=Object.keys(d.counts||{}).filter(k=>d.counts[k]||P.some(p=>p.kind==k));if(OGS.k!='all'&&!kinds.includes(OGS.k))OGS.k='all';
+ const C=(k,l,n)=>`<button type="button" class="chip${OGS.k==k?' on':''}" data-ogk="${esc(k)}" aria-pressed="${OGS.k==k}">${esc(l)} <span data-ogn="${esc(k)}">${n}</span></button>`;
+ let h=`<div class="af"><div class="af-b s12">${afFresh(d.freshness)}<p class="mono" style="font-size:10px;margin:2px 0">${d.total||0} open · report: ${esc(d.mode)} · Done and Dismiss only record your decision; no note is changed</p>${d.summary?`<p>${esc(d.summary)}</p>`:''}
+  <div class="og-f">${C('all','All',d.total||0)}${kinds.map(k=>C(k,k,d.counts[k]||0)).join('')}<button type="button" class="btn og-sd${OGS.dis?' on':''}" data-ogdis="1" aria-pressed="${OGS.dis}">${OGS.dis?'Hide dismissed':'Show dismissed'}${d.dismissed?' ('+d.dismissed+')':''}</button></div></div>`,i=1;
+ const sel=P.filter(p=>OGS.k=='all'||p.kind==OGS.k);
+ if(!sel.length)h+=`<div class="af-b s12" ${afD(i++)}><p>No open proposals${OGS.k!='all'?' of this kind':''}.</p></div>`;
+ for(const p of sel){const dis=p.status=='dismissed';
+  h+=`<div class="af-b s12 og-p" ${afD(i++)} style="padding:10px 18px" data-ogid="${p.id}" data-ogkind="${esc(p.kind)}"><div class="og-h"><span class="og-s">${esc(p.kind)}</span><span class="og-s${p.source=='model'?' model':''}">${p.source=='model'?'model':'rule'}</span>${dis?'<span class="og-s dis">dismissed</span>':''}<span class="mono og-pt" style="font-size:10px">${esc(p.path||'vault')}${p.target?' → '+esc(p.target):''}</span></div>
+  <p style="margin:0">${esc(p.text)}</p>${p.reason?`<p class="og-r">Reason: ${esc(p.reason)}</p>`:''}${p.evidence?`<p class="og-e">"${esc(agCut(p.evidence,240))}"</p>`:''}
+  <div class="og-a">${dis?`<button type="button" class="btn" data-ogdo="open">Reopen</button>`:`<button type="button" class="btn" data-ogdo="done">Done</button><button type="button" class="btn" data-ogdo="dismissed">Dismiss</button>`}<span class="og-m" aria-live="polite"></span></div></div>`}
+ v.innerHTML=h+'</div>';
+ v.onclick=async e=>{const k=e.target.closest('[data-ogk]');if(k){OGS.k=k.dataset.ogk;return ogView()}
+  if(e.target.closest('[data-ogdis]')){OGS.dis=!OGS.dis;return ogView()}
+  const b=e.target.closest('[data-ogdo]');if(!b)return;const card=b.closest('[data-ogid]'),m=card.querySelector('.og-m');
+  card.querySelectorAll('[data-ogdo]').forEach(x=>x.disabled=true);m.textContent='Saving...';
+  try{await J('/api/organiser/decide',{method:'POST',headers:{'Content-Type':'application/json','X-Kokpit':'1'},body:JSON.stringify({id:Number(card.dataset.ogid),status:b.dataset.ogdo})});
+   if(b.dataset.ogdo=='open')return ogView();
+   const kind=card.dataset.ogkind,wasOpen=!card.querySelector('.og-s.dis');card.remove();
+   if(wasOpen){d.total=Math.max(0,(d.total||0)-1);d.counts[kind]=Math.max(0,(d.counts[kind]||0)-1);S.hn.og=[[d.total,'open']];
+    const a=v.querySelector('[data-ogn="all"]'),n=v.querySelector(`[data-ogn="${CSS.escape(kind)}"]`);if(a)a.textContent=d.total;if(n)n.textContent=d.counts[kind];
+    if(b.dataset.ogdo=='dismissed'){d.dismissed=(d.dismissed||0)+1;const sd=v.querySelector('[data-ogdis]');if(sd)sd.textContent=(OGS.dis?'Hide dismissed':'Show dismissed')+' ('+d.dismissed+')'}}
+   if(!v.querySelector('[data-ogid]'))ogView()}catch(err){m.textContent=err.message;card.querySelectorAll('[data-ogdo]').forEach(x=>x.disabled=false)}}}
 /* ag-*: Briefing visual cards (card system ported from the reference design; measured numbers only) */
 const AGC=['#ff6b4a','#5bb6ff','#3ecf8e','#e0457b','#b48cff','#2fbf71'],AGK={'Matches your projects':'#ffc21a','GitHub':'#3ecf8e','Hugging Face':'#ffc21a'};let AGD=null;
 const agRD=()=>{try{return new Set(JSON.parse(localStorage.getItem('kokpit_read')||'[]'))}catch(e){return new Set()}};
