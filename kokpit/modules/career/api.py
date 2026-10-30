@@ -6,7 +6,7 @@ import sqlite3
 
 from ...config import Config
 from ..health import api as health_api
-from . import cv, profile, scoring, store
+from . import cv, market, profile, scoring, store
 
 
 def view(cfg: Config) -> dict:
@@ -47,14 +47,28 @@ def score_preview(cfg: Config, listing: dict) -> dict:
 def _listings(cfg: Config, limit: int = 300) -> dict:
     """Stored listings (best score first) and counts. Never fetches; reads the table the career job fills."""
     from ...db import connect
-    empty = {"listings": [], "counts": {"total": 0, "open": 0, "closed": 0, "by_source": {}}}
+    empty = {"listings": [], "counts": {"total": 0, "open": 0, "closed": 0, "by_source": {}}, "market": None}
     try:
         conn = connect(cfg.db, readonly=True)
     except FileNotFoundError:
         return {**empty, "reason": "no database yet: run `kokpit run-job career`"}
     try:
-        return {"listings": store.listings(conn, "open", limit), "counts": store.counts(conn)}
+        return {"listings": store.listings(conn, "open", limit), "counts": store.counts(conn), "market": market.view(conn)}
     except sqlite3.OperationalError:
         return empty
+    finally:
+        conn.close()
+
+
+def export_csv(cfg: Config, status: str | None = None) -> str:
+    from ...db import connect
+    try:
+        conn = connect(cfg.db, readonly=True)
+    except FileNotFoundError:
+        return market.export_csv(sqlite3.connect(":memory:"), status)
+    try:
+        return market.export_csv(conn, status)
+    except sqlite3.OperationalError:
+        return market.export_csv(sqlite3.connect(":memory:"), status)
     finally:
         conn.close()

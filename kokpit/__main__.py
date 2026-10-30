@@ -152,11 +152,48 @@ def cmd_adapters(args) -> int:
     return 0
 
 
+def _career_market(cfg) -> int:
+    from .db import connect
+    from .modules.career import market
+    try:
+        conn = connect(cfg.db, readonly=True)
+    except FileNotFoundError:
+        print("no database yet: run `kokpit run-job career`")
+        return 0
+    try:
+        m = market.view(conn)
+    finally:
+        conn.close()
+    print(f"{m['open']} open of {m['total']} listings, window {m['window_days']} day(s)")
+    print("\nper company:")
+    for c in m["companies"]:
+        print(f"  {c['open']:4d}  {c['company']}")
+    print("\nweekly (week starting Monday):")
+    for w in m["weekly"]:
+        print(f"  {w['week']}  {w['listings']}")
+    print("\ntop skills in open listings:")
+    for k in m["skills"]:
+        print(f"  {k['open']:4d}  {k['skill']}")
+    for n in m["notes"]:
+        print(f"note: {n}")
+    return 0
+
+
 def cmd_career(args) -> int:
     """career profile show | import-cv PATH [--apply] | set FIELD VALUE; career score --title ..."""
     import json
-    from .modules.career import cv, profile, scoring
+    from .modules.career import api as career_api, cv, profile, scoring
     cfg = _load(args)
+    if args.career_cmd == "export":
+        text = career_api.export_csv(cfg, args.status)
+        if args.out:
+            Path(args.out).write_text(text, encoding="utf-8")
+            print(f"wrote {args.out} ({max(0, text.count(chr(10)) - 1)} listings)")
+        else:
+            sys.stdout.write(text)
+        return 0
+    if args.career_cmd == "market":
+        return _career_market(cfg)
     if args.career_cmd == "score":
         text = Path(args.file).read_text(encoding="utf-8") if args.file else ""
         remote = {"yes": True, "no": False}.get(args.remote)
@@ -244,6 +281,12 @@ def main(argv=None) -> int:
     q.add_argument("--file", help="text file with the description")
     q.add_argument("--location", default="")
     q.add_argument("--remote", choices=["yes", "no", "unknown"], default="unknown")
+    q.set_defaults(fn=cmd_career)
+    q = csub.add_parser("export", help="CSV of listings with score and reasons")
+    q.add_argument("--status", choices=["open", "closed"])
+    q.add_argument("--out", help="file to write (default: stdout)")
+    q.set_defaults(fn=cmd_career)
+    q = csub.add_parser("market", help="per-company counts, weekly trend and top skills")
     q.set_defaults(fn=cmd_career)
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)

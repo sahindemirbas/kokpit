@@ -38,7 +38,7 @@ Moved out of M2:
 - Translation target setting: moved to M5. Translation needs a model connection, which no module has yet; it lands with the model opt-in in M5 so the setting is not a dead option.
 - Google read-only calendar (OAuth): moved to Later. Every installer would need their own Google Cloud app; the secret ICS address already works for Google Calendar.
 
-## M3: career
+## M3: career (done)
 
 - Profile form (skills, targets, locations, remote) and local CV text extraction.
 - LinkedIn guest search and the adapter contract for `adapters/jobs/`.

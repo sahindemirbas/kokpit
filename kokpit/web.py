@@ -83,6 +83,17 @@ def make_handler(cfg: Config):
                     return self._json(events_api.view(cfg, days=days))
                 if path.startswith("/api/events/") and path.endswith(".ics"):
                     return self._ics(path.split("/")[3].removesuffix(".ics"))
+                if path == "/api/career/export.csv":
+                    q = parse_qs(urlparse(self.path).query).get("status", [""])[0]
+                    body = career_api.export_csv(cfg, q if q in ("open", "closed") else None).encode("utf-8")
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "text/csv; charset=utf-8")
+                    self.send_header("Content-Disposition", 'attachment; filename="kokpit-career.csv"')
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
                 if path == "/api/career":
                     return self._json(career_api.view(cfg))
                 if path == "/api/connections":

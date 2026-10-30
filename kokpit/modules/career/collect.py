@@ -7,9 +7,10 @@ true, the LinkedIn guest search. A source that fails is a warning, never a crash
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime
 
 from ...config import Config
-from . import adapters, linkedin, profile, scoring, store
+from . import adapters, lifecycle, linkedin, profile, scoring, store
 
 
 def remote_flag(value: str | None) -> bool | None:
@@ -22,7 +23,7 @@ def scorer(prof: dict):
     return run
 
 
-def collect(cfg: Config, conn: sqlite3.Connection, linkedin_get=None, sleep=None) -> tuple[int, dict, list[str]]:
+def collect(cfg: Config, conn: sqlite3.Connection, linkedin_get=None, sleep=None, now: datetime | None = None) -> tuple[int, dict, list[str]]:
     """Returns (rows, info, warnings) in the job contract. ``rows`` = records fetched this run."""
     prof = profile.load(cfg)
     warnings: list[str] = []
@@ -55,8 +56,13 @@ def collect(cfg: Config, conn: sqlite3.Connection, linkedin_get=None, sleep=None
         records.extend(got)
     if not plan and not cfg.career.get("linkedin_guest"):
         warnings.append("no source enabled: set [career] adapters or linkedin_guest in kokpit.toml")
-    res = store.upsert(conn, records)
+    now = now or datetime.now()
+    res = store.upsert(conn, records, now.isoformat(timespec="seconds"))
+    live = {n for n, c in per_source.items() if c > 0}
+    life, lwarns = lifecycle.apply(conn, now, cfg.career.get("close_after_days", 3), live, check_get=linkedin_get,
+                                   check=bool(cfg.career.get("linkedin_guest")), sleep=sleep or lifecycle.time.sleep)
+    warnings.extend(lwarns)
     scored = store.set_scores(conn, scorer(prof))
     if profile.is_empty(prof):
         warnings.append("profile is empty: scores cannot judge anything yet (fill in target roles on the Career tab)")
-    return len(records), {"sources": per_source, **res, "scored": scored, **store.counts(conn)}, warnings
+    return len(records), {"sources": per_source, **res, **life, "scored": scored, **store.counts(conn)}, warnings
