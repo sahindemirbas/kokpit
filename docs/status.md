@@ -57,11 +57,11 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 
 ## Planned, not started
 
-- `kokpit schedule` / `kokpit doctor` commands (`init --city` and `run` exist; init verifies the AllEvents/Eventbrite slugs live and prints the record count per source).
+- `kokpit doctor` command (`kokpit schedule` is done; `init --city` and `run` exist; init verifies the AllEvents/Eventbrite slugs live and prints the record count per source).
 - CV extraction and target-profile form.
 - Adapter loader for `adapters/jobs/<source>/` (events loader is done).
 - Language packs.
-- Docker image.
+- Docker: `docker compose up` works (M5 step 2), see docs/docker.md.
 - Public release checklist (licence is MIT, see `LICENSE`).
 
 ## What is deliberately out of scope for the first release

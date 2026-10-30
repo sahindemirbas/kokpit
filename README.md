@@ -31,7 +31,7 @@
 
 Kokpit gathers the things you check every morning (calendar, tasks, your notes, events in your city, job listings, the health of your own scripts) into one small web page that runs on your own device. It reads only the data you connect, and keeps everything in SQLite and plain Markdown.
 
-> **Status:** early. Milestones M1 to M3 are done; from M4, the AI usage tab and Instagram analysis are done; the dashboard below runs today with `./run`. Social publishing, the daily digest, the Telegram bot and Docker are planned. The design comes from a single-user instance that has run every day on a small home server since 2025. Full breakdown: [docs/status.md](docs/status.md).
+> **Status:** early. Milestones M1 to M3 are done; from M4, the AI usage tab and Instagram analysis are done; the dashboard below runs today with `./run`. Social publishing, the daily digest, and the Telegram bot are planned; `docker compose up` works (see Docker below). The design comes from a single-user instance that has run every day on a small home server since 2025. Full breakdown: [docs/status.md](docs/status.md).
 
 ## Features
 
@@ -51,7 +51,7 @@ Kokpit gathers the things you check every morning (calendar, tasks, your notes, 
 - Instagram publishing with approval, content calendar
 - Daily news digest linked to your projects, optional audio
 - Telegram bot with the morning line and approval buttons
-- `pip install kokpit` and `docker compose up`
+- `pip install kokpit`
 
 ## Why Kokpit
 
@@ -90,6 +90,14 @@ python -m kokpit place "Bergamo" --pick 1 --write
 ```
 
 Then set `vault_path` in `kokpit.toml` to your Markdown folder.
+
+### Docker
+
+```bash
+docker compose up -d      # dashboard on http://127.0.0.1:8501 plus a scheduler for the enabled modules
+```
+
+Data lives in the `kokpit-data` volume. The port is bound to loopback because Kokpit has no login. Telegram bot, LAN access, backup: [docs/docker.md](docs/docker.md).
 
 <details>
 <summary><b>More commands and settings</b></summary>

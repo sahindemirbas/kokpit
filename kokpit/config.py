@@ -175,7 +175,7 @@ def load(path: str | Path) -> Config:
     cfg.db_path = Path(health.get("db_path", cfg.db_path))
     cfg.expected_jobs = list(health.get("expected", []))
     server = raw.get("server", {})
-    cfg.host = str(server.get("host", cfg.host))
+    cfg.host = os.environ.get("KOKPIT_HOST", "").strip() or str(server.get("host", cfg.host))  # env wins (Docker)
     cfg.port = int(server.get("port", cfg.port))
     place = raw.get("place", {})
     cfg.place = {

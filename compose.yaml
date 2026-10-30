@@ -1,0 +1,51 @@
+# docker compose up                  dashboard + scheduler
+# docker compose --profile bot up    also the Telegram bot (needs .env, see docs/docker.md)
+x-kokpit: &kokpit
+  build: .
+  image: kokpit:local
+  restart: unless-stopped
+  volumes:
+    - kokpit-data:/data
+  environment:
+    TZ: ${TZ:-UTC}
+  env_file:
+    - path: .env
+      required: false
+
+services:
+  kokpit:
+    <<: *kokpit
+    ports:
+      # Loopback only: Kokpit has no login. To open it to your LAN, see docs/docker.md.
+      - "${KOKPIT_BIND:-127.0.0.1}:${KOKPIT_PORT:-8501}:8501"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8501/', timeout=4)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 15s
+
+  scheduler:
+    <<: *kokpit
+    command: ["python", "-m", "kokpit", "schedule"]
+    depends_on:
+      kokpit:
+        condition: service_healthy
+    healthcheck:
+      # The loop touches /data/.scheduler-heartbeat every 15 s; unhealthy when older than 90 s.
+      test: ["CMD", "python", "-c", "import os,time,sys; sys.exit(0 if time.time()-os.path.getmtime('/data/.scheduler-heartbeat')<90 else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 30s
+
+  bot:
+    <<: *kokpit
+    profiles: ["bot"]
+    command: ["python", "-m", "kokpit", "bot", "poll"]
+    depends_on:
+      kokpit:
+        condition: service_healthy
+
+volumes:
+  kokpit-data:

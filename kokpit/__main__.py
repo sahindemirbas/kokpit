@@ -1,4 +1,4 @@
-"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters | career | ai-usage summary | instagram collect|summary|refresh-token | bot poll [--once] | bot send-test"""
+"""Command line: kokpit init | run | run-job <name> | schedule | context | place <city> | jobs | adapters | career | ai-usage summary | instagram collect|summary|refresh-token | bot poll [--once] | bot send-test"""
 from __future__ import annotations
 
 import argparse
@@ -64,6 +64,11 @@ def cmd_run(args) -> int:
 def cmd_run_job(args) -> int:
     cfg = _load(args)
     return 0 if jobs.run(cfg, args.name) else 1
+
+
+def cmd_schedule(args) -> int:
+    from . import scheduler
+    return scheduler.main(_load(args))
 
 
 def cmd_context(args) -> int:
@@ -301,6 +306,8 @@ def main(argv=None) -> int:
     p = sub.add_parser("run-job", help="run one scheduled job now")
     p.add_argument("name")
     p.set_defaults(fn=cmd_run_job)
+    p = sub.add_parser("schedule", help="run the jobs of the enabled modules in a foreground loop (Docker scheduler)")
+    p.set_defaults(fn=cmd_schedule)
     p = sub.add_parser("context", help="print the read-only brain context an agent hook would inject")
     p.add_argument("message", nargs="*", help="the user's message, used only to pick related notes")
     p.add_argument("--max-chars", type=int, default=3500)

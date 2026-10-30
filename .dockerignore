@@ -1,0 +1,10 @@
+.git
+data/
+kokpit.toml
+.env
+tests/
+**/__pycache__/
+*.db
+*.egg-info/
+.brief_*.md
+.out_*.md

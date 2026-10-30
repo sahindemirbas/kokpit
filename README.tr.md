@@ -31,7 +31,7 @@
 
 Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki etkinlikler, iş ilanları, kendi betiklerinin sağlığı) kendi cihazında çalışan tek bir küçük web sayfasında toplar. Yalnız senin bağladığın verileri okur, her şeyi SQLite ve düz Markdown dosyalarında tutar.
 
-> **Durum:** erken aşama. M1-M3 kilometre taşları tamam; M4'ten AI kullanımı sekmesi ve Instagram analizi de tamam; aşağıdaki panel bugün `./run` ile çalışıyor. Sosyal medyada paylaşım, günlük gündem, Telegram botu ve Docker planlı. Tasarım, 2025'ten beri her gün küçük bir ev sunucusunda çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Ayrıntı: [docs/status.md](docs/status.md).
+> **Durum:** erken aşama. M1-M3 kilometre taşları tamam; M4'ten AI kullanımı sekmesi ve Instagram analizi de tamam; aşağıdaki panel bugün `./run` ile çalışıyor. Sosyal medyada paylaşım, günlük gündem, ve Telegram botu planlı; `docker compose up` çalışıyor (aşağıda Docker'a bak). Tasarım, 2025'ten beri her gün küçük bir ev sunucusunda çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Ayrıntı: [docs/status.md](docs/status.md).
 
 ## Özellikler
 
@@ -51,7 +51,7 @@ Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki
 - Onaylı Instagram paylaşımı, içerik takvimi
 - Projelerine bağlanan günlük haber özeti, isteğe bağlı sesli
 - Sabah satırı ve onay düğmeleriyle Telegram botu
-- `pip install kokpit` ve `docker compose up`
+- `pip install kokpit`
 
 ## Neden Kokpit
 
@@ -90,6 +90,14 @@ python -m kokpit place "Bergamo" --pick 1 --write
 ```
 
 Sonra `kokpit.toml` içindeki `vault_path` değerini kendi Markdown klasörüne çevir.
+
+### Docker
+
+```bash
+docker compose up -d      # panel http://127.0.0.1:8501 adresinde, açık modüller için bir zamanlayıcıyla birlikte
+```
+
+Veri `kokpit-data` volume'unda durur. Kokpit'te giriş yok; bu yüzden port yalnızca loopback'e bağlı. Telegram botu, LAN erişimi, yedek: [docs/docker.md](docs/docker.md).
 
 <details>
 <summary><b>Diğer komutlar ve ayarlar</b></summary>

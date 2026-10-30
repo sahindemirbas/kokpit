@@ -57,7 +57,7 @@ Moved out of M2:
 - Translation target setting for events (moved from M2), using the same model connection.
 - Night organiser as an opt-in module: categorise, link, conditions, enrich, sync; deterministic morning report.
 - Telegram bot as an optional module.
-- `docker compose up` path.
+- `docker compose up` path: done (M5 step 2, see docs/docker.md).
 
 ## Later
 

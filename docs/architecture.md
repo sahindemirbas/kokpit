@@ -67,7 +67,17 @@ Two settings drive most of the generalisation work:
 
 ## Scheduling
 
-The reference instance uses user crontab plus `systemd-run --user` for long one-off jobs. The target ships a single `kokpit schedule` command that installs timers for the enabled modules only, and a `kokpit run-job <name>` entry point so that any scheduler (cron, systemd, launchd, Task Scheduler) can be used.
+The reference instance uses user crontab plus `systemd-run --user` for long one-off jobs. Kokpit ships `kokpit schedule`: a foreground loop (stdlib only) that runs the jobs of the enabled modules one after another, so SQLite writers never overlap. A failing job is recorded in Health and the loop goes on; SIGTERM stops it cleanly; a lock file in the data folder stops a second copy. `bot-poll` is not scheduled: `kokpit bot poll` runs it. `kokpit run-job <name>` stays for any other scheduler (cron, systemd, launchd, Task Scheduler).
+
+Table (local time, set `TZ` to change it; intervals are counted from midnight):
+
+- weather every 30 min, calendar every 15 min (module today)
+- brain-check every 60 min (brain), ai_usage every 60 min (ai_usage)
+- events-collect and career daily at 06:30 (events, jobs)
+- instagram at 07:00 and 19:00, instagram-plan at 07:00 (instagram)
+- bot-morning at 07:30 or the `[bot]` morning time, bot-instagram-remind every 15 min (bot)
+
+A job that never ran is run once at start. The loop touches `.scheduler-heartbeat` in the data folder every 15 s; the Docker healthcheck fails if it is older than 90 s.
 
 ## Network exposure
 
