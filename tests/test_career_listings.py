@@ -206,16 +206,16 @@ class LinkedInTests(unittest.TestCase):
 
         def get(url):
             urls.append(url)
-            return _page(25, start=len(urls) * 100)
+            return _page(linkedin.PAGE_SIZE, start=len(urls) * 100)
         recs, warns = linkedin.search({"target_roles": ["Data Analyst"], "locations": ["Example City"], "remote_pref": "any"},
                                       pages=2, get=get, sleep=naps.append, delay=7)
         self.assertEqual(len(urls), 2)
         self.assertIn("f_TPR=r604800", urls[0])
         self.assertIn("keywords=Data+Analyst", urls[0])
         self.assertIn("location=Example+City", urls[0])
-        self.assertIn("start=25", urls[1])
+        self.assertIn("start=%d" % linkedin.PAGE_SIZE, urls[1])
         self.assertEqual(naps, [7])
-        self.assertEqual((len(recs), warns), (50, []))
+        self.assertEqual((len(recs), warns), (2 * linkedin.PAGE_SIZE, []))
 
     def test_429_stops_and_warns_without_losing_earlier_pages(self):
         calls = []
@@ -224,10 +224,10 @@ class LinkedInTests(unittest.TestCase):
             calls.append(url)
             if len(calls) == 2:
                 raise urllib.error.HTTPError(url, 429, "Too Many Requests", {}, None)
-            return _page(25)
+            return _page(linkedin.PAGE_SIZE)
         recs, warns = linkedin.search({"target_roles": ["A", "B"], "locations": [""]}, pages=3, get=get, sleep=lambda s: None)
         self.assertEqual(len(calls), 2)  # nothing after the 429
-        self.assertEqual(len(recs), 25)
+        self.assertEqual(len(recs), linkedin.PAGE_SIZE)
         self.assertIn("HTTP 429", warns[0])
         self.assertIn("does not bypass", warns[0])
 

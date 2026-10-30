@@ -50,7 +50,7 @@ def collect(cfg: Config, conn: sqlite3.Connection, linkedin_get=None, sleep=None
         kw = {"get": linkedin_get}
         if sleep:
             kw["sleep"] = sleep
-        got, warns = linkedin.search(prof, pages=cfg.career.get("linkedin_pages", 2), **kw)
+        got, warns = linkedin.search(prof, pages=cfg.career.get("linkedin_pages", 3), **kw)
         per_source[linkedin.SOURCE] = len(got)
         warnings.extend(warns)
         records.extend(got)

@@ -19,7 +19,7 @@ from ... import fetch
 SEARCH = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
 POSTING = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/"
 SOURCE = "linkedin"
-PAGE_SIZE = 25
+PAGE_SIZE = 10
 MAX_QUERIES = 6
 DELAY_S = 3.0
 BLOCK_CODES = (429, 999)
@@ -71,7 +71,7 @@ def _get(url: str, get):
         raise
 
 
-def search(profile: dict, pages: int = 2, get=None, sleep=time.sleep, delay: float = DELAY_S) -> tuple[list[dict], list[str]]:
+def search(profile: dict, pages: int = 3, get=None, sleep=time.sleep, delay: float = DELAY_S) -> tuple[list[dict], list[str]]:
     """-> (records, warnings). Never raises on a block: it stops and says so in the warnings."""
     get = get or fetch.get
     pairs = queries(profile)

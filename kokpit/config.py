@@ -56,7 +56,7 @@ profile_path = "data/career-profile.json"   # local profile (skills, targets); n
 adapters = []                 # adapters/jobs/<name> directories to enable (all off by default)
 adapter_dirs = []             # extra folders holding your own <name>/collect.py job adapters
 linkedin_guest = false        # OFF. Reads LinkedIn's public guest job pages; see docs/connections.md before enabling
-linkedin_pages = 2            # result pages (25 each) per search; 7-day window
+linkedin_pages = 3            # result pages (10 each) per search; 7-day window
 close_after_days = 3          # adapter listings missing this many days are marked closed (LinkedIn is never closed this way)
 
 [brain]
@@ -165,7 +165,7 @@ def load(path: str | Path) -> Config:
         "adapters": [str(x) for x in car.get("adapters", [])],
         "adapter_dirs": [str(x) for x in car.get("adapter_dirs", [])],
         "linkedin_guest": bool(car.get("linkedin_guest", False)),
-        "linkedin_pages": max(1, min(5, _int(car.get("linkedin_pages"), 2))),
+        "linkedin_pages": max(1, min(5, _int(car.get("linkedin_pages"), 3))),
         "close_after_days": max(1, min(60, _int(car.get("close_after_days"), 3))),
     }
     today = raw.get("today", {})
