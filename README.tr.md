@@ -1,120 +1,131 @@
-# Kokpit
+<p align="center">
+  <img src="docs/media/logo.png" width="120" alt="Kokpit logosu">
+</p>
 
-Kendi cihazında çalışan kişisel kokpit: her sabah baktığın şeyleri tek bir küçük web sayfasında toplar, yalnız senin bağladığın verileri okur. Sabah kısa bir Telegram mesajı, seni bekleyen bir şey olup olmadığını söyler.
+<h1 align="center">Kokpit</h1>
 
-**Durum: M2 tamamlandı (her şehir için etkinlikler).** Bu depo ürün tasarımını, modül tanımlarını, gizlilik modelini ve yol haritasını, ayrıca çalışan bir iskeleti içerir (`./run`: başlangıç vault'u üzerinde Today, Events, Brain, Health ve Connections sekmeleri; PyPI paketi henüz yok). Tasarım, 2025'ten beri bir Raspberry Pi üzerinde her gün çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Bugün ne var, ne genelleştirilecek, ne yalnız planda: [docs/status.md](docs/status.md).
+<p align="center">
+  <b>Sabahın tek sayfada.</b><br>
+  Raspberry Pi ya da herhangi küçük bir sunucuda çalışan, kendi kendine barındırılan kişisel panel. AI anahtarı gerekmez.
+</p>
 
-İngilizce sürüm: [README.md](README.md)
+<p align="center">
+  <a href="#hızlı-başlangıç">Hızlı başlangıç</a> •
+  <a href="docs/status.md">Durum</a> •
+  <a href="docs/roadmap.md">Yol haritası</a> •
+  <a href="docs/add-your-city.md">Şehrini ekle</a> •
+  <a href="README.md">English</a>
+</p>
 
-![Kokpit demo: canlı havalı Today, Events, hızlı kayıtlı Brain, Health, Connections](docs/media/demo.gif)
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/dependencies-stdlib%20only-2ea44f?style=flat-square" alt="Yalnız standart kütüphane">
+  <img src="https://img.shields.io/badge/runs%20on-Raspberry%20Pi-C51A4A?style=flat-square&logo=raspberrypi&logoColor=white" alt="Raspberry Pi üzerinde çalışır">
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT lisansı">
+</p>
 
-Kayıt ve `docs/media/` altındaki ekran görüntüleri `docs/demo-vault/` içindeki sentetik örnek vault'tan alındı (sulama zamanlayıcısı, İtalyanca dersleri; gerçek veri yok); şehir olarak Lodi, İtalya seçildi. Beş M1 sekmesi ve canlı Open-Meteo havası görünür. Yeniden üretmek için: `docs/demo-vault/` klasörünü bir yere kopyala, `python -m kokpit init --vault <kopya> --db /tmp/demo.db --city "Lodi, Italy"`, `kokpit.toml` içinde `events = true` ve `expected = ["heartbeat", "brain-check", "weather", "events-collect"]`, dört işi çalıştır, sonra `./run`.
+<p align="center">
+  <img src="docs/media/demo.gif" alt="Kokpit demo: canlı havalı Today, Events, hızlı kayıtlı Brain, Health, Connections" width="900">
+</p>
 
-## Sıradan bir gün
+Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki etkinlikler, iş ilanları, kendi betiklerinin sağlığı) kendi cihazında çalışan tek bir küçük web sayfasında toplar. Yalnız senin bağladığın verileri okur, her şeyi SQLite ve düz Markdown dosyalarında tutar.
 
-Referans kurulum bugün böyle kullanılıyor. Aşağıdaki isimler ve sayılar örnektir.
+> **Durum:** erken aşama. M1-M3 kilometre taşları tamam; aşağıdaki panel bugün `./run` ile çalışıyor. Sosyal medya, AI kullanımı, günlük gündem, Telegram botu ve Docker planlı. Tasarım, 2025'ten beri bir Raspberry Pi'de her gün çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Ayrıntı: [docs/status.md](docs/status.md). Depo, yol haritasındaki yayın öncesi kontrol listesi bitene kadar private kalıyor.
 
-- 07:30: tek satırlık Telegram mesajı gelir: "Senden beklenen 2 karar, gece 1 iş başarısız, hedeflerinle eşleşen 3 yeni ilan." Sorun yoksa mesaj bunu söyler ve orada biter.
-- Paneli açarsın. Bugün sekmesinde takvim, bu hafta dolacak görevler, başkalarının senden beklediği iki karar ve şehrinle gidip geldiğin şehrin havası vardır.
-- Beyin sekmesi her projenin nerede kaldığını "sende / bende / başkasında" diye ayırarak gösterir. Hızlı bir not yazarsın; inbox dosyasına bir satır eklenir, başka hiçbir şeye dokunulmaz.
-- Bir AI ajanından (Hermes, Claude Code, Codex, Antigravity, hangisi olursa) bir işe devam etmesini istersin. Aynı not klasörünü okur, son oturum kartını ve açık işleri görür, bitince yeni bir oturum kartı ve makbuz bırakır. Sıradaki ajan ya da sen oradan devam edersin.
-- Etkinlikler bu akşam opera binasında ücretsiz bir konseri ve cumartesi komşu kasabadaki sagrayı gösterir, her biri takvim dosyasıyla.
-- Kariyer yeni ilanları her biri için yazılı gerekçeyle gösterir ("Python, SQL; Milano; uzaktan belirtilmemiş"), çıplak yüzde asla.
-- AI kullanımı sekmesi ajanların bugün ne tükettiğini, sağlayıcı veriyorsa abonelik limitlerini gösterir; belirleyemediği fiyatı "bilinmiyor" diye işaretler.
+## Özellikler
 
-## Ne işe yarar
+**Bugün çalışan**
 
-Sabah tek sayfa açarsın ve görürsün:
+- **Today:** takvim (salt okunur ICS), açık görevler, yaklaşan tarihler, Open-Meteo'dan canlı hava.
+- **Brain:** Markdown notların projeler ve açık işler olarak; hızlı not yalnız ekleme yapar, hiçbir notu yeniden yazmaz.
+- **Events:** AllEvents ve Eventbrite'tan şehrindeki etkinlikler; yerel adaptörler ve kendi dilinde kategori kuralları.
+- **Career:** yerel profil, yazılı gerekçeyle puanlanan ilanlar ("Python, SQL; Milano; uzaktan belirtilmemiş"), ilan yaşam döngüsü, pazar görünümü, CSV dışa aktarım.
+- **Health:** her işin son başarılı çalışması. Sessizce boş dönen bir kaynak "0 kayıt" olarak görünür, "OK" olarak değil.
+- **Connections:** her veri kaynağı tek ekranda: ne okuyor, en son ne zaman çalıştı. Sen açana kadar hepsi kapalı.
 
-- **Bugün**: takvim, açık görevler, yaklaşan tarihler, senden beklenen kararlar, önem verdiğin şehirlerin havası.
-- **İkinci beyin**: kendi yerel Markdown notların (projeler, açık işler, "nerede kalmıştım"), hızlı not/görev ekleme. Notlar düz dosya kalır; Obsidian veya herhangi bir editörle açılır.
-- **Kariyer**: CV'nden çıkarılan ve senin düzelttiğin beceri/deneyim/dil profili; hedef roller, konum ve uzaktan çalışma tercihlerin; bulunan ilanlar ve yalnız yüzde değil yazılı gerekçeyle eşleştirme.
-- **Etkinlikler**: şehrinde ve çevresinde olanlar; kategori ve ücretsiz/ücretli filtresi, liste/takvim/harita görünümü, etkinlik başına takvim dosyası.
-- **Sosyal medya**: kendi hesaplarının istatistikleri, içerik karşılaştırması ve takvimi, taslaklar ve hatırlatmalar. Yayın yalnız desteklenen platformlarda ve açık onayla.
-- **AI kullanımı**: araç, model ve oturum bazında; sağlayıcı veriyorsa limit ve yenilenme zamanı; veri tazeliği. Gerçek API harcaması, abonelik bedeli ve liste fiyatı eşdeğeri ayrı tutulur.
-- **Gündem**: takip ettiğin alanlarda günlük özet, istenirse kısa sesli özet. Aktif projelerinden biriyle ilgili haberler proje adı ve gerekçesiyle etiketlenir.
-- **Sistem sağlığı**: bağlantı başına son başarılı güncelleme, başarısız işler, kopan bağlantılar. Sessizce boş dönen bir bağlantı "son güncelleme: 0 kayıt" diye görünür, sağlıklı diye değil.
-- **Telegram botu** (isteğe bağlı): sabah satırı, hatırlatmalar ve yayın ya da harcama yapan her şey için onay düğmeleri.
+**Planlanan** ([yol haritası](docs/roadmap.md))
 
-Her şey modüldür. Bağlantılar ekranından istediğini açarsın; gerisi çalışmaz.
+- Sosyal medya istatistikleri ve onaylı paylaşım
+- Araç ve model bazında AI kullanımı, sağlayıcı limitleriyle
+- Projelerine bağlanan günlük haber özeti, isteğe bağlı sesli
+- Sabah satırı ve onay düğmeleriyle Telegram botu
+- `pip install kokpit` ve `docker compose up`
 
-## Farkı ne
+## Neden Kokpit
 
-**Tek not klasörü, çok ajan.** İkinci beyin senin sahip olduğun düz bir Markdown klasörüdür. Birden fazla AI aracı aynı klasörde tek sözleşmeyle çalışabilir: salt okunur bir hook her ajana açık işleri ve son oturumu verir; oturum sonunda ajan `Last-Session.md` kartını yazar, `Threads.md` dosyasını günceller ve neyi değiştirdiğini söyleyen bir makbuz bırakır. Proje ortasında araç değiştirsen de ipi kaybetmezsin; her ajanın ne yaptığını denetleyebilirsin. Bu düzen [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) (MIT) üzerine kuruludur; biz değiştirilmiş yerel bir çatal kullanıyoruz. Sözleşmenin tamamı: [docs/brain-protocol.md](docs/brain-protocol.md).
+- **Tek not klasörü, çok AI ajanı.** Hermes, Claude Code, Codex ya da Antigravity aynı Markdown vault'unda çalışabilir. Her biri son oturumu ve açık işleri okur, bitince bir oturum kartı ve neyi değiştirdiğini söyleyen bir makbuz bırakır. Proje ortasında araç değiştirebilir, her adımı denetleyebilirsin. Bkz. [docs/brain-protocol.md](docs/brain-protocol.md).
+- **Model şart değil.** Veri toplama düz koddur ve her modülün kural tabanlı bir yolu vardır. Model; özet ve çeviri ekleyen, isteğe bağlı bir bağlantıdır.
+- **Bilinmeyen sıfır değildir.** Belirlenemeyen fiyat, kota ya da ölçüm "bilinmiyor" diye görünür, asla 0 diye değil. Özellikler çalışıyor, genelleştirilecek ya da planlanan diye etiketlenir.
+- **Senin cihazın, senin verin.** Barındırılan bir servis yok. Uygulamayı silsen de notların ve veritabanın yerinde kalır.
 
-**AI anahtarı olmadan çalışır.** Veri toplama düz koddur: zamanlanmış toplayıcılar bilinen kaynaklara gider (ilan siteleri, etkinlik sayfaları, RSS, resmi API'ler), ayrıştırır ve satır olarak kaydeder; toplamada model yoktur. Bunun üzerinde her modülün kural tabanlı bir yolu vardır: ilanlar için anahtar kelime puanı, etkinlik kategorileri için kelime kuralları, kural tabanlı kullanım tavsiyesi, şablon sabah raporu. Model; özet, çeviri ve daha zengin eşleştirme ekleyen isteğe bağlı bir bağlantıdır, modülün çalışması için şart değildir. Bu kural yolunun bugün hâlâ eksik olduğu yerler [docs/status.md](docs/status.md) içinde işaretlidir.
+## Hızlı başlangıç
 
-**Bilmediğini söyler.** Belirlenemeyen fiyat, verilmeyen kota ve başarısız ölçüm "bilinmiyor" olarak görünür. Boş sonuç gizlenmez. Özellikler çalışıyor / genelleştirilecek / planlanan diye etiketlenir.
+Python 3.11 ve üstü. Başka kurulum yok.
 
-**Arkada bir şey kalmaz.** Veri cihazındaki SQLite ve Markdown dosyalarındadır. Uygulamayı silsen de notların, dışa aktarımların ve veritabanın elinde kalır.
+```bash
+git clone https://github.com/sahindemirbas/kokpit
+cd kokpit
+./run        # kokpit.toml ve başlangıç vault'unu oluşturur, http://127.0.0.1:8501
+```
 
-## İlkeler
+Şehrini ayarla ve Kokpit'i kendi notlarına yönelt:
 
-1. **Senin cihazın, senin verin.** Kokpit yerelde çalışır (Raspberry Pi, ev sunucusu, dizüstü). Bize ait bir barındırılan servis yok.
-2. **Her bağlantı görünür.** Açık her bağlantı için hangi veri okunuyor, hangi izin verildi, en son ne zaman başarılı oldu görünür.
-3. **Analiz ve yayın ayrı izindir.** Instagram istatistiklerini okumak paylaşım hakkı vermez.
-4. **Sessiz AI çağrısı yok.** Bir modül dış modele veri gönderecekse veri ve hedef önce belirtilir ve onay alınır. CV eşleştirmesi için ad, telefon, e-posta gerekmez.
-5. **Bilinmeyen sıfır değildir.** Belirlenemeyen fiyat, sağlayıcının vermediği kota, başarısız ölçüm "bilinmiyor" olarak gösterilir, 0 olarak değil.
-6. **Dürüst etiket.** Özellikler çalışıyor / genelleştirilecek / planlanan diye işaretlenir. Olmayan bir komut varmış gibi yazılmaz.
-7. **Model şart değil.** Her modülün model olmadan çalışan kural tabanlı bir temel yolu vardır; model o modülü iyileştiren, diğer bağlantılar gibi listelenen ve onaylanan isteğe bağlı bir bağlantıdır. Hangi temel yolların bugün var olduğu [docs/status.md](docs/status.md) içinde izlenir.
+```bash
+python -m kokpit place "Bergamo"            # Open-Meteo geocoder'dan adayları listeler
+python -m kokpit place "Bergamo" --pick 1 --write
+```
 
-## Ne gerekir, kimin için değil
+Sonra `kokpit.toml` içindeki `vault_path` değerini kendi Markdown klasörüne çevir.
 
-İlk sürüm çıktığında hedeflenen gereksinimler:
+<details>
+<summary><b>Diğer komutlar ve ayarlar</b></summary>
 
-- Sürekli açık bir cihaz (Raspberry Pi, ev sunucusu, eski dizüstü) ve Python 3.
-- Bir Markdown not klasörü ya da uygulamayla gelen boş başlangıç yapısı.
-- İsteğe bağlı: sabah satırı için Telegram bot token'ı; Instagram istatistikleri için Meta geliştirici uygulaması; özet ve çeviri için model API anahtarı.
-- Bir yapılandırma dosyasını düzenlemeye gönüllü olmak; ilk sürüm buna alışık kişiler içindir.
+<br>
 
-Barındırılan servis, telefon uygulaması, cihazlar arası bulut eşitleme ya da ekip çalışma alanı istiyorsan bunun için değil. Herkes kendi kurulumunu çalıştırır; bunlar ilk sürümün kapsamı dışındadır.
+| Komut | Ne yapar |
+|---|---|
+| `python -m kokpit jobs` | zamanlanmış işleri listeler |
+| `python -m kokpit run-job <ad>` | bir işi hemen çalıştırır (`weather`, `events-collect`, `calendar`, ...) |
+| `python -m kokpit adapters` | yerel etkinlik adaptörlerini ve açık olup olmadıklarını listeler |
+| `python -m kokpit career` | kariyer profili ve puanlama |
+| `python -m kokpit context` | bir ajan hook'una verilecek beyin bağlamını yazdırır |
+| `python -m unittest discover -s tests` | testleri çalıştırır |
+
+- **Takvim:** `calendar_ics_urls` (ya da `KOKPIT_CALENDAR_ICS_URLS`) içine bir veya daha fazla ICS adresi ekle. ICS adresini parola gibi sakla.
+- **Etkinlikler:** `kokpit.toml` içinde `events = true` yap. Etkinlik sayfası slug'ları ancak sitede kontrol ettikten sonra `--confirm-slug` ile yazılır.
+- **Demo verisi:** GIF, [docs/demo-vault/](docs/demo-vault/) içindeki sentetik vault ve Lodi, İtalya şehriyle çekildi:
+  `python -m kokpit init --vault <kopya> --db /tmp/demo.db --city "Lodi, Italy"`.
+
+</details>
 
 ## Şehrini ekle
 
-Genel kaynaklar (AllEvents, Eventbrite, Open-Meteo) şehir adını girince her şehirde çalışır. Tiyatro, belediye, turizm ofisi gibi yerel kaynakların şehir parametresi yoktur; bunlar belgeli bir JSON sözleşmesiyle `adapters/events/<şehir>/` altında küçük adaptörler olarak yaşar. Birini kopyalayıp kendi kasabanın gündemine yöneltmek katkının amaçlanan yoludur; adım adım anlatım [docs/add-your-city.md](docs/add-your-city.md) içinde (İngilizce), kayıt sözleşmesi [adapters/README.md](adapters/README.md) içinde. Aynı sözleşme `adapters/jobs/` altındaki ilan kaynakları için de geçerlidir.
+Genel kaynaklar şehir adını yazınca her şehirde çalışır. Tiyatro, belediye, turizm ofisi gibi yerel kaynaklar `adapters/events/<şehir>/` altında küçük adaptörlerdir. Şablonu kopyalayıp kendi şehrine yöneltmek katkı vermenin en kolay yolu. Etkinlik kategorileri JSON anahtar kelime paketiyle kendi dilinde eşleşebilir.
 
-### Yerel etkinlik adaptörleri
+Rehberler (İngilizce): [add-your-city.md](docs/add-your-city.md) · [adaptör sözleşmesi](adapters/README.md) · [category-packs.md](docs/category-packs.md)
 
-Adaptör, `collect(settings) -> list[dict]` sunan bir `collect.py` içeren klasördür (kayıt alanları [adapters/README.md](adapters/README.md) içinde). Hepsi varsayılan kapalıdır; yalnız listelenenler yüklenir. Bozuk bir adaptör Health'te `events-collect` çalışmasına uyarı olarak düşer, diğer kaynakları durdurmaz.
+## Dokümanlar
 
-```toml
-[events]
-adapters = ["example-city"]                 # etkinleştirilecek klasör adları
-adapter_dirs = ["~/kokpit-adapters/events"] # isteğe bağlı: kendi adaptör klasörlerin
-```
+Dokümanlar İngilizce yazılmıştır.
 
-`python -m kokpit adapters` bulunanları ve açık/kapalı durumunu listeler. Depoda ağ kullanmayan tek bir şablon var: [adapters/events/example-city/](adapters/events/example-city/); gerçek şehir adaptörleri ayrı bir adım.
+| | |
+|---|---|
+| [Architecture](docs/architecture.md) | çalışma yapısı, veri akışı, depolama |
+| [Modules](docs/modules.md) | her modül: amaç, girdiler, durum |
+| [Brain protocol](docs/brain-protocol.md) | birden fazla AI ajanının paylaştığı tek vault |
+| [Connections](docs/connections.md) | izinler ve gizli bilgilerin korunması |
+| [Privacy](docs/privacy.md) | cihazından asla çıkmayanlar |
+| [Status](docs/status.md) · [Roadmap](docs/roadmap.md) | ne var, sırada ne var |
+| [Hermes entegrasyonu](integrations/hermes/README.md) | isteğe bağlı, şart değil |
 
-### Kategori dili
+## Kimin için
 
-Etkinlik kategorilerinin kimlikleri ve etiketleri İngilizcedir (food, concert, opera, theatre, ...). Onları seçen anahtar kelimeler dil paketlerinden gelir; varsayılan `en` açıktır, `it` Kokpit ile gelir ama kapalıdır.
+Sürekli açık bir cihazı olan ve bir yapılandırma dosyasını düzenlemekten çekinmeyenler için. Barındırılan servis, telefon uygulaması ya da ekip çalışma alanı değil; herkes kendi kurulumunu çalıştırır.
 
-```toml
-[events]
-category_languages = ["it", "en"]        # bu sırayla birleşir; varsayılan ["en"]
-category_pack_dirs = ["~/kokpit-packs"]  # isteğe bağlı: kendi <kod>.json paketlerin; aynı kod yerleşik paketin yerine geçer
-```
+## Lisans ve teşekkür
 
-Kendi dilini eklemek için `kokpit/modules/events/category_packs/en.json` dosyasını kopyala, anahtar kelimeleri çevir, klasörü ve kodu yukarıdaki gibi yaz. Format ve kurallar: [docs/category-packs.md](docs/category-packs.md) (İngilizce). Bozuk paket uyarı verir, hiçbir zaman çökertmez.
+MIT, bkz. [LICENSE](LICENSE). Paket yalnız Python standart kütüphanesini kullanır.
 
-## Depo yapısı
+İkinci beyin düzeni [Avenox Beyin](https://github.com/avenoxai/avenoxbeyin) (MIT, © Avenox) üzerine kurulu; burada değiştirilmiş yerel bir çatal olarak çalışıyor. Depoya Beyin kodu kopyalanmadı; ayrıntı [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) ve [docs/brain-protocol.md](docs/brain-protocol.md) §0 içinde.
 
-README.md içindeki tablo ile aynıdır; dokümanlar İngilizce yazılmıştır.
-
-## Dene (M1 iskelet)
-
-Python 3.11 ve üstü yeterli, başka kurulum yok:
-
-```
-git clone https://github.com/sahindemirbas/kokpit
-cd kokpit
-./run                     # kokpit.toml + data/ altında başlangıç vault'u yazar, http://127.0.0.1:8501
-```
-
-Bugün çalışan: Today, Events, Brain, Health ve Connections sekmeleri; `weather` işinin doldurduğu hava kartı (Open-Meteo); `kokpit.toml` içinde `events` açılınca `events-collect` işinin doldurduğu şehir etkinlikleri (AllEvents, Eventbrite); işlerin (`heartbeat`, `brain-check`, `weather`, `events-collect`, `calendar`) doldurduğu sağlık tablosu. Today'deki takvim kartı `calendar_ics_urls` (ya da boşlukla ayrılmış `KOKPIT_CALENDAR_ICS_URLS` ortam değişkeni) ile bir veya daha fazla ICS adresine salt okunur bağlanır; `calendar` işi bugünü ve sonraki 6 günü önbelleğe alır. ICS adresini bir parola gibi sakla: yalnız yerel `kokpit.toml` dosyanda ya da ortam değişkeninde dursun. `kokpit.toml` içindeki `vault_path` değerini kendi Markdown klasörüne çevirince kendi thread ve görevlerin görünür; hızlı not `inbox/` veya `To-Do.md` dosyasına ekler, hiçbir notu yeniden yazmaz. Şehrini ayarlamak için: `python -m kokpit place "Bergamo"` adayları listeler (Open-Meteo geocoder, anahtarsız), `--pick 1` ülkeye göre bilinen etkinlik kaynaklarıyla `[place]` ve `[events]` bloğunu yazdırır, `--write` `kokpit.toml` dosyasını günceller (`.bak` yedeği kalır); şehir adından türetilen AllEvents/Eventbrite slug'ları ancak sitede açıp kontrol ettikten sonra `--confirm-slug` ile yazılır. Diğer komutlar: `python -m kokpit jobs`, `python -m kokpit run-job <ad>`. Testler: `python -m unittest discover -s tests`.
-
-Kariyer, sosyal, AI kullanımı, gündem ve bot iskelette henüz yok (`docs/roadmap.md`). `pip install kokpit` ve Docker planlı, mevcut değil.
-
-## Lisans
-
-MIT, bkz. [LICENSE](LICENSE). Paket yalnız Python standart kütüphanesine dayanır. İkinci beyin düzeni Avenox Beyin'den gelir (MIT, telif Avenox); bugün depoda Beyin'den kopyalanmış kod yok, ileride türetilen her dosya özgün bildirimi taşır. Ayrıntı: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Depo hâlâ private; lisans seçimi bunu değiştirmez.
+[Sahin Demirbas](https://github.com/sahindemirbas) tarafından, İtalya'da yaşayan bir veri profesyonelinin önce kendi sabahları için yapıldı.
