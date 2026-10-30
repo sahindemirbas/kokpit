@@ -1,0 +1,11 @@
+{
+  "kokpit-brain": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "{{KOKPIT}} --config {{CONFIG}} brain hook --harness antigravity --event SessionStart",
+        "timeout": 5
+      }
+    ]
+  }
+}

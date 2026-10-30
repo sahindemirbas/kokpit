@@ -8,9 +8,10 @@ possible. Any tool that follows the file conventions below takes part; no
 agent is required.
 
 Status: the conventions are in daily use in the reference instance. The
-read-only context hook is in this repository (`kokpit context`, Hermes plugin
-under `integrations/hermes/kokpit-brain/`); the night organiser is **planned**
-(see `docs/roadmap.md`).
+read-only context hook is in this repository (`kokpit brain hook` for Claude
+Code, Codex, Antigravity and any tool that runs a command, `kokpit context`
+for plain text, the Hermes plugin under `integrations/hermes/kokpit-brain/`);
+the night organiser is **planned** (see `docs/roadmap.md`).
 
 ## 0. Origin and credit
 
@@ -24,7 +25,7 @@ additions, not part of upstream.
 
 What this means for the repository: this document is our own text and
 describes a contract, not Avenox's code. If a hook script or any other code
-derived from Beyin is ever packaged here (none is today: `kokpit context` is our own implementation of the contract), it ships with the
+derived from Beyin is ever packaged here (none is today: `kokpit context`, `kokpit brain hook` and the agent templates are our own implementation of the contract), it ships with the
 original MIT copyright and licence text, and the derived files say so in their
 header. Kokpit's own licence is MIT (`LICENSE`), which is compatible with
 that obligation; see `THIRD_PARTY_NOTICES.md`.
@@ -63,8 +64,57 @@ Markdown. Nothing proprietary.
 Runs as a separate process on every agent message, so a change does not need
 an agent restart. It injects a compact context block (open threads, last
 session, matching notes) and a short reminder when a meaningful piece of work
-appears finished. It writes nothing. The same script serves every agent; each
-tool just points its hook mechanism at it.
+appears finished. It writes nothing. The same command serves every agent; each
+tool just points its hook mechanism at it:
+
+```
+kokpit [--config PATH] brain hook --harness claude|codex|antigravity|generic \
+    [--event NAME] [--mode turn|session] [--max-chars N]
+```
+
+- Input: the hook JSON on stdin (at most 1 MB, UTF-8, a BOM is accepted).
+  Only `hook_event_name` and `prompt` are read; nothing else in the payload is
+  used or logged. `--event` names the event when the payload has none.
+- Events: `SessionStart` and `UserPromptSubmit` produce context; every other
+  event (`PostToolUse`, `Stop`, `SessionEnd`, `PreCompact`, unknown names)
+  prints nothing. An empty prompt prints nothing. `--mode session` limits it
+  to `SessionStart`; the default `turn` adds context on every prompt, like the
+  Hermes plugin.
+- Output envelope: `claude` and `codex` get one line of JSON,
+  `{"hookSpecificOutput": {"hookEventName": ..., "additionalContext": ...}}`;
+  `antigravity` gets `{"injectSteps": [{"ephemeralMessage": ...}]}`;
+  `generic` gets the plain block for tools that take stdout as context.
+- Vault: `KOKPIT_VAULT` if set (no config needed), else `--config`,
+  `KOKPIT_CONFIG` or the default config locations. `KOKPIT_CONTEXT_MAX_CHARS`
+  applies when `--max-chars` is not given (same name as the Hermes plugin).
+- Never breaks the agent: no vault, no config, bad JSON or any error gives
+  empty stdout, one `kokpit hook: <reason>` line on stderr and exit code 0. It
+  imports only the config and brain modules, so a call takes about a tenth of
+  a second, well inside a 5 second hook timeout. No model, no network.
+
+### Connecting an agent
+
+`kokpit brain agents init [--target DIR] [--harness claude,codex,antigravity]
+[--dry-run]` copies the templates below into the vault (or `--target`, for
+example a project root), with the absolute Kokpit command and config path
+filled in. An existing file is never overwritten: it is listed under
+`skipped`, and for a settings file the filled snippet is printed so you can
+merge it into your own file by hand. Output is JSON: `written`, `skipped`,
+`snippets`. `kokpit init` does not run it; it is a separate, explicit step.
+
+| Tool | Files | Notes |
+|---|---|---|
+| Any agent | `AGENTS.md` | The agent-facing version of this section: what to load, update never rewrite, the session-close steps, receipts, compact. |
+| Claude Code | `CLAUDE.md`, `.claude/settings.json` | `CLAUDE.md` is one line, `@AGENTS.md` (Claude Code's import syntax). Hooks on `SessionStart` and `UserPromptSubmit`. |
+| Codex | `.codex/hooks.json`, `.codex/config.toml` | Same two events. Codex runs hooks only with `[features] hooks = true` in its config. |
+| Antigravity | `.agents/hooks.json` | One `PreInvocation` hook, run with `--event SessionStart`, so every invocation gets the block. Verified against the reference instance's config file shape, not against Antigravity documentation. |
+| Hermes | `integrations/hermes/kokpit-brain/` | The existing plugin (`pre_llm_call`); unchanged. |
+| Any other tool | your tool's hook setting | `kokpit brain hook --harness generic --event UserPromptSubmit`, prompt as JSON on stdin; prints plain text. |
+
+Check a setup by hand: `echo '{"hook_event_name":"SessionStart"}' | kokpit
+brain hook --harness claude` should print one line of JSON. The templates use
+POSIX shell quoting; on Windows the command path has to be adapted by hand
+(not tested).
 
 ### Session close (working agent)
 

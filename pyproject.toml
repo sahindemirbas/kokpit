@@ -20,4 +20,4 @@ kokpit = "kokpit.__main__:main"
 include = ["kokpit*"]
 
 [tool.setuptools.package-data]
-kokpit = ["static/*", "modules/*/schema.sql", "modules/events/category_packs/*.json", "modules/brain/starter/**/*", "modules/brain/starter/**/.keep"]
+kokpit = ["static/*", "modules/*/schema.sql", "modules/events/category_packs/*.json", "modules/brain/starter/**/*", "modules/brain/starter/**/.keep", "modules/brain/agents/*"]

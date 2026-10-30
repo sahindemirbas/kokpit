@@ -57,8 +57,10 @@ vault cannot be found the hook returns nothing and Hermes runs as usual.
 
 Hermes is one of several agents that follow `docs/brain-protocol.md`. The
 Hermes-specific part is only the thin `kokpit-brain/__init__.py` adapter; the
-block itself comes from `kokpit context`, so Claude Code, Codex or any tool
-with a per-message hook can run the same command. Only the planned `state.db`
+block itself comes from the same `build_context` that `kokpit brain hook`
+uses, so Claude Code, Codex, Antigravity or any tool with a per-message hook
+gets the same block (see `integrations/agents/README.md`; the plugin itself is
+unchanged). Only the planned `state.db`
 usage reader and the Kokpit skill are Hermes-only.
 
 ## Boundaries

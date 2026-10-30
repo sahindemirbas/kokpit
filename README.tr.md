@@ -56,7 +56,7 @@ Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki
 
 ## Neden Kokpit
 
-- **Tek not klasörü, çok AI ajanı.** Hermes, Claude Code, Codex ya da Antigravity aynı Markdown vault'unda çalışabilir. Her biri son oturumu ve açık işleri okur, bitince bir oturum kartı ve neyi değiştirdiğini söyleyen bir makbuz bırakır. Proje ortasında araç değiştirebilir, her adımı denetleyebilirsin. Bkz. [docs/brain-protocol.md](docs/brain-protocol.md).
+- **Tek not klasörü, çok AI ajanı.** Hermes, Claude Code, Codex ya da Antigravity aynı Markdown vault'unda çalışabilir. Her biri son oturumu ve açık işleri okur, bitince bir oturum kartı ve neyi değiştirdiğini söyleyen bir makbuz bırakır. Proje ortasında araç değiştirebilir, her adımı denetleyebilirsin. `kokpit brain agents init` Claude Code, Codex ve Antigravity kurulumunu tek adımda yapar. Bkz. [docs/brain-protocol.md](docs/brain-protocol.md).
 - **Model şart değil.** Veri toplama düz koddur ve her modülün kural tabanlı bir yolu vardır. Model; özet ve çeviri ekleyen, isteğe bağlı bir bağlantıdır (etkinlik çevirisi hazır: `[model]` + `[events] translate_to`, anahtar ortam değişkeninde). İstersen çağrıları makinedeki Hermes ajanı ve ona bağlı hesaplar üzerinden yaparsın, API anahtarı gerekmez (`[model] provider = "hermes"`).
 - **Bilinmeyen sıfır değildir.** Belirlenemeyen fiyat, kota ya da ölçüm "bilinmiyor" diye görünür, asla 0 diye değil. Özellikler çalışıyor, genelleştirilecek ya da planlanan diye etiketlenir.
 - **Senin cihazın, senin verin.** Barındırılan bir servis yok. Uygulamayı silsen de notların ve veritabanın yerinde kalır.

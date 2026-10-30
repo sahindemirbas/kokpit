@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{KOKPIT}} --config {{CONFIG}} brain hook --harness codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{KOKPIT}} --config {{CONFIG}} brain hook --harness codex",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

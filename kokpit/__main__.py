@@ -5,8 +5,11 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, config as cfgmod, jobs
+from . import __version__, config as cfgmod
 from .modules.brain import api as brain_api
+
+# `jobs` imports every module, so it is loaded on first use: `kokpit brain hook`
+# runs on every agent message under a short timeout and must stay light.
 
 
 def cmd_init(args) -> int:
@@ -50,6 +53,7 @@ def _load(args) -> cfgmod.Config:
 
 
 def cmd_run(args) -> int:
+    from . import jobs
     cfg = _load(args)
     if not cfg.vault.exists():
         brain_api.init_vault(cfg.vault)
@@ -62,6 +66,7 @@ def cmd_run(args) -> int:
 
 
 def cmd_run_job(args) -> int:
+    from . import jobs
     cfg = _load(args)
     return 0 if jobs.run(cfg, args.name) else 1
 
@@ -85,6 +90,12 @@ def cmd_context(args) -> int:
 def cmd_brain(args) -> int:
     """brain receipt | receipts | compact [--dry-run]. Receipts and compact write only inside the vault."""
     import json
+    if args.brain_cmd == "hook":  # no _load: the hook finds the vault itself and never fails loudly
+        from .modules.brain import hook
+        return hook.main(sys.stdin, sys.stdout, sys.stderr, args.harness, args.event, args.mode,
+                         args.max_chars, args.config)
+    if args.brain_cmd == "agents":
+        return cmd_brain_agents(args)
     from .modules.brain import compact, receipt
     cfg = _load(args)
     if args.brain_cmd == "context":
@@ -115,6 +126,27 @@ def cmd_brain(args) -> int:
         return 2
     print(json.dumps(res, indent=2, ensure_ascii=False))
     return 3 if res["status"] == "conflict" else 0
+
+
+def cmd_brain_agents(args) -> int:
+    """brain agents init: copy AGENTS.md, CLAUDE.md and hook settings; existing files are never overwritten."""
+    import json
+    from .modules.brain import agent_setup
+    path = cfgmod.find_config(args.config)
+    if path is None or not path.exists():
+        print("no kokpit.toml found. Run `kokpit init` first; the hook commands need its path.", file=sys.stderr)
+        return 2
+    try:
+        harnesses = agent_setup.parse_harnesses(args.harness)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    target = Path(args.target) if args.target else cfgmod.load(path).vault
+    report = agent_setup.init_agents(target, path, harnesses, dry_run=args.dry_run)
+    print(json.dumps(report, indent=2, ensure_ascii=False))
+    for rel, text in report["snippets"].items():
+        print(f"\n{rel} already exists; merge this snippet by hand:\n{text}", file=sys.stderr)
+    return 0
 
 
 def cmd_place(args) -> int:
@@ -161,6 +193,7 @@ def cmd_place(args) -> int:
 
 
 def cmd_jobs(args) -> int:
+    from . import jobs
     for name, fn in sorted(jobs.REGISTRY.items()):
         print(f"{name:14s} {(fn.__doc__ or '').strip().splitlines()[0]}")
     return 0
@@ -284,6 +317,7 @@ def cmd_ai_usage(args) -> int:
 
 def cmd_instagram(args) -> int:
     """instagram collect | summary | refresh-token. None of them prints the token or media details."""
+    from . import jobs
     from .modules.instagram import api as ig_api, token as ig_token
     from .modules.instagram.client import ApiError
     cfg = _load(args)
@@ -303,6 +337,7 @@ def cmd_instagram(args) -> int:
 
 def cmd_bot(args) -> int:
     """bot poll [--once] | send-test. Neither prints the token, the chat id or message text."""
+    from . import jobs
     from .modules.bot import runner
     from .modules.bot.client import BotApiError
     cfg = _load(args)
@@ -364,6 +399,17 @@ def main(argv=None) -> int:
     q = bsub.add_parser("context", help="same as `kokpit context`")
     q.add_argument("message", nargs="*")
     q.add_argument("--max-chars", type=int, default=3500)
+    q = bsub.add_parser("hook", help="agent hook: read the hook JSON on stdin, print the context in the agent's envelope (read-only, always exit 0)")
+    q.add_argument("--harness", default="generic", help="claude, codex, antigravity or generic (plain text)")
+    q.add_argument("--event", help="event name when the payload has no hook_event_name (SessionStart, UserPromptSubmit)")
+    q.add_argument("--mode", default="turn", help="turn: every prompt (default); session: only at SessionStart")
+    q.add_argument("--max-chars", type=int, default=None, help="cap the block (default KOKPIT_CONTEXT_MAX_CHARS or 3500)")
+    q = bsub.add_parser("agents", help="set up agent files (AGENTS.md, CLAUDE.md, hook settings)")
+    asub = q.add_subparsers(dest="agents_cmd", required=True)
+    r = asub.add_parser("init", help="copy the agent templates; existing files are never overwritten")
+    r.add_argument("--target", help="folder to write into (default: the vault)")
+    r.add_argument("--harness", help="comma list of claude,codex,antigravity (default: all)")
+    r.add_argument("--dry-run", action="store_true", help="report only, write nothing")
     p.set_defaults(fn=cmd_brain)
     p = sub.add_parser("place", help="find your city (Open-Meteo geocoder), show event sources, set [place]")
     p.add_argument("query", help='city name, e.g. "Bergamo"')

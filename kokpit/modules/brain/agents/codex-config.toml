@@ -1,0 +1,3 @@
+# Codex runs the hooks in .codex/hooks.json only with this flag.
+[features]
+hooks = true
