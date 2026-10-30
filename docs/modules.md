@@ -55,10 +55,12 @@ Reads a folder of Markdown files. Ships an empty starter structure, never the au
 
 ## AI usage
 
-- Reads local usage data from tools that store it (reference: the Hermes agent's `state.db`, Claude Code and Codex local logs). Shows usage per tool, model, session; provider limits and reset time when exposed; data freshness.
-- Three numbers kept apart: real API spend (from provider billing), subscription fee, and list-price equivalent of subscription usage. Unknown price is shown as unknown.
-- Advice: rule-based, no model call. Examples: long sessions, background jobs that ran during limits, model choice vs task size. Each advice shows its evidence and is labelled as an estimate; settings are never changed automatically.
-- Status: Hermes reader **working**; other readers and the limits panel **generalise**; advice engine partly **working**, generic rule set **planned**.
+- Reads local usage data from tools that store it: the Hermes agent's `state.db`, Claude Code project logs and Codex session logs. Each reader is a separate switch (`[ai_usage] readers`), all off by default; the module itself is off until `ai_usage = true` under `[modules]`. Shows usage per tool, model and session, and data freshness per reader (newest row, file modification time).
+- Three numbers kept apart: real API spend (entered by you, otherwise "not configured"), subscription fee (entered per tool, monthly), and the list-price equivalent of usage, always labelled "estimate, not a bill". Prices come from your local prices file; an optional, opt-in refresh reads the public models.dev price list. A model without a price is shown as unknown and left out of cost figures, never counted as zero.
+- Limits panel: you enter limit windows per tool (hours, token cap, optional reset time); it shows used/limit and the next reset. Without entries it says "not configured". Provider websites are not scraped, so the figure is a rolling approximation from local logs, not the provider's own counter.
+- Advice: rule-based, no model call, nothing is changed automatically. Rules: very long sessions, cache writes that are large against cache reads, background (cron) sessions on premium models, models without a price, and a reader without recent data. Each item shows its evidence (numbers and short session hashes) and is labelled; gains are never added together.
+- Session ids are stored only as a short sha256 hash. Source files are opened read-only.
+- Status: all three readers, pricing, the three numbers, limits and the five advice rules are **working** and covered by synthetic tests. Not done: provider billing import, weekly message caps counted per message (only token windows), advice on model choice against task size.
 
 ## Agenda (digest)
 

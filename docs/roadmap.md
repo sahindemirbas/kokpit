@@ -46,8 +46,8 @@ Moved out of M2:
 
 ## M4: social and AI usage
 
-- Instagram connection flow with separate analyse/publish switches; content calendar; approval through the bot.
-- AI usage readers (Hermes, Claude Code, Codex) and the limits panel; advice rules with evidence.
+- Instagram connection flow with separate analyse/publish switches; content calendar; approval through the bot. (open)
+- AI usage readers (Hermes, Claude Code, Codex) and the limits panel; advice rules with evidence. (done)
 
 ## M5: agenda, bot, Docker
 

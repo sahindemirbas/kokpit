@@ -35,6 +35,16 @@ The Connections screen is where a user enables modules and links accounts. It is
 - It can break or be blocked at any time. On the first HTTP 429 Kokpit stops, records a warning in Health and keeps what it already fetched. Kokpit makes no promise to bypass blocks and does not try.
 - Nothing is sent to LinkedIn except the search words and places from your profile.
 
+## AI usage: local files (off by default)
+
+`[modules] ai_usage = true` plus `[ai_usage] readers = [...]` lets the `ai_usage` job read, read-only, these local files. Each reader is a separate switch:
+
+- `hermes`: the SQLite file `state.db` of the Hermes agent (opened with `mode=ro`); tables `sessions` and `session_model_usage`.
+- `claude_code`: `*.jsonl` logs under the Claude Code projects folder; only the model name, token counters, time and session id of assistant messages.
+- `codex`: `*.jsonl` logs under the Codex sessions folder; only the model, the cumulative `token_count` totals, time and session id.
+
+Message text, prompts, file contents and project names are never read into Kokpit's database. Session ids are stored as a 12 character sha256 prefix. Nothing leaves the device. The only network request is the opt-in `[ai_usage] price_refresh = true`: one GET of `https://models.dev/api.json` at most every 24 hours, with no user data sent. A missing or unreadable file becomes a Health warning and the other readers still run.
+
 ## Secrets
 
 - Stored in a local `.env` (or the OS keyring where available). Never in `kokpit.db`, never in the Markdown vault, never in logs.
