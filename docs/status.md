@@ -14,7 +14,7 @@ Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQ
 - AI usage: Hermes `state.db` reader, per-model/session view, rule-based advice.
 - Agenda: daily digest with scored items and audio summary.
 - System health: per-job status, morning warnings.
-- Telegram bot: morning line, commands, approval buttons.
+- Telegram bot: morning line, commands, approval buttons. In this repository (M5 step 1a): bot core with one allowed chat, `/help /today /health /plan`, morning line job, poll runner and callback registry, synthetic tests only; approval buttons come in step 1b.
 
 ## Rule-based baseline per module (no model key)
 

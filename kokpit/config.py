@@ -16,6 +16,7 @@ directory that holds the config file, so a repository checkout is self-contained
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +33,7 @@ events = {events}
 jobs = false                  # career: profile, scoring, listings (off until you set it up)
 ai_usage = false              # reads local usage logs of AI tools (off until you set it up)
 instagram = false             # Instagram analysis through the official API (off until you add a token)
+bot = false                   # Telegram bot: commands and a morning message (off until you add a token and chat id)
 
 [today]
 calendar_ics_urls = []        # read-only ICS feeds (e.g. Google's secret iCal address). SECRET: keep this file
@@ -85,6 +87,12 @@ plan_guard_days = 3            # Health warning when nothing is planned for the 
 poll_seconds = 3               # publishing: wait between container status checks
 poll_timeout = 120             # publishing: give up waiting for a container after this many seconds
 
+[bot]
+# token = ""                  # or set KOKPIT_TELEGRAM_TOKEN in the environment (preferred over writing it here)
+chat_id = ""                  # the one chat the bot answers; every other chat is ignored
+morning_time = "07:30"        # used by `kokpit bot poll` to send the morning line once a day; cron can use the bot-morning job instead
+poll_timeout = 25             # long poll seconds for `kokpit bot poll` (1 to 50)
+
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
 quick_capture = true          # allow appending a note or task from the dashboard
@@ -114,6 +122,7 @@ class Config:
     career: dict = field(default_factory=dict)     # profile_path
     ai_usage: dict = field(default_factory=dict)   # readers, paths, prices, limits, advice thresholds
     instagram: dict = field(default_factory=lambda: _instagram({}), repr=False)  # switches, token_file, media_limit; token is secret
+    bot: dict = field(default_factory=lambda: _bot({}), repr=False)  # token and chat_id are secret-like
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
     @property
@@ -200,6 +209,8 @@ def load(path: str | Path) -> Config:
     cfg.ai_usage = _ai_usage(raw.get("ai_usage", {}))
     cfg.modules.setdefault("instagram", False)
     cfg.instagram = _instagram(raw.get("instagram", {}))
+    cfg.modules.setdefault("bot", False)
+    cfg.bot = _bot(raw.get("bot", {}))
     today = raw.get("today", {})
     env_urls = os.environ.get("KOKPIT_CALENDAR_ICS_URLS", "").split()
     urls = env_urls or today.get("calendar_ics_urls", [])
@@ -259,6 +270,17 @@ def _instagram(a: dict) -> dict:
         "plan_guard_days": max(0, min(60, _int(a.get("plan_guard_days"), 3))),
         "poll_seconds": max(1, min(30, _int(a.get("poll_seconds"), 3))),
         "poll_timeout": max(5, min(600, _int(a.get("poll_timeout"), 120))),
+    }
+
+
+def _bot(a: dict) -> dict:
+    mt = str(a.get("morning_time", "07:30")).strip()
+    m = re.fullmatch(r"([01]?\d|2[0-3]):([0-5]\d)", mt)
+    return {
+        "token": str(a.get("token", "")).strip(),
+        "chat_id": str(a.get("chat_id", "")).strip(),
+        "morning_time": f"{int(m.group(1)):02d}:{m.group(2)}" if m else "07:30",
+        "poll_timeout": max(1, min(50, _int(a.get("poll_timeout"), 25))),
     }
 
 

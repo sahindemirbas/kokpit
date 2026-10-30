@@ -1,4 +1,4 @@
-"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters | career | ai-usage summary | instagram collect|summary|refresh-token"""
+"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters | career | ai-usage summary | instagram collect|summary|refresh-token | bot poll [--once] | bot send-test"""
 from __future__ import annotations
 
 import argparse
@@ -261,6 +261,31 @@ def cmd_instagram(args) -> int:
     return 0
 
 
+def cmd_bot(args) -> int:
+    """bot poll [--once] | send-test. Neither prints the token, the chat id or message text."""
+    from .modules.bot import runner
+    from .modules.bot.client import BotApiError
+    cfg = _load(args)
+    if args.bot_cmd == "poll" and args.once:
+        return 0 if jobs.run(cfg, "bot-poll") else 1
+    try:
+        if args.bot_cmd == "send-test":
+            runner.send_test(cfg)
+            print("test message sent")
+            return 0
+        print("polling; press Ctrl-C to stop")
+        runner.loop(cfg)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except BotApiError as exc:
+        print(f"error: Telegram call failed ({exc.kind}): {exc}", file=sys.stderr)
+        return 3
+    except KeyboardInterrupt:
+        print("stopped")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="kokpit", description=f"Kokpit {__version__}")
     ap.add_argument("--config", help="path to kokpit.toml (default: ./kokpit.toml, then ~/.config/kokpit/)")
@@ -323,6 +348,12 @@ def main(argv=None) -> int:
     isub.add_parser("summary", help="aggregates from the local tables: followers, 30-day totals, errors")
     isub.add_parser("refresh-token", help="exchange the long-lived token for a fresh one (explicit only); prints the expiry date, never the token")
     p.set_defaults(fn=cmd_instagram)
+    p = sub.add_parser("bot", help="Telegram bot (one allowed chat)")
+    bsub = p.add_subparsers(dest="bot_cmd", required=True)
+    q = bsub.add_parser("poll", help="answer commands: long poll loop, or one pass with --once (cron friendly)")
+    q.add_argument("--once", action="store_true", help="one getUpdates pass, recorded in Health, then exit")
+    bsub.add_parser("send-test", help="send one test message to the configured chat")
+    p.set_defaults(fn=cmd_bot)
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)
     args = ap.parse_args(argv)

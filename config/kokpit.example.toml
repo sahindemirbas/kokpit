@@ -55,6 +55,12 @@ publish = false               # separate from analyse; requires an approval per 
 [ai_usage]
 readers = []                  # e.g. ["hermes", "claude_code", "codex"]
 
+[bot]                         # Telegram bot, used only when bot = true under [modules]
+# token = ""                  # or set KOKPIT_TELEGRAM_TOKEN in the environment (preferred)
+chat_id = ""                  # the one chat the bot answers; every other chat is ignored
+morning_time = "07:30"        # `kokpit bot poll` sends the morning line once a day after this time
+poll_timeout = 25             # long poll seconds (1 to 50)
+
 [server]
 host = "127.0.0.1"
 port = 8501

@@ -21,11 +21,22 @@ The Connections screen is where a user enables modules and links accounts. It is
 | LinkedIn guest search | Career | public guest pages, no login | listings of the last 7 days | none | OFF by default; see the notice below |
 | Instagram | Social | user's own Meta app, Instagram Login | insights, media | publish only with the publish toggle and an approval | token stored locally; separate toggles |
 | TikTok stats | Social | local analytics DB | statistics | none | optional, browser-based collector |
-| Telegram bot | all | bot token | commands from the owner chat only | sends messages to the owner | single allowed chat id |
+| Telegram bot | all | bot token | commands from the owner chat only | sends messages to the owner | single allowed chat id; off by default, see below |
 | Model API | Agenda, Events, Career | API key | n/a | sends stated text to the provider | each use is listed with the data it sends |
 | TTS provider | Agenda | API key | n/a | sends summary text | optional |
 | AI tool logs | AI usage | local paths | usage rows | none | Hermes `state.db`, Claude Code, Codex |
 | Hermes agent | Brain, AI usage | local | vault files, usage rows | may append notes if enabled | not required; see `integrations/hermes` |
+
+## Telegram bot (off by default)
+
+1. In Telegram open a chat with BotFather, send `/newbot` and follow the questions. BotFather answers with the bot token.
+2. Give the token to Kokpit in the environment (`KOKPIT_TELEGRAM_TOKEN`, preferred) or as `token` under `[bot]` in the git-ignored `kokpit.toml`.
+3. Open a chat with your new bot and send it any message.
+4. Find your chat id: with the token in a shell variable, open `https://api.telegram.org/bot<token>/getUpdates` in a browser or with curl after step 3; the number at `message.chat.id` is your chat id. Keep that URL private, it contains the token.
+5. Put the number in `chat_id` under `[bot]`, set `bot = true` under `[modules]`.
+6. Run `python -m kokpit bot send-test`, then `python -m kokpit bot poll --once` after sending `/help` to the bot.
+
+Only that one chat is answered. Anything from other chats is ignored and counted. Schedule `python -m kokpit bot poll --once` every minute with cron (or keep `python -m kokpit bot poll` running), and `python -m kokpit run-job bot-morning` at the time you want the morning line.
 
 ## LinkedIn guest search (off by default)
 

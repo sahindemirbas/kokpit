@@ -91,10 +91,37 @@ def view(cfg: Config) -> dict:
     items.extend(_career_items(cfg))
     items.extend(_ai_usage_items(cfg))
     items.append(_instagram_item(cfg))
-    for name in ("CV file", "Telegram bot", "Model API"):
+    items.append(_bot_item(cfg))
+    for name in ("CV file", "Model API"):
         items.append({"id": name.lower().replace(" ", "-"), "name": name, "module": "planned", "kind": "planned",
                       "enabled": False, "reads": "-", "writes": "-", "permission": "-", "target": "-", "status": "planned", "last": None})
     return {"config": cfg.path.name, "connections": items}
+
+
+def _bot_item(cfg: Config) -> dict:
+    from ..bot import api as bot_api
+    d = bot_api.view(cfg)
+    on = d["enabled"]
+    run = _last_run(cfg, "bot-poll")
+    if not on:
+        status = "off"
+    elif not d["token"] or not d["chat_id"]:
+        status = "not configured"
+    elif d["last_outcome"] and d["last_outcome"] != "ok":
+        status = "warning"
+    elif d["last_poll"]:
+        status = "ok"
+    else:
+        status = "not run yet"
+    return {
+        "id": "telegram-bot", "name": "Telegram bot", "module": "bot", "kind": "API with token", "enabled": on,
+        "reads": "commands from the one allowed chat" if on else "nothing (off)",
+        "writes": "replies and the morning message to that chat" if on else "nothing",
+        "permission": "bot token (chat id restricts who is answered)", "target": "api.telegram.org",
+        "detail": f"Token configured: {'yes' if d['token'] else 'no'}. Chat id configured: {'yes' if d['chat_id'] else 'no'}. "
+                  f"Last poll: {d['last_poll'] or 'never'} ({d['last_outcome'] or 'n/a'}). Updates ignored from other chats: {d['foreign']}. Token and chat id are never shown.",
+        "status": status, "last": run,
+    }
 
 
 def _career_items(cfg: Config) -> list[dict]:
