@@ -31,7 +31,7 @@
 
 Kokpit gathers the things you check every morning (calendar, tasks, your notes, events in your city, job listings, the health of your own scripts) into one small web page that runs on your own device. It reads only the data you connect, and keeps everything in SQLite and plain Markdown.
 
-> **Status:** early. Milestones M1 to M3 are done, and the AI usage tab from M4 is done; the dashboard below runs today with `./run`. Instagram and social, the daily digest, the Telegram bot and Docker are planned. The design comes from a single-user instance that has run every day on a small home server since 2025. Full breakdown: [docs/status.md](docs/status.md).
+> **Status:** early. Milestones M1 to M3 are done; from M4, the AI usage tab and Instagram analysis are done; the dashboard below runs today with `./run`. Social publishing, the daily digest, the Telegram bot and Docker are planned. The design comes from a single-user instance that has run every day on a small home server since 2025. Full breakdown: [docs/status.md](docs/status.md).
 
 ## Features
 
@@ -43,11 +43,12 @@ Kokpit gathers the things you check every morning (calendar, tasks, your notes, 
 - **Career:** a local profile, job listings scored with a written reason ("Python, SQL; Milan; remote not stated"), listing lifecycle, market view, CSV export.
 - **Health:** the last successful run of every job. A source that silently returns nothing shows "0 records", not "OK".
 - **Connections:** one screen with every data source, what it reads and when it last worked. Everything is off until you switch it on.
+- **Social:** your own Instagram account, posts, reels and stories with their insights, read through the official API and stored as daily snapshots. Read-only, off by default.
 - **AI usage:** reads the local logs of Hermes, Claude Code and Codex (read-only, each reader its own switch). Tokens per model and hour, an approximate cost from models.dev list prices, and rule-based advice with its evidence. A model without a known price is shown as unknown, not as 0. Optional token limits that you enter yourself. The only network call is the opt-in price refresh.
 
 **Planned** ([roadmap](docs/roadmap.md))
 
-- Instagram and social media statistics, approved publishing
+- Instagram publishing with approval, content calendar
 - Daily news digest linked to your projects, optional audio
 - Telegram bot with the morning line and approval buttons
 - `pip install kokpit` and `docker compose up`

@@ -31,7 +31,7 @@
 
 Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki etkinlikler, iş ilanları, kendi betiklerinin sağlığı) kendi cihazında çalışan tek bir küçük web sayfasında toplar. Yalnız senin bağladığın verileri okur, her şeyi SQLite ve düz Markdown dosyalarında tutar.
 
-> **Durum:** erken aşama. M1-M3 kilometre taşları tamam, M4'ten AI kullanımı sekmesi de tamam; aşağıdaki panel bugün `./run` ile çalışıyor. Instagram ve sosyal medya, günlük gündem, Telegram botu ve Docker planlı. Tasarım, 2025'ten beri her gün küçük bir ev sunucusunda çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Ayrıntı: [docs/status.md](docs/status.md).
+> **Durum:** erken aşama. M1-M3 kilometre taşları tamam; M4'ten AI kullanımı sekmesi ve Instagram analizi de tamam; aşağıdaki panel bugün `./run` ile çalışıyor. Sosyal medyada paylaşım, günlük gündem, Telegram botu ve Docker planlı. Tasarım, 2025'ten beri her gün küçük bir ev sunucusunda çalışan tek kullanıcılı bir kurulumdan çıkarıldı. Ayrıntı: [docs/status.md](docs/status.md).
 
 ## Özellikler
 
@@ -43,11 +43,12 @@ Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki
 - **Career:** yerel profil, yazılı gerekçeyle puanlanan ilanlar ("Python, SQL; Milano; uzaktan belirtilmemiş"), ilan yaşam döngüsü, pazar görünümü, CSV dışa aktarım.
 - **Health:** her işin son başarılı çalışması. Sessizce boş dönen bir kaynak "0 kayıt" olarak görünür, "OK" olarak değil.
 - **Connections:** her veri kaynağı tek ekranda: ne okuyor, en son ne zaman çalıştı. Sen açana kadar hepsi kapalı.
+- **Social:** kendi Instagram hesabın, gönderilerin, reels ve hikayeler, metrikleriyle birlikte resmi API üzerinden okunur ve günlük anlık görüntü olarak saklanır. Salt okunur, varsayılan olarak kapalı.
 - **AI usage:** Hermes, Claude Code ve Codex'in yerel kayıtlarını salt okunur okur (her okuyucu ayrı bir anahtar). Model ve saat bazında token, models.dev liste fiyatlarından yaklaşık maliyet, kanıtıyla birlikte kural tabanlı öneriler. Fiyatı bilinmeyen model 0 değil "bilinmiyor" görünür. Kendi girdiğin isteğe bağlı token limitleri. Tek ağ isteği, isteğe bağlı fiyat yenilemesidir.
 
 **Planlanan** ([yol haritası](docs/roadmap.md))
 
-- Instagram ve sosyal medya istatistikleri, onaylı paylaşım
+- Onaylı Instagram paylaşımı, içerik takvimi
 - Projelerine bağlanan günlük haber özeti, isteğe bağlı sesli
 - Sabah satırı ve onay düğmeleriyle Telegram botu
 - `pip install kokpit` ve `docker compose up`
