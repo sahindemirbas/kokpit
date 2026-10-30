@@ -1,6 +1,6 @@
 """The web app: one static page plus a small JSON API. Standard library only.
 
-Reads: everything. Writes: quick capture into the vault, nothing else.
+Reads: everything. Writes: quick capture into the vault and the local career profile file, nothing else.
 Binds to localhost unless the config says otherwise.
 """
 from __future__ import annotations
@@ -14,6 +14,7 @@ from urllib.parse import parse_qs, urlparse
 from . import __version__
 from .config import Config
 from .modules.brain import api as brain_api
+from .modules.career import api as career_api
 from .modules.events import api as events_api
 from .modules.connections import api as connections_api
 from .modules.health import api as health_api
@@ -82,6 +83,8 @@ def make_handler(cfg: Config):
                     return self._json(events_api.view(cfg, days=days))
                 if path.startswith("/api/events/") and path.endswith(".ics"):
                     return self._ics(path.split("/")[3].removesuffix(".ics"))
+                if path == "/api/career":
+                    return self._json(career_api.view(cfg))
                 if path == "/api/connections":
                     return self._json(connections_api.view(cfg))
                 if path == "/api/meta":
@@ -90,8 +93,28 @@ def make_handler(cfg: Config):
             except Exception as exc:  # show the error on the page instead of a blank card
                 return self._json({"error": f"{exc.__class__.__name__}: {exc}"}, HTTPStatus.INTERNAL_SERVER_ERROR)
 
+        def _career_post(self, path: str):
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > 400_000:
+                    return self._json({"error": "request too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(data, dict):
+                    raise ValueError("JSON object expected")
+                if path == "/api/career/profile":
+                    return self._json(career_api.save_profile(cfg, data))
+                if path == "/api/career/cv":
+                    return self._json(career_api.cv_proposal(cfg, str(data.get("text", ""))))
+                return self._json(career_api.score_preview(cfg, data))
+            except PermissionError as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.FORBIDDEN)
+            except (ValueError, json.JSONDecodeError) as exc:
+                return self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+
         def do_POST(self):
             path = urlparse(self.path).path
+            if path in ("/api/career/profile", "/api/career/cv", "/api/career/score"):
+                return self._career_post(path)
             if path not in ("/api/brain/capture", "/api/brain/done"):
                 return self._json({"error": "not found"}, HTTPStatus.NOT_FOUND)
             try:

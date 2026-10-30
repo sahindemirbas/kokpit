@@ -29,6 +29,7 @@ today = true
 brain = true
 health = true
 events = {events}
+jobs = false                  # career: profile, scoring, listings (off until you set it up)
 
 [today]
 calendar_ics_urls = []        # read-only ICS feeds (e.g. Google's secret iCal address). SECRET: keep this file
@@ -49,6 +50,9 @@ adapters = []                    # adapters/events/<name> directories to enable 
 adapter_dirs = []                # extra folders holding your own <name>/collect.py adapters
 category_languages = ["en"]      # keyword packs for categories, merged in order; built in: en, it
 category_pack_dirs = []          # folders with your own <code>.json packs; same code wins over the built-in one
+
+[career]
+profile_path = "data/career-profile.json"   # local profile (skills, targets); never in the vault, never sent anywhere
 
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
@@ -76,6 +80,7 @@ class Config:
     port: int = 8501
     place: dict = field(default_factory=dict)      # city, country, lat, lon, radius_km, languages
     events: dict = field(default_factory=dict)     # allevents_slug, eventbrite_slug, adapters, adapter_dirs
+    career: dict = field(default_factory=dict)     # profile_path
     calendar_ics_urls: list[str] = field(default_factory=list, repr=False)  # secret, never printed
 
     @property
@@ -148,6 +153,9 @@ def load(path: str | Path) -> Config:
         "category_pack_dirs": _str_list(ev.get("category_pack_dirs"), []),
     }
     cfg.modules.setdefault("events", False)
+    cfg.modules.setdefault("jobs", False)
+    car = raw.get("career", {})
+    cfg.career = {"profile_path": str(car.get("profile_path", "data/career-profile.json"))}
     today = raw.get("today", {})
     env_urls = os.environ.get("KOKPIT_CALENDAR_ICS_URLS", "").split()
     urls = env_urls or today.get("calendar_ics_urls", [])

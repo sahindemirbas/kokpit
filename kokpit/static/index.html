@@ -656,7 +656,7 @@ function afIcon(k,sz){const C='<path d="M20 62a18 18 0 0 1 10-33 24 24 0 0 1 46-
  return `<svg class="ic" width="${sz}" height="${sz}" viewBox="0 0 120 110" aria-hidden="true">${g}</svg>`}
 function afScroll(id){const e=$(id);if(e){e.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});e.focus({preventScroll:true})}}
 function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){const p=document.createElement('i');p.className='af-bu';const a=k/14*6.283;p.style.cssText=`left:${b.left+b.width/2-4}px;top:${b.top+b.height/2-4}px;background:${['#ffc21a','#ff5a3c','#4a9dff','#2fbf71'][k%4]};--x:${Math.cos(a)*56}px;--y:${Math.sin(a)*56}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),700)}}
-const NAVT=[['bg','Today'],['ev','Events'],['br','Brain'],['hl','Health'],['cn','Connections']],HASH={today:'bg',events:'ev',brain:'br',health:'hl',connections:'cn'},HASHR={bg:'today',ev:'events',br:'brain',hl:'health',cn:'connections'};
+const NAVT=[['bg','Today'],['ev','Events'],['jb','Career'],['br','Brain'],['hl','Health'],['cn','Connections']],HASH={today:'bg',events:'ev',career:'jb',brain:'br',health:'hl',connections:'cn'},HASHR={bg:'today',ev:'events',jb:'career',br:'brain',hl:'health',cn:'connections'};
 const S={hn:{},view:HASH[location.hash.replace('#','')]||'bg'};
 function nav(){$('nav').innerHTML=NAVT.map(([k,l])=>`<button type="button" class="btn${k==S.view?' on':''}" data-view="${k}">${l}</button>`).join('')}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-view]');if(b){S.view=b.dataset.view;location.hash=HASHR[S.view];render()}
@@ -802,12 +802,44 @@ async function cnView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
   for(const c of items)h+=`<div class="af-b s4 ${tone(c.status)}" ${afD(i++)}><h4>${esc(c.name)} ${c.enabled?'':'<span class="mono" style="font-size:10px">off</span>'}</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">${esc(c.module)} · ${esc(c.kind)}</p><p style="margin:0"><b>reads</b> ${esc(c.reads)}</p><p style="margin:0"><b>writes</b> ${esc(c.writes)}</p><p style="margin:0"><b>permission</b> ${esc(c.permission)}</p><p style="margin:0"><b>target</b> <span class="mono">${esc(c.target)}</span></p>${c.detail?`<p class="mono" style="font-size:10px;margin:6px 0 0">${esc(c.detail)}</p>`:''}<p class="mono" style="font-size:10px;margin:8px 0 0">status ${esc(c.status)} · last ${last(c.last)}</p>${c.last&&c.last.warnings&&c.last.warnings.length?`<p class="mono" style="font-size:10px;margin:4px 0 0">${c.last.warnings.map(esc).join('<br>')}</p>`:''}</div>`}
  v.innerHTML=h+'</div>'}
 
+const JB={};
+const jbList=v=>(v||[]).join(', ');
+function jbEffect(e){return e=='plus'?'+':e=='minus'?'-':e=='unknown'?'?':'='}
+function jbReasons(res){const sc=res.score==null?'unknown':res.score+'/100';
+ return `<p style="margin:0 0 6px"><b style="font-size:28px">${esc(sc)}</b> <span class="mono" style="font-size:10px">${res.score==null?'nothing could be judged yet':'of the '+res.max_known+' points that could be judged; '+res.unknowns+' unknown'}</span></p>`+res.reasons.map(r=>`<p class="mono" style="font-size:11px;margin:2px 0"><b>${jbEffect(r.effect)}</b> ${esc(r.kind)}: ${esc(r.text)}</p>`).join('')}
+function jbForm(d){const p=d.profile,o=d.options,lang=(p.languages||[]).map(x=>x.language+(x.level?':'+x.level:'')).join(', ');
+ const sel=(n,vals,cur)=>`<select name="${n}" class="btn" style="padding:6px 10px;font:700 13px var(--sans)">${vals.map(x=>`<option${x==cur?' selected':''}>${x}</option>`).join('')}</select>`;
+ const ta=(n,l,v,ph)=>`<label class="mono" style="font-size:11px;display:block;margin-top:10px">${l}<textarea name="${n}" rows="2" placeholder="${esc(ph||'')}" style="width:100%;margin-top:4px">${esc(v)}</textarea></label>`;
+ return `<form id="jbf">${ta('target_roles','Target roles (comma separated). Your own list, not capped by your CV history.',jbList(p.target_roles),'Data Analyst, BI Developer')}
+ ${ta('skills','Skills',jbList(p.skills))}${ta('must_have','Must-have keywords',jbList(p.must_have))}${ta('nice_to_have','Nice-to-have keywords',jbList(p.nice_to_have))}${ta('exclude','Exclude keywords (a hit caps the score)',jbList(p.exclude))}
+ ${ta('locations','Locations',jbList(p.locations),'Example City')}${ta('languages','Languages with level (English:C1, German:B1)',lang)}
+ <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;align-items:center"><label class="mono" style="font-size:11px">Remote ${sel('remote_pref',o.remote_pref,p.remote_pref)}</label><label class="mono" style="font-size:11px">Seniority ${sel('seniority',o.seniority,p.seniority)}</label><label class="mono" style="font-size:11px">Years of experience <input name="experience_years" type="number" min="0" max="60" step="0.5" value="${p.experience_years==null?'':p.experience_years}" style="width:70px"></label></div>
+ ${ta('experience_summary','Experience summary (no name, phone or e-mail)',p.experience_summary)}
+ <div style="display:flex;gap:12px;align-items:center;margin-top:10px"><button class="btn" style="background:#ffc21a">Save profile</button><span id="jbmsg" class="mono" style="font-size:11px">Saved to a local file on this machine only.</span></div></form>`}
+function jbRead(){const f=$('jbf'),g=n=>f.elements[n].value;return {target_roles:g('target_roles'),skills:g('skills'),must_have:g('must_have'),nice_to_have:g('nice_to_have'),exclude:g('exclude'),locations:g('locations'),languages:g('languages'),remote_pref:g('remote_pref'),seniority:g('seniority'),experience_years:g('experience_years'),experience_summary:g('experience_summary')}}
+async function jbPost(path,body){return J(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
+async function jbView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/career');if(S.view!='jb')return;
+ if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Career module is off. Set <code>jobs = true</code> under [modules] in kokpit.toml.</p></div></div>`;return}
+ JB.d=d;let i=0;
+ v.innerHTML=`<div class="af"><div class="af-b s7" ${afD(i++)}><h4>Profile</h4>${d.profile_empty?'<p class="mono" style="font-size:11px">Start with your target roles. Scores need at least one target role, must-have or skill to judge anything.</p>':''}${jbForm(d)}</div>
+ <div class="af-b s5" ${afD(i++)}><h4>Import a CV (optional)</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">Paste the text. It is read in your browser session and by this local server only; e-mail, phone and links are removed, the text is not stored. You confirm what is added.${d.pdftotext?' On the command line, <code>kokpit career profile import-cv FILE.pdf</code> reads PDFs with pdftotext.':''}</p><textarea id="jbcv" rows="6" style="width:100%" placeholder="Paste CV text"></textarea><div style="display:flex;gap:12px;align-items:center;margin-top:8px"><button type="button" class="btn" id="jbcvb">Propose skills and languages</button><span id="jbcvm" class="mono" style="font-size:11px"></span></div></div>
+ <div class="af-b s5" ${afD(i++)}><h4>Try the scoring</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">Paste a listing. The score always comes with its reasons; unknown values are marked ?, not counted as zero.</p><form id="jbs"><input name="title" placeholder="Job title" required style="width:100%;margin-bottom:6px"><input name="location" placeholder="Location (optional)" style="width:100%;margin-bottom:6px"><select name="remote" class="btn" style="padding:6px 10px;font:700 13px var(--sans)"><option value="">remote: unknown</option><option value="yes">remote: yes</option><option value="no">remote: no</option></select><textarea name="description" rows="5" placeholder="Description" style="width:100%;margin-top:6px"></textarea><button class="btn" style="margin-top:8px">Score</button></form><div id="jbsr" style="margin-top:10px"></div></div></div>`;
+ $('jbf').onsubmit=async e=>{e.preventDefault();const m=$('jbmsg');try{const r=await jbPost('/api/career/profile',jbRead());JB.d.profile=r.profile;m.textContent='Saved.'}catch(x){m.textContent=x.message}};
+ $('jbcvb').onclick=async()=>{const m=$('jbcvm');try{const r=await jbPost('/api/career/cv',{text:$('jbcv').value});const f=$('jbf');
+  const have=new Set(f.elements.skills.value.split(',').map(x=>x.trim().toLowerCase()).filter(Boolean));const add=r.skills.filter(x=>!have.has(x.toLowerCase()));
+  if(add.length)f.elements.skills.value=(f.elements.skills.value.trim()?f.elements.skills.value.trim()+', ':'')+add.join(', ');
+  const hl=f.elements.languages.value.toLowerCase();const ln=r.languages.filter(x=>!hl.includes(x.language.toLowerCase())).map(x=>x.language+(x.level?':'+x.level:''));
+  if(ln.length)f.elements.languages.value=(f.elements.languages.value.trim()?f.elements.languages.value.trim()+', ':'')+ln.join(', ');
+  $('jbcv').value='';m.textContent=`Added ${add.length} skills and ${ln.length} languages to the form. Edit them, then press Save profile.`}catch(x){m.textContent=x.message}};
+ $('jbs').onsubmit=async e=>{e.preventDefault();const f=e.target;try{const r=await jbPost('/api/career/score',{title:f.title.value,location:f.location.value,remote:f.remote.value,description:f.description.value});$('jbsr').innerHTML=jbReasons(r)}catch(x){$('jbsr').textContent=x.message}}}
+
 const AFN=k=>(S.hn&&S.hn[k])||[];
 const AFH={ev:['Events','#ff6b4a',()=>'Around your city',()=>AFN('ev')],
+ jb:['Career','#8f7bff',()=>'Your profile, targets and scoring',()=>AFN('jb')],
  br:['Brain','#ffd23f',()=>'Open loops and where you left off',()=>AFN('br')],
  hl:['Health','#2fbf71',()=>'Nightly jobs, last runs and warnings',()=>AFN('hl')],
  cn:['Connections','#7be0d0',()=>'What Kokpit reads, and when it last worked',()=>AFN('cn')]};
-const AFR={ev:'EVENTS',br:'BRAIN',hl:'HEALTH',cn:'CONNECTIONS'};
+const AFR={ev:'EVENTS',jb:'CAREER',br:'BRAIN',hl:'HEALTH',cn:'CONNECTIONS'};
 let afLast='',afT=0;
 function afRing(c){return (AFR[S.view]||c[0].toLocaleUpperCase('en'))+' · KOKPIT · '}
 function afHero(anim){const h=$('afhd'),c=AFH[S.view];document.body.style.setProperty('--tc',c?c[1]:'#ffc21a');if(!h)return;if(!c){h.innerHTML='';h.hidden=true;return}h.hidden=false;
@@ -823,7 +855,7 @@ function afDecor(){const v=$('view'),key=S.view;
  v.querySelectorAll('.kpi b').forEach(b=>{const m=b.textContent.trim().match(/^(\d{1,7})$/);if(m)b.dataset.c=m[1]});afCount(v);
  clearTimeout(afT);afT=setTimeout(()=>v.classList.remove('afa'),2500)}
 new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
-async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,br:brView,hl:hlView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,br:brView,hl:hlView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 window.addEventListener('hashchange',()=>{const n=HASH[location.hash.replace('#','')]||'bg';if(n!=S.view){S.view=n;render()}});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`}).catch(()=>{});
 afClock();setInterval(afClock,15000);render();

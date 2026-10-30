@@ -1,4 +1,4 @@
-"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters"""
+"""Command line: kokpit init | run | run-job <name> | context | place <city> | jobs | adapters | career"""
 from __future__ import annotations
 
 import argparse
@@ -143,6 +143,53 @@ def cmd_adapters(args) -> int:
     return 0
 
 
+def cmd_career(args) -> int:
+    """career profile show | import-cv PATH [--apply] | set FIELD VALUE; career score --title ..."""
+    import json
+    from .modules.career import cv, profile, scoring
+    cfg = _load(args)
+    if args.career_cmd == "score":
+        text = Path(args.file).read_text(encoding="utf-8") if args.file else ""
+        remote = {"yes": True, "no": False}.get(args.remote)
+        res = scoring.score(profile.load(cfg), {"title": args.title, "description": text, "location": args.location, "remote": remote})
+        print("score: " + ("unknown" if res["score"] is None else f"{res['score']}/100"))
+        for r in res["reasons"]:
+            print(f"  [{r['effect']:7s}] {r['kind']}: {r['text']}")
+        return 0
+    if args.profile_cmd == "show":
+        print(json.dumps(profile.load(cfg), indent=2, ensure_ascii=False))
+        print(f"\nfile: {profile.path(cfg)}" + ("" if profile.exists(cfg) else " (not saved yet)"))
+        return 0
+    if args.profile_cmd == "import-cv":
+        try:
+            text = cv.extract_text(args.path)
+        except cv.CVError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 3
+        prop = cv.propose(text)
+        print(f"read {prop['chars']} characters locally (e-mail, phone and links removed); nothing was stored or sent")
+        print("proposed skills: " + (", ".join(prop["skills"]) or "none"))
+        print("proposed languages: " + (", ".join(f"{x['language']} {x['level'] or '?'}" for x in prop["languages"]) or "none"))
+        if not args.apply:
+            print("\n(nothing saved; add --apply to merge these into your profile, then edit with `career profile set`)")
+            return 0
+        profile.save(cfg, profile.merge_proposal(profile.load(cfg), prop))
+        print(f"\nmerged into {profile.path(cfg)}")
+        return 0
+    prof = profile.load(cfg)
+    if args.field not in profile.empty():
+        print(f"error: unknown field '{args.field}'. Fields: {', '.join(profile.empty())}", file=sys.stderr)
+        return 2
+    prof[args.field] = args.value
+    try:
+        saved = profile.save(cfg, prof)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"{args.field} = {json.dumps(saved[args.field], ensure_ascii=False)}")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="kokpit", description=f"Kokpit {__version__}")
     ap.add_argument("--config", help="path to kokpit.toml (default: ./kokpit.toml, then ~/.config/kokpit/)")
@@ -171,6 +218,24 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_place)
     p = sub.add_parser("adapters", help="list local event adapters and whether they are enabled")
     p.set_defaults(fn=cmd_adapters)
+    p = sub.add_parser("career", help="career profile and scoring")
+    csub = p.add_subparsers(dest="career_cmd", required=True)
+    pp = csub.add_parser("profile", help="show, import a CV, or set a profile field")
+    psub = pp.add_subparsers(dest="profile_cmd", required=True)
+    psub.add_parser("show")
+    q = psub.add_parser("import-cv", help="read a .pdf (pdftotext), .txt or .md locally and propose skills and languages")
+    q.add_argument("path")
+    q.add_argument("--apply", action="store_true", help="merge the proposal into the saved profile")
+    q = psub.add_parser("set", help="set one field; lists are comma separated, languages as English:C1,Italian:A2")
+    q.add_argument("field")
+    q.add_argument("value")
+    pp.set_defaults(fn=cmd_career)
+    q = csub.add_parser("score", help="score a pasted listing against the profile, with reasons")
+    q.add_argument("--title", required=True)
+    q.add_argument("--file", help="text file with the description")
+    q.add_argument("--location", default="")
+    q.add_argument("--remote", choices=["yes", "no", "unknown"], default="unknown")
+    q.set_defaults(fn=cmd_career)
     p = sub.add_parser("jobs", help="list jobs")
     p.set_defaults(fn=cmd_jobs)
     args = ap.parse_args(argv)
