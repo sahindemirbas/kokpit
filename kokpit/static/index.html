@@ -183,6 +183,7 @@ html[data-tema=dark] .leaflet-container{background:#2a2824}
 @media(max-width:700px){.af{padding:14px 14px 30px;gap:14px}.af-top{padding:16px 14px 4px}.nav{padding:8px 14px 0}.af-cd .n{font-size:80px}.af-stk{width:78px;height:78px;right:-14px;top:-14px}.af-hero h4{padding-right:56px}.nav{flex-wrap:nowrap;overflow-x:auto;padding-bottom:8px}.nav .btn{flex:none}.af-wx .wxtp b{font-size:46px}.af-wx .wxtp .lo b{font-size:28px}}
 @media(prefers-reduced-motion:reduce){.af-b,.af-mq{opacity:1}}
 .af td.mono,.af td:nth-child(2){white-space:nowrap}
+.ai-sc{overflow-x:auto;max-width:100%}.ai-t th,.ai-t td{white-space:nowrap;overflow-wrap:normal}.ai-t td.w{white-space:normal;overflow-wrap:anywhere;min-width:140px}
 
 /* ===== Afiş Stüdyo: diğer sekmeler ===== */
 body{--tc:#ffc21a}
@@ -845,7 +846,7 @@ async function jbView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
 const AIA=x=>x.approximate?' <span class="mono" style="font-size:10px">approximate</span>':'',AIN=n=>(n==null?'-':Number(n).toLocaleString('en').replace(/,/g,' ')),AIE=x=>x.estimate_state=='unknown'?'unknown':x.estimate_usd.toFixed(2)+' USD'+(x.estimate_state=='partial'?` <span class="mono" style="font-size:10px">partial: ${AIN(x.unpriced_tokens)} tokens unpriced${x.unpriced_models&&x.unpriced_models.length?' ('+esc(x.unpriced_models.slice(0,3).join(', '))+(x.unpriced_models.length>3?', +'+(x.unpriced_models.length-3)+' more':'')+')':''}</span>`:'');
 async function aiView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/ai_usage');if(S.view!='ai')return;
  if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>AI usage module is off. Set <code>ai_usage = true</code> under [modules] and list the readers under [ai_usage] in kokpit.toml.</p></div></div>`;return}
- const W=d.windows,N=d.numbers,tbl=(h,rows)=>`<table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.join(''):`<tr><td colspan="${h.length}">Nothing yet</td></tr>`}</tbody></table>`;let i=0;
+ const W=d.windows,N=d.numbers,tbl=(h,rows)=>`<div class="ai-sc"><table class="ai-t"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.length?rows.join(''):`<tr><td colspan="${h.length}">Nothing yet</td></tr>`}</tbody></table></div>`;let i=0;
  const win=['today','7d','30d'].map(k=>`<tr><td>${k=='today'?'Today':k=='7d'?'7 days':'30 days'}${AIA(W[k])}</td><td>${W[k].sessions}</td><td>${AIN(W[k].tokens)}</td><td>${AIE(W[k])}</td><td>${AIN(W[k].unpriced_tokens)}</td></tr>`);
  const nm=(o,t)=>o.configured?`${o.total_monthly} ${esc(o.currency)} per month (entered)`:'not configured';
  const grp=a=>a.map(x=>`<tr><td>${esc(x.name)}${AIA(x)}</td><td>${x.sessions}</td><td>${AIN(x.tokens)}</td><td>${AIE(x)}</td><td>${AIN(x.unpriced_tokens)}</td></tr>`);
@@ -860,7 +861,7 @@ async function aiView(){const v=$('view');v.innerHTML='<div class="empty">Loadin
  <div class="af-b s6" ${afD(i++)}><h4>Limits</h4>${d.limits.configured?tbl(['tool','window','used / limit','resets'],lim):`<p>${esc(d.limits.message)}</p>`}</div>
  <div class="af-b s6" ${afD(i++)}><h4>Per tool, 30 days</h4>${tbl(['tool','sessions','tokens','list price (estimate)','unpriced tokens'],grp(d.by_tool))}</div>
  <div class="af-b s6" ${afD(i++)}><h4>Per model, 30 days</h4>${tbl(['model','sessions','tokens','list price (estimate)','unpriced tokens'],grp(d.by_model))}</div>
- <div class="af-b s12" ${afD(i++)}><h4>Top sessions, 30 days</h4>${tbl(['tool','session','place','models','tokens','list price (estimate)','last seen'],d.top_sessions.map(s=>`<tr><td>${esc(s.tool)}${AIA(s)}</td><td class="mono">${esc(s.session)}</td><td>${esc(s.place||'-')}</td><td>${esc(s.models.join(', '))}</td><td>${AIN(s.tokens)}</td><td>${AIE(s)}</td><td>${esc(s.last_seen||'-')}</td></tr>`))}</div>
+ <div class="af-b s12" ${afD(i++)}><h4>Top sessions, 30 days</h4>${tbl(['tool','session','place','models','tokens','list price (estimate)','last seen'],d.top_sessions.map(s=>`<tr><td>${esc(s.tool)}${AIA(s)}</td><td class="mono">${esc(s.session)}</td><td class="w">${esc(s.place||'-')}</td><td class="w">${esc(s.models.join(', '))}</td><td>${AIN(s.tokens)}</td><td>${AIE(s)}</td><td>${esc(s.last_seen||'-')}</td></tr>`))}</div>
  <div class="af-b s6" ${afD(i++)}><h4>Readers and data freshness</h4>${tbl(['reader','status','rows','newest data','file changed'],rd)}</div>
  <div class="af-b s6" ${afD(i++)}><h4>Advice</h4><ul>${adv}</ul><p class="mono" style="font-size:10px">${esc(d.notes[1])}</p></div></div>`}
 const AFN=k=>(S.hn&&S.hn[k])||[];
