@@ -18,7 +18,7 @@ from kokpit.modules.bot.client import BotApiError, Client, scrub
 from kokpit.modules.connections import api as conn_api
 from kokpit.modules.health import store as health_store
 
-TOKEN = "123456789:AAFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE1"
+TOKEN = "123456789:" + "Z" * 2 + "FAKE" * 6
 CHAT = "4242"
 OTHER = "9999"
 
