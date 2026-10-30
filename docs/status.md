@@ -71,4 +71,4 @@ Hosted multi-user service, mobile app, cloud sync. Each user runs their own inst
 
 ## Setup screen and languages
 
-First-run setup in the browser (`/setup`) and in `kokpit init`, keys in `.env`, `[ui] language` with en and tr dictionaries. In this round the setup screen, the navigation labels and the greeting follow the language; the rest of the dashboard is still English.
+First-run setup in the browser (`/setup`) and in `kokpit init`, keys in `.env`, `[ui] language` with en and tr dictionaries. Every screen of the dashboard follows the language: labels, dates, numbers and short status words come from `kokpit/locales`, a missing key shows the English text. Data from sources and free-text messages from the server (score reasons, notes, error text) stay as received. Tests: `tests/test_locale.py`.

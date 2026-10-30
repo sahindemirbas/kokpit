@@ -264,7 +264,7 @@ class CareerLeavesFrontend(unittest.TestCase):
         self.html = (Path(__file__).resolve().parents[1] / "kokpit" / "static" / "index.html").read_text(encoding="utf-8")
 
     def test_three_leaves_and_hashes(self):
-        self.assertIn("k:[['jb','Jobs'],['jb/market','Market'],['jb/skills','Skills']]", self.html)
+        self.assertIn("k:[['jb',T('nav.jobs')],['jb/market',T('nav.market')],['jb/skills',T('nav.skills')]]", self.html)
         for alias in ("jobs:'jb'", "'career/market':'jb/market'", "market:'jb/market'", "'career/skills':'jb/skills'", "skills:'jb/skills'"):
             self.assertIn(alias, self.html)
         self.assertIn("jb:S.sub=='market'?jmView:S.sub=='skills'?jsView:jbView", self.html)

@@ -373,7 +373,7 @@ class Frontend(unittest.TestCase):
         self.assertIn("Someone else saved this note. Your text is kept in the editor; reload to see the new version.", html)
         self.assertIn("beforeunload", html)
         self.assertIn("/api/brain/meetings/save", html)
-        self.assertIn("['br/meetings','Meetings']", html)  # Brain group leaf, rendered as a subnav button
+        self.assertIn("['br/meetings',T('nav.meetings')]", html)  # Brain group leaf, rendered as a subnav button, label from the locale
         self.assertIn("'brain/meetings':'br/meetings'", html)  # direct link
 
     def test_scripts_pass_node_check(self):

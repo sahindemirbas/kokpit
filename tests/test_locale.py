@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from kokpit import config as cfgmod, wizard  # noqa: E402
+from kokpit.modules.career import adapters, profile, skills  # noqa: E402
 from kokpit.modules.events import categories  # noqa: E402
+from kokpit.modules.instagram import plan as ig_plan  # noqa: E402
 from kokpit.modules.organiser import collect as og_collect  # noqa: E402
 from kokpit.modules.today import weather  # noqa: E402
 
@@ -143,6 +145,38 @@ class ServerLabelTests(unittest.TestCase):
         for k in og_collect.KINDS:
             with self.subTest(kind=k):
                 self.has("organiser.kind", k)
+
+    def test_career_social_ai_words(self):
+        for w in profile.REMOTE_PREFS + profile.SENIORITY:
+            with self.subTest(option=w):
+                self.has("career.opt", w)
+        for w in adapters.REMOTE_VALUES:
+            with self.subTest(remote=w):
+                self.has("career.remote_v", w)
+        src = (ROOT / "kokpit" / "modules" / "career" / "scoring.py").read_text(encoding="utf-8")
+        kinds = set(re.findall(r'add\("([a-z_]+)"', src))
+        self.assertGreater(len(kinds), 8)
+        for w in kinds:
+            with self.subTest(reason=w):
+                self.has("career.reason", w)
+        for w in skills.STATUSES:
+            with self.subTest(skill=w):
+                self.has("skills.st", w)
+        for w in ig_plan.KINDS:
+            with self.subTest(kind=w):
+                self.has("social.kind", w)
+        for w in ig_plan.STATUSES:
+            with self.subTest(slot=w):
+                self.has("social.st", w)
+        for w in ("ok", "empty", "never run", "off", "missing", "error"):  # ai_usage reader states
+            with self.subTest(reader=w):
+                self.has("status", w)
+
+    def test_nav_labels_from_locale(self):
+        for k in ("today", "briefing", "events", "ai", "health", "organiser", "connections", "career", "jobs", "market", "skills", "social", "instagram", "brain", "threads", "meetings"):
+            with self.subTest(nav=k):
+                self.assertIn(f"T('nav.{k}')", INDEX)
+        self.assertNotIn("['bg','Today']", INDEX)
 
 
 class FallbackTests(unittest.TestCase):

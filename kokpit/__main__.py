@@ -461,7 +461,7 @@ def main(argv=None) -> int:
     p = sub.add_parser("init", help="write kokpit.toml and the starter vault")
     p.add_argument("--vault", default="data/vault", help="Markdown folder (default data/vault)")
     p.add_argument("--db", default="data/kokpit.db")
-    p.add_argument("--city", help='your city, e.g. "Lodi" or "Lodi, Italy"; geocoded once and written to [place]')
+    p.add_argument("--city", help='your city, e.g. "Example City" or "Example City, Country"; geocoded once and written to [place]')
     p.add_argument("--name", help="your name, used in the greeting")
     p.add_argument("--language", help="screen language code, e.g. en or tr")
     p.add_argument("--force", action="store_true")

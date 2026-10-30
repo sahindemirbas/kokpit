@@ -317,7 +317,7 @@ class WebTests(unittest.TestCase):
     def test_page_has_career_tab(self):
         with urllib.request.urlopen(f"http://127.0.0.1:{self.port}/") as r:
             html = r.read().decode()
-        self.assertIn("career:{l:'Career',k:[['jb','Jobs'],['jb/market','Market'],['jb/skills','Skills']]}", html)  # Career nav group, three leaves
+        self.assertIn("career:{l:T('nav.career'),k:[['jb',T('nav.jobs')],['jb/market',T('nav.market')],['jb/skills',T('nav.skills')]]}", html)  # Career nav group, three leaves
 
 
 if __name__ == "__main__":

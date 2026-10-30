@@ -52,7 +52,7 @@ organiser = false             # night organiser: proposals only, never edits a n
 calendar_ics_urls = []        # read-only ICS feeds (e.g. Google's secret iCal address). SECRET: keep this file
                               # out of git; or set KOKPIT_CALENDAR_ICS_URLS in the environment instead.
 
-[place]                       # set by `kokpit init --city "Lodi"`; geocoded once with OpenStreetMap
+[place]                       # set by `kokpit init --city "Example City"`; geocoded once with OpenStreetMap
 city = "{city}"
 country = "{country}"         # ISO code, decides which generic sources apply
 lat = {lat}
