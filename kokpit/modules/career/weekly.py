@@ -191,7 +191,7 @@ def view(cfg: Config, conn: sqlite3.Connection, today: date | None = None) -> di
     """What the Career tab shows: the numeric trend always; the stored note only while the model use is on."""
     from ..model import client
     on = client.use_enabled(cfg, PURPOSE)
-    out = {"weeks": trend(conn, today), "model_on": on, "note": latest(conn) if on else None}
+    out = {"weeks": trend(conn, today), "model_on": on, "note": latest(conn) if on else None, "good_score": skills.GOOD_SCORE}
     if not on:
         out["reason"] = f"model use '{PURPOSE}' is off: numbers only, no text"
     return out

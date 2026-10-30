@@ -629,6 +629,16 @@ html[data-tema=dark] .bm-st.err{color:#ff8a7a}html[data-tema=dark] .bm-st.ok{col
 .og-s{font:700 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;border:2px solid var(--ink);border-radius:6px;padding:1px 6px;background:var(--w);color:var(--ink)}.og-s.model{background:#b48cff;color:#161412}.og-s.dis{background:var(--bg)}
 .og-r{font:500 12px/1.4 var(--mono);margin:0}.og-e{font:italic 500 13px/1.45 var(--sans);margin:0;padding:6px 10px;border:2px solid var(--ink);border-radius:8px;background:var(--bg);overflow-wrap:anywhere}
 .og-a{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}.og-a .btn{font:700 11.5px var(--mono);text-transform:uppercase;padding:5px 11px}.og-m{font:500 11px var(--mono)}
+/* Career > Market and Skills */
+.jm-p{font-size:11px;margin:2px 0 8px;overflow-wrap:anywhere}.jm-r{padding:10px 24px 0;margin:0}.jm-t{font:800 20px/1.2 var(--sans);margin:4px 0 6px;overflow-wrap:anywhere}.jm-u{margin:4px 0 8px;padding-left:18px}
+.jm-k{display:flex;flex-wrap:wrap;gap:12px;font-size:10.5px;margin:0 0 6px}.jm-k span:before{content:'';display:inline-block;width:10px;height:10px;border:2px solid var(--ink);border-radius:3px;margin-right:5px;vertical-align:-2px;background:var(--tc)}
+.jm-k .c:before,.jm-b.c i{background:var(--ink)}.jm-k .g:before,.jm-b.g i{background:#2fbf71}
+.jm-w{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px;align-items:center;margin:7px 0}.jm-w>.mono{font-size:11px}
+.jm-b{display:grid;grid-template-columns:minmax(0,1fr) 30px;gap:6px;align-items:center;margin:2px 0}.jm-b .mono{font-size:10.5px;text-align:right}.jm-b .so-bar{height:7px}
+.jm-c{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 30px;gap:8px;align-items:center;margin:5px 0;font:600 13.5px var(--sans)}.jm-c span{overflow-wrap:anywhere}.jm-c b{text-align:right;font-size:12px}
+.js-r{padding:10px 0;border-top:2px dashed var(--w3)}.js-r:first-of-type{border-top:0}.js-h{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}.js-h b{font:800 18px var(--sans);overflow-wrap:anywhere}.js-h .mono{font-size:11px}
+.js-x{font-size:11px;margin:4px 0 0;padding-left:18px;overflow-wrap:anywhere}.br-a .btn[aria-pressed=true]{background:var(--tc);color:#161412}
+.js-n{font:600 13px var(--sans);border:2px solid var(--ink);border-radius:8px;padding:5px 8px;background:var(--w);color:var(--ink);min-width:0;flex:1 1 160px}.js-hd summary{cursor:pointer}.js-hd summary h4{display:inline}
 </style><style>
 </style>
 </head><body>
@@ -695,9 +705,9 @@ function afScroll(id){const e=$(id);if(e){e.scrollIntoView({behavior:RM?'auto':'
 function afBurst(el){const b=el.getBoundingClientRect();for(let k=0;k<14;k++){const p=document.createElement('i');p.className='af-bu';const a=k/14*6.283;p.style.cssText=`left:${b.left+b.width/2-4}px;top:${b.top+b.height/2-4}px;background:${['#ffc21a','#ff5a3c','#4a9dff','#2fbf71'][k%4]};--x:${Math.cos(a)*56}px;--y:${Math.sin(a)*56}px`;document.body.appendChild(p);setTimeout(()=>p.remove(),700)}}
 /* Grouped navigation. A leaf is a view id, optionally with a sub view ('br/meetings'); view ids never change. */
 const NAVT=[['bg','Today'],['bi','Briefing'],['ev','Events'],['@career'],['@social'],['@brain'],['ai','AI usage'],['hl','Health'],['og','Organiser'],['cn','Connections']];
-const NAVG={career:{l:'Career',k:[['jb','Jobs']]},social:{l:'Social',k:[['so','Instagram']]},brain:{l:'Brain',k:[['br','Threads'],['br/meetings','Meetings']]}};
+const NAVG={career:{l:'Career',k:[['jb','Jobs'],['jb/market','Market'],['jb/skills','Skills']]},social:{l:'Social',k:[['so','Instagram']]},brain:{l:'Brain',k:[['br','Threads'],['br/meetings','Meetings']]}};
 const HASHR={bg:'today',ev:'events',jb:'career',ai:'ai_usage',so:'social',br:'brain',hl:'health',bi:'briefing',og:'organiser',cn:'connections'};
-const NAVH={today:'bg',briefing:'bi',events:'ev',career:'@career',jobs:'jb',market:'jb',social:'@social',instagram:'so',brain:'br',threads:'br','brain/meetings':'br/meetings',meetings:'br/meetings',ai_usage:'ai',ai:'ai',usage:'ai',health:'hl',organiser:'og',connections:'cn'};
+const NAVH={today:'bg',briefing:'bi',events:'ev',career:'@career',jobs:'jb','career/market':'jb/market',market:'jb/market','career/skills':'jb/skills',skills:'jb/skills',social:'@social',instagram:'so',brain:'br',threads:'br','brain/meetings':'br/meetings',meetings:'br/meetings',ai_usage:'ai',ai:'ai',usage:'ai',health:'hl',organiser:'og',connections:'cn'};
 const NAVM={bg:'today',ev:'events',jb:'jobs',ai:'ai_usage',so:'instagram',br:'brain',hl:'health',bi:'briefing',og:'organiser'};/* view -> [modules] key; missing = always shown */
 function legacyHash(){if(location.hash=='#agenda')history.replaceState(null,'','#briefing')}/* old name of the briefing tab */
 legacyHash();try{let o=localStorage.getItem('kokpit_briefing_read');if(o!==null){if(localStorage.getItem('kokpit_read')===null)localStorage.setItem('kokpit_read',o);localStorage.removeItem('kokpit_briefing_read')}o=localStorage.getItem('kokpit_agenda_read');if(o!==null){if(localStorage.getItem('kokpit_read')===null)localStorage.setItem('kokpit_read',o);localStorage.removeItem('kokpit_agenda_read')}}catch(e){}
@@ -1080,11 +1090,48 @@ function jbReasons(res){const sc=res.score==null?'unknown':res.score+'/100';
 function jbListings(d){const L=d.listings||[],c=d.counts||{};
  if(!L.length)return `<h4>Listings</h4><p class="mono" style="font-size:11px">${esc(d.reason||'No listings yet. Enable a job adapter or the LinkedIn guest search in kokpit.toml, then run kokpit run-job career.')}</p>${afFresh(d.freshness)}`;
  return `<h4>Listings · ${c.open} open${c.closed?`, ${c.closed} closed`:''}</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">Best score first. Open a row for the reasons; a score marked unknown could not be judged.</p>`+L.map(x=>`<details style="margin:4px 0"><summary><b>${x.score==null?'?':x.score}</b> ${esc(x.title)} <span class="mono" style="font-size:10px">${esc(x.company||'company unknown')} · ${esc(x.location||'place unknown')} · remote ${esc(x.remote)} · ${esc(x.sources.join('+'))}${x.reopened_at?' · reopened':''}${x.posted_at?' · '+esc(x.posted_at):''}</span></summary>${jbReasons({score:x.score,max_known:x.reasons.max_known,unknowns:x.reasons.unknowns,reasons:x.reasons.reasons||[]})}${x.url?`<p class="mono" style="font-size:10px"><a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">open posting</a></p>`:''}</details>`).join('')+afFresh(d.freshness)}
-function jbMarket(m){if(!m||!m.total)return '';const bar=(n,mx)=>'#'.repeat(Math.max(1,Math.round(n/mx*20)));const mc=Math.max(1,...m.companies.map(x=>x.open)),mw=Math.max(1,...m.weekly.map(x=>x.listings));
- return `<h4>Market view</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">${m.open} open of ${m.total} stored, ${m.window_days} day(s) of data. <a href="/api/career/export.csv">Export CSV</a></p>`+m.notes.map(n=>`<p class="mono" style="font-size:10px;margin:2px 0"><b>note</b> ${esc(n)}</p>`).join('')
- +`<p class="mono" style="font-size:11px;margin:8px 0 2px"><b>Per company</b></p>`+m.companies.map(x=>`<p class="mono" style="font-size:11px;margin:1px 0">${x.open} ${bar(x.open,mc)} ${esc(x.company)}</p>`).join('')
- +`<p class="mono" style="font-size:11px;margin:8px 0 2px"><b>Per week</b> (week starting Monday)</p>`+(m.weekly.map(x=>`<p class="mono" style="font-size:11px;margin:1px 0">${esc(x.week)} ${x.listings} ${bar(x.listings,mw)}</p>`).join('')||'<p class="mono" style="font-size:11px">not enough dated listings</p>')
- +`<p class="mono" style="font-size:11px;margin:8px 0 2px"><b>Top requested skills</b></p>`+(m.skills.map(x=>`<span class="mono" style="font-size:11px;margin-right:10px">${esc(x.skill)} ${x.open}</span>`).join('')||'<p class="mono" style="font-size:11px">none found</p>')}
+const JBOFF=`<div class="af"><div class="af-b s12"><p>Career module is off. Set <code>jobs = true</code> under [modules] in kokpit.toml.</p></div></div>`;
+const JBNONE='No listings yet. Enable a job adapter or the LinkedIn guest search in kokpit.toml, then run kokpit run-job career.';
+const jbKP=(n,l)=>`<div class="kpi"><b>${n==null?'-':n}</b><span>${l}</span></div>`,jbBar=(n,mx)=>`<div class="so-bar"><i style="width:${Math.round(100*(n||0)/Math.max(1,mx))}%"></i></div>`;
+/* Career > Market: market.view and weekly.view from /api/career. Model text is always escaped. */
+function jmWeeks(W){if(!W.length)return '<p class="mono jm-p">not enough dated listings</p>';const mx=Math.max(1,...W.map(w=>w.listings));
+ return `<p class="mono jm-k"><span class="l">listings</span><span class="c">companies</span><span class="g">good fit</span></p>`+W.map(w=>`<div class="jm-w"><span class="mono" title="${esc(w.start)} to ${esc(w.end)}">${esc(w.week)}</span><div>${[['l',w.listings],['c',w.companies],['g',w.good]].map(([k,n])=>`<div class="jm-b ${k}">${jbBar(n,mx)}<span class="mono">${n}</span></div>`).join('')}</div></div>`).join('')}
+function jmNote(w){let b;
+ if(!w||!w.model_on)b=`<p class="mono jm-p">${esc((w&&w.reason)||'model use is off: numbers only, no text')}</p>`;
+ else if(!w.note||!w.note.note)b='<p class="mono jm-p">No note for this week yet; written by the career job once per week.</p>';
+ else{const n=w.note.note,P=n.points||[];b=`<p class="mono jm-p">Written for week ${esc(w.note.week)} (${esc(w.note.start)} to ${esc(w.note.end)})</p><h3 class="jm-t">${esc(n.title)}</h3>${n.summary?`<p>${esc(n.summary)}</p>`:''}${P.length?`<ul class="jm-u">${P.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>`:''}${n.advice?`<p><b>Next step:</b> ${esc(n.advice)}</p>`:''}`}
+ return `<h4>Weekly note</h4>${b}`}
+function jmList(L,k,empty){if(!L.length)return `<p class="mono jm-p">${empty}</p>`;const mx=Math.max(1,...L.map(x=>x.open));return L.map(x=>`<div class="jm-c"><span>${esc(x[k])}</span>${jbBar(x.open,mx)}<b class="mono">${x.open}</b></div>`).join('')}
+async function jmView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/career');if(S.view!='jb'||S.sub!='market')return;
+ if(!d.enabled){v.innerHTML=JBOFF;return}
+ const m=d.market||{},W=(d.weekly&&d.weekly.weeks)||[];let i=0;
+ if(!m.total){v.innerHTML=`<div class="af"><div class="af-b s12"><h4>Market</h4><p class="mono" style="font-size:11px">${esc(d.reason||JBNONE)}</p>${afFresh(d.freshness)}</div></div>`;return}
+ v.innerHTML=`<div class="kp">${jbKP(m.open,'open')}${jbKP(m.total,'stored')}${jbKP(m.companies_n==null?m.companies.length:m.companies_n,'companies hiring')}${jbKP(m.window_days,'days of data')}${jbKP(W.length?W[W.length-1].listings:0,'listings this week')}</div>
+ <div class="af"><div class="af-b s7" ${afD(i++)}><h4>Per week</h4><p class="mono jm-p">Last ${W.length} weeks, Monday to Sunday, by posting date (first seen when undated). Good fit: score ${d.weekly&&d.weekly.good_score!=null?d.weekly.good_score:55} or more.</p>${jmWeeks(W)}</div>
+ <div class="af-b s5" ${afD(i++)}>${jmNote(d.weekly)}</div>
+ <div class="af-b s6" ${afD(i++)}><h4>Top companies</h4><p class="mono jm-p">Open listings per company.</p>${jmList(m.companies||[],'company','none yet')}</div>
+ <div class="af-b s6" ${afD(i++)}><h4>Top requested skills</h4><p class="mono jm-p">Open listings that mention the skill in the title or description.</p>${jmList(m.skills||[],'skill','none found')}</div>
+ <div class="af-b s12" ${afD(i++)}><h4>Notes</h4>${(m.notes||[]).map(n=>`<p class="mono jm-p">${esc(n)}</p>`).join('')}<p class="mono jm-p"><a href="/api/career/export.csv">Export CSV</a> (all stored) · <a href="/api/career/export.csv?status=open">open only</a></p>${afFresh(d.freshness)}</div></div>`}
+/* Career > Skills: skills.plan from /api/career/skills; a mark is one POST, pressing the active mark clears it. */
+const JS={};
+function jsRow(x,hid){const st=x.status,pc=x.share_good==null?'-':Math.round(x.share_good*100)+'%',tr=x.trend>0?'+'+x.trend:String(x.trend||0),E=x.examples||[];
+ const btn=s=>`<button type="button" class="btn" data-jss="${s}" aria-pressed="${st==s}">${s}</button>`;
+ return `<div class="js-r" data-jsk="${esc(x.skill)}"><div class="js-h"><b>${esc(x.skill)}</b>${st?`<span class="og-s">${esc(st)}</span>`:''}<span class="mono">${x.n_all} listing${x.n_all==1?'':'s'} · ${x.n_good} good fit (${pc}) · trend ${tr}</span></div>`
+ +(E.length?`<ul class="mono js-x">${E.map(e=>`<li>${esc(e.company||'company unknown')}: ${esc(e.title)}</li>`).join('')}</ul>`:'')
+ +`<div class="br-a">${hid?'<button type="button" class="btn" data-jss="">undo</button>':(JS.p.statuses||[]).map(btn).join('')}<input class="js-n" maxlength="500" placeholder="note (optional)" value="${esc(x.note||'')}" aria-label="Note for ${esc(x.skill)}"></div></div>`}
+function jsDraw(){const v=$('view'),p=JS.p,s=p.summary||{},H=p.hidden||[];let i=0;
+ v.innerHTML=`${JS.reason?`<p class="mono af-fr jm-r">${esc(JS.reason)}</p>`:''}<div class="kp">${jbKP(s.open,'open')}${jbKP(s.learning,'learning')}${jbKP(s.known,'known')}${jbKP(s.skip,'skip')}${jbKP(p.good_n,'good-fit listings')}${jbKP(p.window_days,'day window')}</div>
+ <div class="af"><div class="af-b s12" ${afD(i++)}><h4>Asked for and you do not have</h4><p class="mono jm-p">Skills in listings from the last ${p.window_days} days that are not in your profile. Good fit: score ${p.good_score} or more; the share is of all good-fit listings. Trend: last 30 days against the 30 before. Known moves a skill into your skills for scoring; skip hides it. A note is saved with the mark.</p><p id="jsmsg" class="mono jm-p" role="status"></p>${p.items.length?p.items.map(x=>jsRow(x,false)).join(''):`<p class="mono jm-p">${p.good_n||H.length?'No open gaps: every requested skill is in your profile or marked.':'No listings in the window yet, so no gaps to show.'}</p>`}</div>
+ <div class="af-b s12" ${afD(i++)}><details class="js-hd"${H.length?'':' hidden'}><summary><h4>Hidden (known / skip) · ${H.length}</h4></summary>${H.map(x=>jsRow(x,true)).join('')}</details>${H.length?'':'<p class="mono jm-p">Nothing hidden. Skills you mark known or skip move here.</p>'}</div></div>`}
+async function jsView(quiet){const v=$('view');if(!quiet)v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/career/skills');if(S.view!='jb'||S.sub!='skills')return;
+ if(!d.enabled){v.innerHTML=JBOFF;return}
+ JS.p=d.plan;JS.reason=d.reason||'';JS.by={};[...d.plan.items,...d.plan.hidden].forEach(x=>JS.by[x.skill]=x);const open=v.querySelector('.js-hd')&&v.querySelector('.js-hd').open;jsDraw();if(open)v.querySelector('.js-hd').open=true;
+ v.onclick=async e=>{const b=e.target.closest('[data-jss]'),r=b&&b.closest('[data-jsk]');if(!r)return;const x=JS.by[r.dataset.jsk],m=$('jsmsg');if(!x)return;
+  const s=b.dataset.jss,status=s&&s!=x.status?s:'';b.disabled=true;
+  try{await jbPost('/api/career/skills',{skill:x.skill,status,note:r.querySelector('.js-n').value});await jsView(true);const m2=$('jsmsg');if(m2)m2.textContent=status?`${x.skill}: marked ${status}`:`${x.skill}: mark removed`}catch(err){b.disabled=false;if(m)m.textContent=err.message}};
+ v.onchange=async e=>{const t=e.target;if(!t.classList.contains('js-n'))return;const r=t.closest('[data-jsk]'),x=r&&JS.by[r.dataset.jsk],m=$('jsmsg');if(!x)return;
+  if(!x.status)return;   /* no mark yet: the note goes with the mark button */
+  try{const j=await jbPost('/api/career/skills',{skill:x.skill,note:t.value});x.note=j.note;if(m)m.textContent=`${x.skill}: note saved`}catch(err){if(m)m.textContent=err.message}}}
 function jbForm(d){const p=d.profile,o=d.options,lang=(p.languages||[]).map(x=>x.language+(x.level?':'+x.level:'')).join(', ');
  const sel=(n,vals,cur)=>`<select name="${n}" class="btn" style="padding:6px 10px;font:700 13px var(--sans)">${vals.map(x=>`<option${x==cur?' selected':''}>${x}</option>`).join('')}</select>`;
  const ta=(n,l,v,ph)=>`<label class="mono" style="font-size:11px;display:block;margin-top:10px">${l}<textarea name="${n}" rows="2" placeholder="${esc(ph||'')}" style="width:100%;margin-top:4px">${esc(v)}</textarea></label>`;
@@ -1096,12 +1143,12 @@ function jbForm(d){const p=d.profile,o=d.options,lang=(p.languages||[]).map(x=>x
  <div style="display:flex;gap:12px;align-items:center;margin-top:10px"><button class="btn" style="background:#ffc21a">Save profile</button><span id="jbmsg" class="mono" style="font-size:11px">Saved to a local file on this machine only.</span></div></form>`}
 function jbRead(){const f=$('jbf'),g=n=>f.elements[n].value;return {target_roles:g('target_roles'),skills:g('skills'),must_have:g('must_have'),nice_to_have:g('nice_to_have'),exclude:g('exclude'),locations:g('locations'),languages:g('languages'),remote_pref:g('remote_pref'),seniority:g('seniority'),experience_years:g('experience_years'),experience_summary:g('experience_summary')}}
 async function jbPost(path,body){return J(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
-async function jbView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/career');if(S.view!='jb')return;
- if(!d.enabled){v.innerHTML=`<div class="af"><div class="af-b s12"><p>Career module is off. Set <code>jobs = true</code> under [modules] in kokpit.toml.</p></div></div>`;return}
+async function jbView(){const v=$('view');v.innerHTML='<div class="empty">Loading...</div>';const d=await J('/api/career');if(S.view!='jb'||S.sub)return;
+ if(!d.enabled){v.innerHTML=JBOFF;return}
  JB.d=d;let i=0;
  v.innerHTML=`<div class="af"><div class="af-b s7" ${afD(i++)}><h4>Profile</h4>${d.profile_empty?'<p class="mono" style="font-size:11px">Start with your target roles. Scores need at least one target role, must-have or skill to judge anything.</p>':''}${jbForm(d)}</div>
  <div class="af-b s5" ${afD(i++)}><h4>Import a CV (optional)</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">Paste the text. It is read in your browser session and by this local server only; e-mail, phone and links are removed, the text is not stored. You confirm what is added.${d.pdftotext?' On the command line, <code>kokpit career profile import-cv FILE.pdf</code> reads PDFs with pdftotext.':''}</p><textarea id="jbcv" rows="6" style="width:100%" placeholder="Paste CV text"></textarea><div style="display:flex;gap:12px;align-items:center;margin-top:8px"><button type="button" class="btn" id="jbcvb">Propose skills and languages</button><span id="jbcvm" class="mono" style="font-size:11px"></span></div></div>
- <div class="af-b s12" ${afD(i++)}>${jbListings(d)}</div>${d.market&&d.market.total?`<div class="af-b s12" ${afD(i++)}>${jbMarket(d.market)}</div>`:''}
+ <div class="af-b s12" ${afD(i++)}>${jbListings(d)}</div>
  <div class="af-b s5" ${afD(i++)}><h4>Try the scoring</h4><p class="mono" style="font-size:10px;margin:2px 0 8px">Paste a listing. The score always comes with its reasons; unknown values are marked ?, not counted as zero.</p><form id="jbs"><input name="title" placeholder="Job title" required style="width:100%;margin-bottom:6px"><input name="location" placeholder="Location (optional)" style="width:100%;margin-bottom:6px"><select name="remote" class="btn" style="padding:6px 10px;font:700 13px var(--sans)"><option value="">remote: unknown</option><option value="yes">remote: yes</option><option value="no">remote: no</option></select><textarea name="description" rows="5" placeholder="Description" style="width:100%;margin-top:6px"></textarea><button class="btn" style="margin-top:8px">Score</button></form><div id="jbsr" style="margin-top:10px"></div></div></div>`;
  $('jbf').onsubmit=async e=>{e.preventDefault();const m=$('jbmsg');try{const r=await jbPost('/api/career/profile',jbRead());JB.d.profile=r.profile;m.textContent='Saved.'}catch(x){m.textContent=x.message}};
  $('jbcvb').onclick=async()=>{const m=$('jbcvm');try{const r=await jbPost('/api/career/cv',{text:$('jbcv').value});const f=$('jbf');
@@ -1226,7 +1273,7 @@ function afDecor(){const v=$('view'),key=S.view;
  v.querySelectorAll('.kpi b').forEach(b=>{const m=b.textContent.trim().match(/^(\d{1,7})$/);if(m)b.dataset.c=m[1]});afCount(v);
  clearTimeout(afT);afT=setTimeout(()=>v.classList.remove('afa'),2500)}
 new MutationObserver(()=>requestAnimationFrame(afDecor)).observe($('view'),{childList:true});
-async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:jbView,ai:aiView,so:soView,br:S.sub=='meetings'?bmView:brView,hl:hlView,bi:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+async function render(){nav();$('ctl').innerHTML='';$('view').onclick=null;window.scrollTo(0,0);try{await({bg:bugunView,ev:evView,jb:S.sub=='market'?jmView:S.sub=='skills'?jsView:jbView,ai:aiView,so:soView,br:S.sub=='meetings'?bmView:brView,hl:hlView,bi:agView,og:ogView,cn:cnView})[S.view]()}catch(e){$('view').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
 window.addEventListener('hashchange',()=>{legacyHash();const n=hashParts(),s=n[1];if(n[0]!=S.view||s!=S.sub){S.view=n[0];S.sub=s;render()}});
 J('/api/meta').then(m=>{const t=$('tag');t.hidden=false;t.className='mono';t.style.cssText='font-size:11px';t.textContent=`v${m.version} · ${base(m.config)}`;
  if(m.modules&&typeof m.modules=='object'){S.mods=m.modules;nav()}}).catch(()=>{});

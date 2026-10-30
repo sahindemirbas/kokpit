@@ -25,7 +25,7 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 | Today | Full: calendar, tasks, weather, counts, health | nothing | working |
 | Brain | Full: threads, lanes, timeline, capture | nothing (agents write to the vault, the tab only reads) | working |
 | Events | Collection, dedupe, keyword category rules, views, `.ics` | Turkish translation, "other" reclassification, description enrichment | working; untranslated items show the original text |
-| Career | Collection, keyword scoring with reasons, lifecycle, market view, CSV | translated titles for high-score jobs | working |
+| Career | Collection, keyword scoring with reasons, lifecycle, market view, weekly counts, skills plan, CSV | translated titles for high-score jobs, weekly note | working |
 | Social | Insights, approved publishing, calendar | caption/visual drafts | working for stats; drafting is model-only, no template path yet |
 | AI usage | Reader, per-model view, rule-based advice | nothing | working |
 | Briefing (digest) | Item scoring and listing | summary text, item selection, audio | scoring is rule-based; summary without a model falls back to the plain list, to be formalised |
@@ -54,6 +54,7 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 - Local event adapter loader: `adapters/events/<id>/collect.py` plus user folders from `[events] adapter_dirs`, imported only when listed in `[events] adapters`; import errors, missing `collect`, exceptions and wrong return types become short warnings on the `events-collect` run; records go through the same radius filter, categories and upsert with `source` = adapter name; `kokpit adapters` lists them; offline `example-city` template. Tests: 61.
 - Category language packs: JSON keyword packs, English ids and labels, `[events] category_languages = ["en"]` by default, `it` built in but off, own packs via `category_pack_dirs`. Tests: 67.
 - M2 (events for any city) complete on 29 Oct 2026. Moved out: translation target (M5, needs the model connection) and Google read-only calendar (Later; the secret ICS address already covers it). Tests: 76.
+- Career web app (30 Oct 2026): three leaves, Jobs (profile, CV import, score check, listings), Market (per-week bars, weekly note, top companies and skills, CSV) and Skills (skills plan with learning / known / skip marks). Checked in a browser on a synthetic database at 1440 and 390 px.
 
 ## Planned, not started
 

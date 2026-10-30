@@ -42,6 +42,7 @@ Kokpit her sabah baktığın şeyleri (takvim, görevler, notların, şehrindeki
 - **Briefing:** `briefing = true` yap ve `[briefing]` altına kendi konularını (RSS/Atom ve anahtar kelimeler) yaz; aktif projelerinle eşleşen öğeler etiketlenir ve öne çıkar. Model özeti ve sesli okuma isteğe bağlı, varsayılan kapalı. Özetin iki sesli podcast'i (model metni, Gemini ya da OpenAI uyumlu ses) de isteğe bağlı ve varsayılan kapalı.
 - **Events:** AllEvents ve Eventbrite'tan şehrindeki etkinlikler; yerel adaptörler ve kendi dilinde kategori kuralları.
 - **Career:** yerel profil, yazılı gerekçeyle puanlanan ilanlar ("Python, SQL; Milano; uzaktan belirtilmemiş"), ilan yaşam döngüsü, pazar görünümü, CSV dışa aktarım. Haftalık pazar özeti son 8 haftanın ilan sayılarını gösterir; yalnız `[model.uses] career_weekly` açıksa neyin değiştiğini anlatan kısa bir not da ekler. Beceri planı ilanların istediği ama profilinde olmayan becerileri listeler; her birini öğreniyorum, biliyorum ya da atla diye işaretlersin.
+  Web arayüzünde Career grubunun üç yaprağı var: Jobs, Market ve Skills.
 - **Health:** her işin son başarılı çalışması. Sessizce boş dönen bir kaynak "0 kayıt" olarak görünür, "OK" olarak değil.
 - **Connections:** her veri kaynağı tek ekranda: ne okuyor, en son ne zaman çalıştı. Sen açana kadar hepsi kapalı.
 - **Social:** kendi Instagram hesabın, gönderilerin, reels ve hikayeler, metrikleriyle birlikte resmi API üzerinden okunur ve günlük anlık görüntü olarak saklanır. Salt okunur, varsayılan olarak kapalı.

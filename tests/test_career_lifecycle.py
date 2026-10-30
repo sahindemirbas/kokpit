@@ -131,6 +131,7 @@ class MarketTests(unittest.TestCase):
         m = market.view(conn)
         self.assertEqual((m["total"], m["open"]), (4, 4))
         self.assertEqual(m["companies"][0], {"company": "Alpha", "open": 3})
+        self.assertEqual(m["companies_n"], 2)  # open companies, not capped by the top list
         weeks = {w["week"]: w["listings"] for w in m["weekly"]}
         self.assertEqual(weeks, {"2026-10-12": 2})  # bulk-load rows excluded, n1 by first_seen, n2 by posted_at
         skills = {s["skill"]: s["open"] for s in m["skills"]}
@@ -144,7 +145,7 @@ class MarketTests(unittest.TestCase):
 
     def test_empty(self):
         m = market.view(mem())
-        self.assertEqual((m["total"], m["weekly"]), (0, []))
+        self.assertEqual((m["total"], m["weekly"], m["companies_n"]), (0, [], 0))
         self.assertIn("no listings yet", m["notes"][0])
 
     def test_closed_not_counted_in_open_company_counts(self):

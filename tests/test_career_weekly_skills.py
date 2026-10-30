@@ -97,6 +97,7 @@ class WeeklyTrendTests(unittest.TestCase):
         self.assertIsNone(v["note"])
         self.assertEqual(len(v["weeks"]), 8)
         self.assertIn("numbers only", v["reason"])
+        self.assertEqual(v["good_score"], skills.GOOD_SCORE)  # the Market leaf names the good-fit line
         called = []
         self.assertEqual(weekly.write(self.cfg, self.conn, PROFILE, TODAY, complete=lambda *a: called.append(a)), (None, []))
         self.assertEqual(called, [])
@@ -254,6 +255,40 @@ class SkillsWebTests(unittest.TestCase):
         self.assertEqual(e.exception.code, 400)
         with urllib.request.urlopen(self.base + "/api/career", timeout=5) as r:
             self.assertIn("weekly", json.loads(r.read()))
+
+
+class CareerLeavesFrontend(unittest.TestCase):
+    """The Career group has three leaves; the Market and Skills leaves read the existing endpoints."""
+
+    def setUp(self):
+        self.html = (Path(__file__).resolve().parents[1] / "kokpit" / "static" / "index.html").read_text(encoding="utf-8")
+
+    def test_three_leaves_and_hashes(self):
+        self.assertIn("k:[['jb','Jobs'],['jb/market','Market'],['jb/skills','Skills']]", self.html)
+        for alias in ("jobs:'jb'", "'career/market':'jb/market'", "market:'jb/market'", "'career/skills':'jb/skills'", "skills:'jb/skills'"):
+            self.assertIn(alias, self.html)
+        self.assertIn("jb:S.sub=='market'?jmView:S.sub=='skills'?jsView:jbView", self.html)
+        self.assertIn("jb:'jobs'", self.html)   # one [modules] key hides all three leaves (navOn reads the part before '/')
+
+    def test_leaf_guards_and_endpoints(self):
+        self.assertIn("if(S.view!='jb'||S.sub)return;", self.html)
+        self.assertIn("if(S.view!='jb'||S.sub!='market')return;", self.html)
+        self.assertIn("if(S.view!='jb'||S.sub!='skills')return;", self.html)
+        self.assertIn("J('/api/career/skills')", self.html)
+        self.assertIn("jbPost('/api/career/skills'", self.html)
+        self.assertIn('href="/api/career/export.csv"', self.html)
+
+    def test_weekly_note_states(self):
+        self.assertIn("No note for this week yet; written by the career job once per week.", self.html)
+        self.assertIn("esc(n.title)", self.html)
+        self.assertIn("esc(n.advice)", self.html)
+        self.assertNotIn("function jbMarket", self.html)   # the plain-text market block left the Jobs leaf
+        self.assertNotIn("'#'.repeat", self.html)
+
+    def test_skills_marks(self):
+        self.assertIn("Asked for and you do not have", self.html)
+        self.assertIn("Hidden (known / skip)", self.html)
+        self.assertIn("status=s&&s!=x.status?s:''", self.html)   # pressing the active mark clears it
 
 
 if __name__ == "__main__":

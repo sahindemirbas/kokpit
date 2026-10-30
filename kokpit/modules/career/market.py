@@ -38,10 +38,10 @@ def _skill_re(term: str) -> re.Pattern:
 def view(conn: sqlite3.Connection, top: int = 15) -> dict:
     store.ensure_schema(conn)
     if not store.has_table(conn):
-        return {"total": 0, "open": 0, "companies": [], "weekly": [], "skills": [], "window_days": 0, "notes": ["no listings yet"]}
+        return {"total": 0, "open": 0, "companies_n": 0, "companies": [], "weekly": [], "skills": [], "window_days": 0, "notes": ["no listings yet"]}
     rows = conn.execute("SELECT source, company, title, description, status, posted_at, first_seen FROM job_listings").fetchall()
     if not rows:
-        return {"total": 0, "open": 0, "companies": [], "weekly": [], "skills": [], "window_days": 0, "notes": ["no listings yet"]}
+        return {"total": 0, "open": 0, "companies_n": 0, "companies": [], "weekly": [], "skills": [], "window_days": 0, "notes": ["no listings yet"]}
     first_day = {}
     for r in rows:
         d = _day(r["first_seen"])
@@ -83,7 +83,7 @@ def view(conn: sqlite3.Connection, top: int = 15) -> dict:
         notes.append(f"{skipped} undated listing(s) from a source's first run day are left out of the trend (bulk load of already open jobs)")
     if len(open_rows) - described:
         notes.append(f"skills are counted from titles and descriptions; {len(open_rows) - described} open listing(s) have no description")
-    return {"total": len(rows), "open": len(open_rows), "window_days": window,
+    return {"total": len(rows), "open": len(open_rows), "companies_n": len(companies), "window_days": window,
             "companies": [{"company": c, "open": n} for c, n in companies.most_common(top)],
             "weekly": [{"week": w, "listings": n} for w, n in sorted(weekly.items())],
             "skills": [{"skill": s, "open": n} for s, n in skills.most_common(top)], "notes": notes}
