@@ -5,15 +5,15 @@ Two levels. The first works today; the second has a contract but no loader yet.
 ## 1. Generic sources (works now, no code)
 
 ```
-python -m kokpit init --vault ~/notes --db ./kokpit.db --city "Example City, Country"
+python -m kokpit init --vault ~/notes --db ./kokpit.db --city "Ghent, Belgium"
 ```
 
 `init` geocodes the name once (OpenStreetMap Nominatim), writes `kokpit.toml` and guesses two public listing slugs:
 
 ```toml
 [events]
-allevents_slug  = "lodi-it"      # allevents.in/<slug>
-eventbrite_slug = "italy--lodi"  # eventbrite.<tld>/d/<slug>/
+allevents_slug  = "ghent-be"     # allevents.in/<slug>
+eventbrite_slug = "belgium--ghent"  # eventbrite.<tld>/d/<slug>/
 ```
 
 Switch `events = true` in `[modules]`, run `python -m kokpit run-job events-collect`, open the Connections tab. A wrong slug is not an error: it shows as `0 rows`. Fix the slug in the browser address bar of the real listing page and paste it into `kokpit.toml`.
