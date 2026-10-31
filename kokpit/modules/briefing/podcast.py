@@ -389,14 +389,21 @@ def intro_text(cfg: Config, now: datetime | None = None) -> tuple[str, str]:
 # ---------- speech, files and records ----------
 
 def _speak(cfg: Config, lines: list[dict], opener=None) -> bytes:
+    """Line by line through the ``[briefing.tts]`` server (openai_compatible); no request limit applies."""
     p = settings(cfg)
-    if p["tts_provider"] == "gemini":
-        key = gemini_key(cfg)
-        chunks = [voices.trim_tail(voices.gemini_multi(part, p["speakers"], key, p["gemini_model"], p["gemini_base_url"],
-                                                       p["timeout"], opener))
-                  for part in voices.split_turns(lines, p["max_turns_per_request"])]
-        return voices.join(chunks)
     return voices.openai_lines(cfg, lines, p["speakers"], p["openai_format"])
+
+
+def _speak_gemini(cfg: Config, segments: list[list[dict]], opener=None) -> tuple[bytes, int]:
+    """The whole episode in at most ``max_requests`` Gemini requests: (pcm, lines trimmed)."""
+    p = settings(cfg)
+    key = gemini_key(cfg)
+    parts, dropped = voices.plan_requests(segments, p["max_requests"], p["max_turns_per_request"],
+                                          p["max_turns_stretch"])
+    chunks = [voices.trim_tail(voices.gemini_multi(part, p["speakers"], key, p["gemini_model"], p["gemini_base_url"],
+                                                   p["timeout"], opener))
+              for part in parts]
+    return voices.join(chunks), dropped
 
 
 def engine(cfg: Config) -> str:
@@ -444,12 +451,24 @@ def make(cfg: Config, day: str | None = None, complete=None, opener=None, now: d
     tmp = wav.with_name(wav.stem + ".part.wav")
     wav.parent.mkdir(parents=True, exist_ok=True)
     try:
-        pieces = []
-        if intro:
-            pieces.append(_speak(cfg, [{"who": "A", "text": intro}], opener))
-        for seg in sc["segments"]:
-            pieces.append(_speak(cfg, seg["lines"], opener))
-        secs = voices.write_wav(tmp, voices.join(pieces))
+        intro_line = [{"who": "A", "text": intro}] if intro else []
+        if settings(cfg)["tts_provider"] == "gemini":
+            segs = [list(seg["lines"]) for seg in sc["segments"]]
+            if segs:
+                segs[0] = intro_line + segs[0]
+            else:
+                segs = [intro_line]
+            pcm, dropped = _speak_gemini(cfg, segs, opener)
+            if dropped:
+                note.append(f"trimmed {dropped} lines to fit {settings(cfg)['max_requests']} requests")
+        else:
+            pieces = []
+            if intro_line:
+                pieces.append(_speak(cfg, intro_line, opener))
+            for seg in sc["segments"]:
+                pieces.append(_speak(cfg, seg["lines"], opener))
+            pcm = voices.join(pieces)
+        secs = voices.write_wav(tmp, pcm)
         tmp.replace(wav)
     except voices.VoiceError as exc:
         tmp.unlink(missing_ok=True)

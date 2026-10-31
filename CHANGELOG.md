@@ -2,6 +2,10 @@
 
 All notable changes to Kokpit are listed here. Versions follow [Semantic Versioning](https://semver.org/); before 1.0, minor versions may change configuration and behaviour.
 
+## Unreleased
+
+- Podcast: Gemini speech is planned for the whole episode, intro included, in at most `max_requests` requests (default 10; `max_turns_stretch` lets a request hold up to 16 lines, and extra lines are trimmed with a note). The `openai_compatible` path is unchanged.
+
 ## 0.1.0 (2026-10-31)
 
 First public release. Kokpit runs on Python 3 with the standard library only and needs no AI key.

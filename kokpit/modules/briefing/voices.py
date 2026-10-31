@@ -98,6 +98,60 @@ def split_turns(lines: list, n: int) -> list[list]:
     return [list(lines[i: i + size]) for i in range(0, len(lines), size)]
 
 
+def _even(lines: list, k: int) -> list[list]:
+    """``k`` consecutive chunks whose sizes differ by at most one line; never an empty chunk."""
+    k = max(1, min(k, len(lines)))
+    q, r = divmod(len(lines), k)
+    out, i = [], 0
+    for j in range(k):
+        size = q + (1 if j < r else 0)
+        out.append(list(lines[i: i + size]))
+        i += size
+    return out
+
+
+def _trim(segments: list[list], target: int) -> int:
+    """Drops lines in place until ``target`` lines remain; returns how many were dropped.
+
+    The second to last line of the longest segment goes first (the later segment on a tie), so
+    the first and the last line of every segment stay. Only when no segment has more than two
+    lines left is a protected line dropped, which keeps the size limits true in every case.
+    """
+    dropped = 0
+    while sum(len(s) for s in segments) > target:
+        i = max(range(len(segments)), key=lambda j: (len(segments[j]), j))
+        if len(segments[i]) >= 2:
+            del segments[i][-2]
+        else:  # every segment has one line: drop the one before the last
+            del segments[[j for j, s in enumerate(segments) if s][-2]][0]
+        dropped += 1
+    return dropped
+
+
+def plan_requests(segments: list[list], max_requests: int, turns: int, stretch: int) -> tuple[list[list], int]:
+    """Plans the speech requests of a whole episode: (chunks of lines, number of lines trimmed).
+
+    All lines count as one list in order; segment borders only matter for trimming. Chunks hold
+    at most ``turns`` lines when that fits in ``max_requests`` requests, else at most ``stretch``
+    lines in ``max_requests`` requests; when even that is too small, lines are trimmed down to
+    ``max_requests * stretch``. Sizes are spread evenly and no chunk is empty.
+    """
+    max_requests = max(1, int(max_requests))
+    turns = max(1, int(turns))
+    stretch = max(turns, int(stretch))
+    segs = [list(s) for s in segments if s]
+    n = sum(len(s) for s in segs)
+    if not n:
+        return [], 0
+    k = math.ceil(n / turns)
+    if k <= max_requests:
+        return _even([ln for s in segs for ln in s], k), 0
+    dropped = 0
+    if math.ceil(n / max_requests) > stretch:
+        dropped = _trim(segs, max_requests * stretch)
+    return _even([ln for s in segs for ln in s], max_requests), dropped
+
+
 def join(chunks: list[bytes], gap: float = GAP) -> bytes:
     out = bytearray()
     for i, c in enumerate(chunks):

@@ -289,13 +289,13 @@ class VoiceTests(Base):
         seed(cfg)
         Fake.model_answers = list(TWO)
         row = podcast.make(cfg)
-        self.assertEqual(len(Fake.gemini), 2)
+        self.assertEqual(len(Fake.gemini), 1)  # 2 + 3 lines are planned as one request
         first = Fake.gemini[0]
         self.assertTrue(first["path"].endswith("/models/tts-model-x:generateContent"))
         self.assertEqual(first["key"], GEMINI_KEY)
         parts = first["body"]["contents"][0]["parts"]
-        self.assertEqual(len(parts), 2)
-        self.assertEqual([p["speechMetadata"]["speaker"] for p in parts], ["A", "B"])
+        self.assertEqual(len(parts), 5)
+        self.assertEqual([p["speechMetadata"]["speaker"] for p in parts], ["A", "B", "A", "B", "A"])
         gc = first["body"]["generationConfig"]
         self.assertEqual(gc["responseModalities"], ["AUDIO"])
         cfgs = gc["speechConfig"]["multiSpeakerVoiceConfig"]["speakerVoiceConfigs"]
@@ -308,7 +308,8 @@ class VoiceTests(Base):
             self.assertEqual((w.getframerate(), w.getsampwidth(), w.getnchannels()), (24000, 2, 1))
             frames = w.getnframes()
         gap = int(24000 * voices.GAP)
-        self.assertEqual(frames, (PCM_PER_LINE * 5) // 2 + gap)  # 2 + 3 lines, one gap between segments
+        self.assertEqual(frames, (PCM_PER_LINE * 5) // 2)  # 2 + 3 lines in one request, no gap
+        self.assertGreater(gap, 0)
         conn = connect(cfg.db)
         r = conn.execute("SELECT * FROM briefing_podcast WHERE day=?", (DAY,)).fetchone()
         conn.close()
@@ -326,6 +327,29 @@ class VoiceTests(Base):
         self.assertEqual([len(g["body"]["contents"][0]["parts"]) for g in Fake.gemini], [7, 6])
         with wave.open(str(podcast.audio_path(cfg, DAY))) as w:
             self.assertEqual(w.getnframes() * 2, PCM_PER_LINE * 13 + len(voices.silence(voices.GAP)))
+
+    def test_whole_episode_fits_max_requests_with_intro_first(self):
+        cfg = self.cfg(intro=True)
+        cfg.briefing["podcast"]["max_requests"] = 3
+        seed(cfg)
+        big = [{"who": "AB"[i % 2], "text": f"first {i}"} for i in range(30)]
+        small = [{"who": "AB"[i % 2], "text": f"second {i}"} for i in range(25)]
+        Fake.model_answers = [json.dumps([{"lines": big}]), json.dumps([{"lines": small}])]
+        today = {"sections": {"weather": {"status": "ok", "days": [{"date": "2026-10-30", "text": "sunny", "min": 8.2, "max": 17.6}]}}}
+        with mock.patch("kokpit.modules.today.api.view", return_value=today):
+            row = podcast.make(cfg, now=datetime(2026, 10, 30, 7, 0))
+        self.assertEqual(len(Fake.gemini), 3)
+        sizes = [len(g["body"]["contents"][0]["parts"]) for g in Fake.gemini]
+        self.assertEqual(sizes, [16, 16, 16])  # 1 intro + 55 lines trimmed to 3 * 16
+        first = Fake.gemini[0]["body"]["contents"][0]["parts"][0]
+        self.assertEqual(first["speechMetadata"]["speaker"], "A")
+        self.assertIn("Friday, 30 October", first["text"])
+        texts = [p["text"] for g in Fake.gemini for p in g["body"]["contents"][0]["parts"]]
+        for kept in ("first 0", "first 29", "second 0", "second 24"):
+            self.assertTrue(any(t.endswith(kept) for t in texts), kept)
+        self.assertIn("trimmed 8 lines to fit 3 requests", row["note"])
+        with wave.open(str(podcast.audio_path(cfg, DAY))) as w:
+            self.assertEqual(w.getnframes() * 2, PCM_PER_LINE * 48 + 2 * len(voices.silence(voices.GAP)))
 
     def test_silence_byte_count(self):
         self.assertEqual(len(voices.silence(0.35)), 8400 * 2)
@@ -394,8 +418,10 @@ class VoiceTests(Base):
                               "calendar": {"status": "connected", "today": [{"start": "2026-10-30T09:30", "all_day": False, "title": "Team call"}]}}}
         with mock.patch("kokpit.modules.today.api.view", return_value=today):
             row = podcast.make(cfg, now=datetime(2026, 10, 30, 7, 0))
-        intro = Fake.gemini[0]["body"]["contents"][0]["parts"]
-        self.assertEqual(len(intro), 1)
+        parts = Fake.gemini[0]["body"]["contents"][0]["parts"]
+        self.assertEqual(len(Fake.gemini), 1)
+        self.assertEqual(len(parts), 6)  # intro + 2 + 3 lines in the one planned request
+        intro = parts[:1]
         self.assertEqual(intro[0]["speechMetadata"]["speaker"], "A")
         self.assertIn("Friday, 30 October", intro[0]["text"])
         self.assertIn("between 8 and 18 degrees", intro[0]["text"])
@@ -408,8 +434,83 @@ class VoiceTests(Base):
         Fake.model_answers = list(TWO)
         with mock.patch("kokpit.modules.today.api.view", return_value={"sections": {}}):
             row = podcast.make(cfg)
-        self.assertEqual(len(Fake.gemini), 2)
+        self.assertEqual(len(Fake.gemini), 1)
+        self.assertEqual(len(Fake.gemini[0]["body"]["contents"][0]["parts"]), 5)
         self.assertIn("intro skipped", row["note"])
+
+
+class PlanTests(unittest.TestCase):
+    @staticmethod
+    def segs(sizes):
+        return [[f"{i}.{j}" for j in range(n)] for i, n in enumerate(sizes)]
+
+    def check(self, parts, max_requests, limit):
+        self.assertLessEqual(len(parts), max_requests)
+        self.assertTrue(all(0 < len(p) <= limit for p in parts))
+        self.assertLessEqual(max(map(len, parts)) - min(map(len, parts)), 1)
+
+    def test_real_episode_with_intro_is_exactly_ten_requests(self):
+        segs = self.segs([18, 30, 32, 6, 15, 12])
+        segs[0] = ["intro"] + segs[0]
+        parts, dropped = voices.plan_requests(segs, 10, 12, 16)
+        self.assertEqual((len(parts), dropped), (10, 0))
+        self.check(parts, 10, 12)
+        self.assertEqual(parts[0][0], "intro")
+        self.assertEqual([x for p in parts for x in p], [x for s in segs for x in s])
+
+    def test_sixty_lines_need_five_requests(self):
+        segs = self.segs([20, 25, 15])
+        parts, dropped = voices.plan_requests(segs, 10, 12, 16)
+        self.assertEqual(([len(p) for p in parts], dropped), ([12] * 5, 0))
+        self.assertEqual([x for p in parts for x in p], [x for s in segs for x in s])
+
+    def test_one_hundred_fifty_lines_stretch_to_sixteen(self):
+        parts, dropped = voices.plan_requests(self.segs([50, 50, 50]), 10, 12, 16)
+        self.assertEqual((len(parts), dropped), (10, 0))
+        self.check(parts, 10, 16)
+        self.assertEqual(sum(map(len, parts)), 150)
+
+    def test_two_hundred_lines_are_trimmed_to_one_hundred_sixty(self):
+        segs = self.segs([80, 50, 40, 30])
+        parts, dropped = voices.plan_requests(segs, 10, 12, 16)
+        self.assertEqual((len(parts), dropped), (10, 40))
+        self.assertEqual([len(p) for p in parts], [16] * 10)
+        flat = [x for p in parts for x in p]
+        for s in segs:
+            self.assertIn(s[0], flat)
+            self.assertIn(s[-1], flat)
+        kept = set(flat)
+        self.assertEqual(flat, [x for s in segs for x in s if x in kept])
+        self.assertEqual(len(kept), 160)
+
+    def test_trim_takes_from_the_longest_segment_first(self):
+        segs = self.segs([30, 5])
+        parts, dropped = voices.plan_requests(segs, 2, 12, 16)
+        self.assertEqual(dropped, 3)
+        flat = [x for p in parts for x in p]
+        self.assertEqual([x for x in flat if x.startswith("1.")], segs[1])
+        self.assertNotIn("0.28", flat)
+        self.assertIn("0.29", flat)
+
+    def test_edges_never_break_the_limits(self):
+        self.assertEqual(voices.plan_requests([], 10, 12, 16), ([], 0))
+        self.assertEqual(voices.plan_requests([[], []], 10, 12, 16), ([], 0))
+        self.assertEqual(voices.plan_requests([["a"]], 10, 12, 16), ([["a"]], 0))
+        for sizes in ([1] * 30, [2] * 20, [1, 1, 1], [100], [3, 1, 7, 1, 2]):
+            for m in (1, 2, 3, 10):
+                parts, dropped = voices.plan_requests(self.segs(sizes), m, 2, 2)
+                self.assertEqual(sum(map(len, parts)) + dropped, sum(sizes))
+                self.check(parts, m, 2)
+
+    def test_config_defaults_and_bounds(self):
+        d = cfgmod._podcast({})
+        self.assertEqual((d["max_requests"], d["max_turns_per_request"], d["max_turns_stretch"]), (10, 12, 16))
+        self.assertEqual(cfgmod._podcast({"max_requests": 0})["max_requests"], 1)
+        self.assertEqual(cfgmod._podcast({"max_requests": 500})["max_requests"], 100)
+        self.assertEqual(cfgmod._podcast({"max_requests": "x"})["max_requests"], 10)
+        self.assertEqual(cfgmod._podcast({"max_turns_stretch": 5})["max_turns_stretch"], 12)
+        self.assertEqual(cfgmod._podcast({"max_turns_stretch": 99})["max_turns_stretch"], 40)
+        self.assertEqual(cfgmod._podcast({"max_turns_per_request": 20})["max_turns_stretch"], 20)
 
 
 class ServeTests(Base):

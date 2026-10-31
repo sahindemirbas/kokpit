@@ -167,7 +167,9 @@ podcast = false               # text of the two-voice Briefing podcast ([briefin
 # tts_provider = "gemini"     # "gemini" or "openai_compatible" (uses [briefing.tts], one request per line)
 # gemini_key_env = "KOKPIT_GEMINI_API_KEY"
 # gemini_model = "gemini-2.5-flash-preview-tts"   # example; check which TTS model your key can use
-# max_turns_per_request = 12
+# max_turns_per_request = 12  # Gemini: lines per request
+# max_turns_stretch = 16      # Gemini: lines per request allowed when max_requests would not fit otherwise
+# max_requests = 10           # Gemini: requests for the whole episode (free tier is about 10 TTS requests a day); extra lines are trimmed
 # link_base = ""              # e.g. "http://my-server:8501"; used in the bot line, empty gives a path only
 
 # [organiser]                 # night organiser, 03:30 daily; proposals go to SQLite and one report file in the data folder
@@ -545,6 +547,7 @@ def _podcast(p: dict) -> dict:
     base = str(p.get("gemini_base_url", GEMINI_BASE)).strip().rstrip("/")
     fmt = str(p.get("openai_format", "pcm")).strip().lower()
     link = str(p.get("link_base", "")).strip().rstrip("/")
+    turns = max(2, min(40, _int(p.get("max_turns_per_request"), 12)))
     return {
         "enabled": p.get("enabled") is True,
         "language": lang if re.fullmatch(r"[a-z]{2,3}(-[a-z0-9]{2,8})?", lang) else "en",
@@ -558,7 +561,9 @@ def _podcast(p: dict) -> dict:
         "gemini_model": str(p.get("gemini_model", GEMINI_TTS_MODEL)).strip() or GEMINI_TTS_MODEL,
         "gemini_base_url": base if base.lower().startswith(("http://", "https://")) else GEMINI_BASE,
         "openai_format": fmt if fmt in ("pcm", "wav") else "pcm",
-        "max_turns_per_request": max(2, min(40, _int(p.get("max_turns_per_request"), 12))),
+        "max_turns_per_request": turns,
+        "max_turns_stretch": max(turns, min(40, _int(p.get("max_turns_stretch"), 16))),
+        "max_requests": max(1, min(100, _int(p.get("max_requests"), 10))),
         "timeout": max(10, min(900, _int(p.get("timeout"), 400))),
         "link_base": link if link.lower().startswith(("http://", "https://")) else "",
     }

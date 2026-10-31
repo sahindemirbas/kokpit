@@ -70,6 +70,12 @@ calendar_ics_urls = []        # e.g. ["https://calendar.example.org/feeds/<secre
 # model = ""
 # voice = ""
 # key_env = "KOKPIT_TTS_API_KEY"
+# [briefing.podcast]             # optional two-voice podcast, off by default; also needs [model.uses] podcast = true
+# enabled = false
+# tts_provider = "gemini"      # "gemini" or "openai_compatible" (one request per line, no request limit)
+# max_turns_per_request = 12   # Gemini: lines per request
+# max_turns_stretch = 16       # Gemini: lines per request allowed when max_requests would not fit otherwise
+# max_requests = 10            # Gemini: requests for the whole episode (free tier is about 10 TTS requests a day)
 # Model summaries and diagrams are a separate opt-in: [model] enabled = true and [model.uses] digest = true.
 
 [brain]
