@@ -13,7 +13,7 @@ This describes the shape of the reference instance and the target shape of the g
 +---------------------------+                    | read-only
                                                  v
 +---------------------------+        +--------------------------+
-|  local Markdown vault     | read   |  web app (Starlette)     |
+|  local Markdown vault     | read   |  web app (http.server)   |
 |  (your notes, tasks)      | -----> |  JSON API + one static   |
 +---------------------------+ write  |  HTML page               |
         ^   quick capture only       +-----------+--------------+
@@ -26,6 +26,7 @@ This describes the shape of the reference instance and the target shape of the g
 
 - **Jobs** do all network work and all writes. They run on a schedule and each one records its result in a `health` table (job name, last run, ok/error, row count).
 - **Web app** opens the database read-only. The only writes it performs are quick capture into the Markdown vault (a new note or task line) and reminder state changes that the user triggers with a button.
+- **Web server**: the standard library `http.server` (`ThreadingHTTPServer` in `kokpit/web.py`), no framework. The reference instance uses Starlette; this repository does not.
 - **One page**: the dashboard is a single static HTML file with client-side rendering over a small JSON API. No build step, no Node toolchain.
 - **Bot** is optional. It sends one line in the morning and carries approval buttons (e.g. "publish this post"). Nothing is published without a button press or an explicit scheduled approval.
 

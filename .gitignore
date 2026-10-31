@@ -2,15 +2,16 @@
 *.db
 *.sqlite*
 __pycache__/
+*.pyc
+*.egg-info/
 .venv/
 *.log
 data/
 audio/
-kokpit.toml
 
 # local instance
 kokpit.toml
-data/
-__pycache__/
-*.pyc
-*.egg-info/
+
+# working notes of local agents
+.brief_*
+.out_*

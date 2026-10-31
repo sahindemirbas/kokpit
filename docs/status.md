@@ -1,20 +1,25 @@
 # Status: what exists today
 
-Last reviewed: 30 October 2026.
+Last reviewed: 31 October 2026.
 
-Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQLite, cron, Telegram bot) running on a small home server since 2025. The M1 to M3 modules and the AI usage readers are now in this repository. The rest (social, briefing digest, Telegram bot) still lives only in the reference instance and will be moved in module by module, stripped of personal data.
+Kokpit is extracted from a working single-user instance (Python 3, Starlette, SQLite, cron, Telegram bot) running on a small home server since 2025. That reference instance is a separate, private code base. This repository does not use Starlette: the dashboard is served by the standard library (`http.server.ThreadingHTTPServer` in `kokpit/web.py`).
 
-## Working in the reference instance
+Every module of the reference instance that is in the first public scope is now in this repository under `kokpit/modules/`: today, brain, events, career, briefing, instagram (Social), ai_usage, organiser, health, connections, model and bot. Each was moved in stripped of personal data and is tested on synthetic fixtures. Optional modules stay off until you switch them on.
 
-- Today tab with calendar, tasks, upcoming dates, decisions waiting, weather for two cities, counts from other modules, system health.
-- Brain tab over a local Markdown vault: threads, lanes, timeline, quick capture.
-- Events: multi-source collection, dedupe, category rules, translation, list/calendar/map views, `.ics` per event, optional public static page.
-- Career: LinkedIn guest search plus three company-site adapters, Indeed and Jooble through an optional local headless browser, rule-based scoring with reasons, lifecycle tracking, market view, CSV export.
-- Social: Instagram analysis (account, posts, reels, stories insights) through the official API, working; content calendar with a Health guard and approved publishing (Approve button, publish switch, limit check) working, approval and reminders through the bot working (synthetic tests); TikTok read-only stats from a local collector generalise.
-- AI usage: Hermes `state.db` reader, per-model/session view, rule-based advice.
-- Briefing: daily digest with scored items and audio summary.
-- System health: per-job status, morning warnings.
-- Telegram bot: morning line, commands, approval buttons. In this repository (M5 step 1a): bot core with one allowed chat, `/help /today /health /plan`, morning line job, poll runner and callback registry, synthetic tests only; Instagram approval buttons and reminders in step 1b.
+## In this repository
+
+- Today tab with calendar, tasks, upcoming dates, decisions waiting, weather, counts from other modules, freshness per card.
+- Brain tab over a local Markdown vault: projects, threads, quick capture (append-only), Meetings; session receipts and the context hook for agents (`kokpit brain`, `kokpit context`).
+- Events: multi-source collection, dedupe, category language packs, local adapters, optional translation through the model connection, per-event `.ics`.
+- Career: profile and CV import, LinkedIn guest search (off by default), Indeed and Jooble through an optional local headless browser, local job adapters, rule-based scoring with reasons, lifecycle, market view, skills plan, CSV export.
+- Social: Instagram analysis (account, posts, reels, stories) through the official API, content calendar, publishing only after approval, with separate analyse and publish switches, both off by default. `kokpit instagram setup|check`.
+- AI usage: readers for Hermes, Claude Code and Codex, per-model and per-hour views, limits, rule-based advice.
+- Briefing: daily digest from your feeds with rule-based scoring and brain matching; optional model summaries, TTS and a two-voice podcast.
+- Organiser: opt-in night job that only proposes changes.
+- System health and Connections: per-job status, "0 records" and "never run" warnings.
+- Telegram bot: one allowed chat, `/help /today /health /plan`, the morning line, Instagram approval buttons and reminders. Off by default.
+
+Not carried over from the reference instance: TikTok stats, the version of the night organiser that writes to notes, and the personal extras listed in docs/modules.md.
 
 ## Rule-based baseline per module (no model key)
 
@@ -33,16 +38,11 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 | System health | Full | nothing | working |
 | Telegram bot | Full | nothing | working |
 
-## Needs generalisation (hard-wired today)
+## Generalised since the reference instance
 
-- City, country, neighbouring provinces, map centre, weather cities.
-- Translation target (Turkish). Category keywords are generalised: language packs, English by default (docs/category-packs.md).
-- Vault path and vault structure assumptions.
-- Account names and chat ids.
-- Flat code layout; no module boundaries; no `kokpit init`.
-- Scheduler lines written by hand.
+The reference instance hard-wires its city, language, vault path, accounts and schedule. In this repository each of these is a setting: `[place]` and `kokpit place`, `[ui] language` and locale files, category language packs, `[events] translate_to`, `vault_path`, the bot `chat_id`, module directories under `kokpit/modules/`, `kokpit init` and the setup screen, and `kokpit schedule`.
 
-## Working in the M1 skeleton (checked live on 29 Oct 2026 on one configured Italian city)
+## Change log of checks (checked live on 29 Oct 2026 on one configured Italian city unless noted)
 
 - `kokpit init --city` geocodes via Nominatim, tries slug candidates against the real sites, writes `kokpit.toml` + starter vault. Events stay `false` in `[modules]` until you switch them on.
 - Calendar on Today: read-only ICS feeds (`calendar` job, today plus 6 days, recurring events, masked addresses). Google read-only calendar is still planned.
@@ -60,11 +60,10 @@ Collection never uses a model in any module; fetch, parse and store are plain Py
 ## Planned, not started
 
 - `kokpit doctor` command (`kokpit schedule` is done; `init --city` and `run` exist; init verifies the AllEvents/Eventbrite slugs live and prints the record count per source).
-- CV extraction and target-profile form.
-- Adapter loader for `adapters/jobs/<source>/` (events loader is done).
-- Language packs.
-- Docker: `docker compose up` works (M5 step 2), see docs/docker.md.
-- Public release checklist (licence is MIT, see `LICENSE`).
+- `pip install kokpit` from PyPI. Until then, clone the repository and use `./run`.
+- Google read-only calendar through OAuth (the secret ICS address already works for Google Calendar).
+
+Done since the previous review: CV import and the profile form, the adapter loader for `adapters/jobs/`, language packs, `docker compose up` (docs/docker.md) and the public release checklist (docs/roadmap.md).
 
 ## What is deliberately out of scope for the first release
 

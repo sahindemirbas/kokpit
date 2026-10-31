@@ -5,7 +5,7 @@ Two levels. The first works today; the second has a contract but no loader yet.
 ## 1. Generic sources (works now, no code)
 
 ```
-python -m kokpit init --vault ~/notes --db ./kokpit.db --city "Lodi, Italy"
+python -m kokpit init --vault ~/notes --db ./kokpit.db --city "Example City, Country"
 ```
 
 `init` geocodes the name once (OpenStreetMap Nominatim), writes `kokpit.toml` and guesses two public listing slugs:

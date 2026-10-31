@@ -51,19 +51,20 @@ Moved out of M2:
 - Approval through the bot. (done)
 - AI usage readers (Hermes, Claude Code, Codex) and the limits panel; advice rules with evidence. (done)
 
-## M5: briefing, bot, Docker
+## M5: briefing, bot, Docker (done)
 
 - Model connection: done (M5 step 3, see docs/connections.md). Opt-in, one switch per use, key from the environment.
 - Topic configuration for the digest; optional TTS: done (step 4, `[briefing]`, tested with fake servers; real-feed quality not yet measured).
 - Brain-driven briefing matching with a rule-based fallback and a model opt-in: done in code and tests (title/tag/status keyword overlap with active threads; real vault precision not yet measured).
 - Translation target setting for events (moved from M2), using the same model connection: done (`[events] translate_to`).
 - [x] Night organiser as an opt-in module, proposals only (never edits, moves or deletes a note): rule kinds categorise, link, conditions, enrich, sync and todo; optional model proposals (`[model.uses] night`) checked in code before they are stored; a plan file per run in the data folder; Done and Dismiss decisions in the Organiser tab; `--dry-run`; deterministic morning report. Tested with synthetic notes and a stubbed model; precision on a real vault not yet measured.
-- Telegram bot as an optional module.
+- Telegram bot as an optional module: done (`kokpit bot poll`, `kokpit bot send-test`, morning line, Instagram approval buttons; off by default).
 - Briefing podcast: done (two voices, model script per topic, Gemini multi-speaker or OpenAI-compatible TTS, Range-served audio; tested with fake servers only, not against the live providers).
 - `docker compose up` path: done (M5 step 2, see docs/docker.md).
 
 ## Later
 
+- `pip install kokpit` from PyPI and a `kokpit doctor` command (checks each enabled connection without printing secrets).
 - Google read-only calendar through OAuth (moved from M2), if someone needs more than the ICS address.
 
 ## Pre-public checklist (done)
