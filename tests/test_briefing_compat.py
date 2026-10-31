@@ -44,14 +44,24 @@ class ConfigCompat(unittest.TestCase):
 class JobAlias(unittest.TestCase):
     def test_old_job_name_runs_briefing(self):
         called = []
-        with mock.patch.dict(jobs.REGISTRY, {"briefing": lambda cfg: called.append(1)}):
-            with mock.patch.object(jobs, "store") as st:
-                st.now_iso.return_value = "x"
-                try:
-                    jobs.run(mock.MagicMock(), OLD)
-                except Exception:
-                    pass
+
+        def fake_briefing(cfg):
+            called.append(1)
+            return 0, {}, []
+
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            cfg = cfgmod.load(cfgmod.write_default(tmp / "kokpit.toml", vault=str(tmp / "v"), db=str(tmp / "k.db")))
+            with mock.patch.dict(jobs.REGISTRY, {"briefing": fake_briefing}), \
+                    mock.patch("builtins.print"):
+                self.assertTrue(jobs.run(cfg, OLD))
+            conn = sqlite3.connect(tmp / "k.db")
+            try:
+                runs = [r[0] for r in conn.execute("SELECT job FROM runs")]
+            finally:
+                conn.close()
         self.assertEqual(called, [1])
+        self.assertEqual(runs, ["briefing"])  # recorded under the new name
 
     def test_alias_not_listed(self):
         self.assertNotIn(OLD, jobs.REGISTRY)
