@@ -109,6 +109,8 @@ Data lives in the `kokpit-data` volume. The port is bound to loopback because Ko
 | `python -m kokpit ai-usage summary` | AI usage totals for today, 7 and 30 days |
 | `python -m kokpit context` | print the brain context an agent hook would receive |
 | `python -m kokpit bot send-test` | send one test message to the configured Telegram chat |
+| `python -m kokpit hermes status` / `hermes setup` | what is connected to Hermes and the fix for each missing piece / connect it step by step (y/N per step, `--dry-run`) |
+| `python -m kokpit instagram setup` / `instagram check` | connect Instagram: the Meta steps with links, a hidden token prompt, one read-only check / check the stored token |
 | `python -m unittest discover -s tests` | run the tests |
 
 - **Notes:** set `vault_path` in `kokpit.toml` to your Markdown folder.
@@ -118,6 +120,14 @@ Data lives in the `kokpit-data` volume. The port is bound to loopback because Ko
   `python -m kokpit init --vault <copy> --db /tmp/demo.db --city "Ghent, Belgium" --name Sam --language en --yes`
 
 </details>
+
+### Connect Hermes
+
+Run `python -m kokpit hermes setup`. It sends model calls through Hermes (no API key in Kokpit), switches on the Hermes usage reader and links the brain plugin, asking before each step. `python -m kokpit hermes status` shows what is still missing and how to fix it. Details: [docs/connections.md#hermes-off-by-default](docs/connections.md#hermes-off-by-default).
+
+### Connect Instagram
+
+Run `python -m kokpit instagram setup`, or open the Social tab. Both show the Meta app steps with links, take the token, check it with one read-only call and switch the analysis on. Details and a troubleshooting table: [docs/connections.md#instagram-analysis-off-by-default](docs/connections.md#instagram-analysis-off-by-default).
 
 ## Add your city
 

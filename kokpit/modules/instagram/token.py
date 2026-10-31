@@ -1,6 +1,7 @@
 """Token lookup and the explicit refresh helper.
 
-Lookup order: the local token file (written only by ``kokpit instagram refresh-token``), the environment variable
+Lookup order: the local token file (written only by ``kokpit instagram setup``, the Social tab form and
+``kokpit instagram refresh-token``), the environment variable
 KOKPIT_INSTAGRAM_TOKEN, then ``[instagram] token`` in the git-ignored kokpit.toml. The token is only handed to the client;
 nothing here prints it.
 """
@@ -33,6 +34,15 @@ def configured(cfg: Config) -> bool:
     return bool(resolve(cfg))
 
 
+def write_file(f: Path, token: str) -> None:
+    """Write the token file with mode 600 (created that way, so it is never readable by others, even briefly)."""
+    f.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(token + "\n")
+    os.chmod(f, 0o600)
+
+
 def refresh(cfg: Config, opener=None, now: datetime | None = None) -> dict:
     """Ask for a fresh long-lived token (valid 60 days) and store it in the token file (mode 600).
 
@@ -48,10 +58,6 @@ def refresh(cfg: Config, opener=None, now: datetime | None = None) -> dict:
     if not new:
         raise ApiError("call", "refresh answered without a token")
     f = token_file(cfg)
-    f.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        fh.write(new + "\n")
-    os.chmod(f, 0o600)
+    write_file(f, new)
     now = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     return {"expires_at": (now + timedelta(seconds=secs)).strftime("%Y-%m-%d"), "expires_in_days": secs // 86400, "stored": f.name}

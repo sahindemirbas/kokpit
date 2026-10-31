@@ -2,6 +2,15 @@
 
 Kokpit does not depend on the [Hermes agent](https://hermes-agent.nousresearch.com/). If you run Hermes, this directory will hold the pieces that connect the two. Nothing here is required for any module.
 
+## Quick start
+
+```
+python -m kokpit hermes status     # what is connected, and the exact fix for each missing piece
+python -m kokpit hermes setup      # asks y/N per step; --dry-run shows the changes, --yes says yes to all
+```
+
+`setup` sets `[model] provider = "hermes"`, switches on the Hermes usage reader, links the `kokpit-brain` plugin into `~/.hermes/plugins` (only after a yes, never over an existing path) and prints the environment lines Hermes needs. It does not edit Hermes's own files. If `hermes` is not installed it says so, points to https://hermes-agent.nousresearch.com/docs and changes nothing. Background for each piece: [docs/connections.md, Hermes](../../docs/connections.md#hermes-off-by-default).
+
 ## What the integration adds
 
 | Direction | What | Module |
@@ -9,7 +18,8 @@ Kokpit does not depend on the [Hermes agent](https://hermes-agent.nousresearch.c
 | Hermes -> Kokpit | Hermes writes to the same Markdown vault (threads, to-do, session logs); Kokpit renders it | Brain |
 | Hermes -> Kokpit | `kokpit brain receipt` at session close (run by the agent by hand; no hook yet) | Brain |
 | Hermes -> Kokpit | Kokpit reads `state.db` usage rows (tool, model, tokens per session) | AI usage |
-| Kokpit -> Hermes | A Hermes skill that lets the agent query the dashboard API ("what is on today", "events this weekend", "open tasks") | all |
+| Kokpit -> Hermes | The `kokpit-brain` plugin: read-only brain context on every turn (below) | Brain |
+| Kokpit -> Hermes | Planned, not built yet: a Hermes skill that lets the agent query the dashboard API ("what is on today", "events this weekend", "open tasks") | all |
 | Kokpit -> Hermes | Model calls via `hermes chat --oneshot` when `[model] provider = "hermes"`; Hermes's connected accounts answer, no API key in Kokpit | all model uses |
 
 ## What exists today
@@ -34,9 +44,10 @@ The same block is available from the shell for any other tool:
 kokpit context "what is open on the garden timer"
 ```
 
-Install:
+Install: `python -m kokpit hermes setup` does the link and prints the env lines. By hand:
 
 ```
+mkdir -p ~/.hermes/plugins
 ln -s /path/to/kokpit/integrations/hermes/kokpit-brain ~/.hermes/plugins/kokpit-brain
 pip install -e /path/to/kokpit        # or export KOKPIT_SRC=/path/to/kokpit
 export KOKPIT_CONFIG=/path/to/kokpit.toml   # or KOKPIT_VAULT=/path/to/vault
@@ -48,8 +59,7 @@ vault cannot be found the hook returns nothing and Hermes runs as usual.
 ## Planned contents
 
 ```
-  skill/SKILL.md           Hermes skill: how to call the local Kokpit API
-  usage_reader.py          read-only reader for Hermes state.db (schema documented here)
+  skill/SKILL.md           Hermes skill: how to call the local Kokpit API (not built yet)
   vault_conventions.md     file and heading conventions both sides agree on
 ```
 
@@ -60,8 +70,8 @@ Hermes-specific part is only the thin `kokpit-brain/__init__.py` adapter; the
 block itself comes from the same `build_context` that `kokpit brain hook`
 uses, so Claude Code, Codex, Antigravity or any tool with a per-message hook
 gets the same block (see `integrations/agents/README.md`; the plugin itself is
-unchanged). Only the planned `state.db`
-usage reader and the Kokpit skill are Hermes-only.
+unchanged). Only the `state.db` usage reader (in `kokpit/modules/ai_usage`)
+and the planned Kokpit skill are Hermes-only.
 
 ## Boundaries
 

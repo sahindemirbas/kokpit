@@ -381,6 +381,10 @@ def cmd_instagram(args) -> int:
         return 0
     if args.ig_cmd == "collect":
         return 0 if jobs.run(cfg, "instagram") else 1
+    if args.ig_cmd == "setup":
+        return _ig_setup(cfg)
+    if args.ig_cmd == "check":
+        return _ig_check(cfg)
     try:
         res = ig_token.refresh(cfg)
     except ApiError as exc:
@@ -388,6 +392,74 @@ def cmd_instagram(args) -> int:
         return 3
     print(f"token refreshed, stored in {res['stored']}; valid until {res['expires_at']} ({res['expires_in_days']} days). The token is not printed.")
     return 0
+
+
+def _ig_setup(cfg, ask_secret=None, opener=None) -> int:
+    """The Meta steps with links, a hidden token prompt, one read-only check, then store and switch on."""
+    import getpass
+    from .modules.instagram import connect
+    ask_secret = ask_secret or getpass.getpass
+    print("Connect Instagram (official API, read-only analysis). About 10 minutes, once.\n")
+    for i, step in enumerate(connect.STEPS, 1):
+        print(f"{i}. {step}\n")
+    print(f"Meta's own guide: {connect.DOCS}\n")
+    try:
+        raw = ask_secret("Paste the token (hidden, press Enter; empty to stop): ")
+    except (EOFError, KeyboardInterrupt):
+        raw = ""
+    if not raw.strip():
+        print("Stopped. Nothing was changed. Run this again when you have the token.")
+        return 1
+    try:
+        res = connect.connect(cfg, raw, opener)
+    except connect.ConnectError as exc:
+        print(f"error: {exc.advice}", file=sys.stderr)
+        if exc.detail:
+            print(f"Instagram said: {exc.detail}", file=sys.stderr)
+        print("Nothing was stored.", file=sys.stderr)
+        return 3
+    print(f"Connected: @{res['username']} ({res['account_type']}). Token stored in {res['stored']} (mode 600). The token is not printed.")
+    if res["warning"]:
+        print("warning: " + res["warning"])
+    print("kokpit.toml: " + (", ".join(f"{c} = true" for c in res["changed"]) if res["changed"] else "already set ([modules] instagram and [instagram] analyse)"))
+    print("\nNext:")
+    print("  python -m kokpit instagram collect     first read now")
+    print("  Stories expire after 24 hours, so add this cron line (crontab -e) to read twice a day:")
+    print("  " + connect.CRON.format(dir=cfg.path.parent))
+    print("  The token lasts 60 days. Before then run: python -m kokpit instagram refresh-token")
+    print("  (or monthly from cron: 0 9 1 * * cd " + str(cfg.path.parent) + " && python -m kokpit instagram refresh-token)")
+    return 0
+
+
+def _ig_check(cfg, opener=None) -> int:
+    """Read-only check of the stored token: one GET of /me, plus the publish permission when publish = true."""
+    from .modules.instagram import connect
+    try:
+        res = connect.check(cfg, opener)
+    except connect.ConnectError as exc:
+        print(f"error: {exc.advice}", file=sys.stderr)
+        if exc.detail:
+            print(f"Instagram said: {exc.detail}", file=sys.stderr)
+        return 3
+    print(f"token: ok ({res['source']}). Account: @{res['username']} ({res['account_type']}). The token is not printed.")
+    if res["warning"]:
+        print("warning: " + res["warning"])
+    if not (res["module_on"] and res["analyse"]):
+        print("analysis is off: set [modules] instagram = true and [instagram] analyse = true (python -m kokpit instagram setup does it)")
+    if res["publish"]:
+        cp = res["can_publish"]
+        print("publish permission: " + ("ok" if cp else "missing. Generate the token again with instagram_business_content_publish allowed, then run: python -m kokpit instagram setup" if cp is False else "could not be checked (network or rate limit); try again later"))
+    return 0
+
+
+def cmd_hermes(args) -> int:
+    """hermes status | setup [--yes] [--dry-run]. status reads only; setup asks before each change."""
+    from . import hermes
+    cfg = _load(args)
+    if args.hermes_cmd == "status":
+        print(hermes.status_text(cfg))
+        return 0 if all(r["ok"] for r in hermes.status(cfg)) else 1
+    return hermes.setup(cfg, yes=args.yes, dry_run=args.dry_run)
 
 
 def cmd_briefing(args) -> int:
@@ -553,7 +625,16 @@ def main(argv=None) -> int:
     isub.add_parser("collect", help="read account, media and story insights now (run twice a day)")
     isub.add_parser("summary", help="aggregates from the local tables: followers, 30-day totals, errors")
     isub.add_parser("refresh-token", help="exchange the long-lived token for a fresh one (explicit only); prints the expiry date, never the token")
+    isub.add_parser("setup", help="step by step: the Meta app, a hidden token prompt, one read-only check, then store it and switch analysis on")
+    isub.add_parser("check", help="read-only check of the stored token (one GET of /me; publish permission when publish = true)")
     p.set_defaults(fn=cmd_instagram)
+    p = sub.add_parser("hermes", help="connect a local Hermes agent (model calls, usage reader, brain plugin)")
+    hsub = p.add_subparsers(dest="hermes_cmd", required=True)
+    hsub.add_parser("status", help="what is connected and the exact fix for what is not (no network, no writes)")
+    q = hsub.add_parser("setup", help="ask y/N per step: model provider, usage reader, plugin link; prints the env lines")
+    q.add_argument("--yes", action="store_true", help="answer yes to every step")
+    q.add_argument("--dry-run", action="store_true", help="print what would change, change nothing")
+    p.set_defaults(fn=cmd_hermes)
     p = sub.add_parser("briefing", help="Briefing extras")
     brsub = p.add_subparsers(dest="briefing_cmd", required=True)
     q = brsub.add_parser("podcast", help="make the two-voice podcast of a digest day ([briefing.podcast])")

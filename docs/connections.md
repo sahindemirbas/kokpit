@@ -56,6 +56,17 @@ Each call runs `hermes chat --oneshot -Q --query-file - --source tool` with the 
 
 Events translation: `[events] translate_to = "en"` (empty = off) translates title and description when `events_translate` is on. Only those two fields are sent; translations are cached per event, and the original text is kept if the call fails.
 
+## Hermes (off by default)
+
+Fast path: `python -m kokpit hermes setup`. It checks that the `hermes` command exists (if not, it gives the install link https://hermes-agent.nousresearch.com/docs and stops without changes), then asks y/N for each piece below. `--yes` answers yes to all, `--dry-run` only prints what would change. `python -m kokpit hermes status` shows each piece as ok or missing, with the exact command or `kokpit.toml` line that fixes it; it reads only and uses no network.
+
+The four pieces, each optional:
+
+1. Model calls: `[model] provider = "hermes"`. Kokpit's summaries and translations run through `hermes chat --oneshot`, using the accounts you connected in Hermes. No API key in Kokpit. See "Option B" above for the toml block.
+2. Usage reader: `[modules] ai_usage = true` and `"hermes"` in `[ai_usage] readers`. The AI usage tab reads token counts from Hermes's `state.db` (default `~/.hermes/state.db`, change with `[ai_usage] hermes_db`), opened read-only. See "AI usage" below.
+3. Shared vault: Kokpit's Brain tab and Hermes can use the same Markdown folder (`[brain] vault_path`). `python -m kokpit brain receipt` writes a short receipt note there.
+4. Plugin: `integrations/hermes/kokpit-brain` gives Hermes read-only brain context on every turn. `hermes setup` links it as `~/.hermes/plugins/kokpit-brain` (only after a yes, and never over something that already exists there). Hermes then needs `KOKPIT_CONFIG=/path/to/kokpit.toml` (or `KOKPIT_VAULT`) in the environment it starts with, for example `~/.hermes/.env`; `setup` prints the exact lines. Kokpit does not edit Hermes's own files. Details: [integrations/hermes/README.md](../integrations/hermes/README.md).
+
 ## Gemini TTS for the Briefing podcast (off by default)
 
 The two-voice podcast can be read by Google's Gemini text-to-speech through the public REST API (`generateContent` with an audio response). Create a key in Google AI Studio ("Get API key") and put it in the environment as `KOKPIT_GEMINI_API_KEY` (or the name set in `gemini_key_env`). Then:
@@ -117,14 +128,41 @@ Message text, prompts, file contents and project names are never read into Kokpi
 
 Kokpit reads your own account through the official Instagram API with Instagram Login (`graph.instagram.com`, GET requests only). It never publishes from this job.
 
-Setup, once:
+Fast path: `python -m kokpit instagram setup`. It prints the steps below with the links, asks for the token with a hidden prompt, checks it with one read-only call (`GET /me?fields=user_id,username,account_type`), shows the username and account type, stores the token in the token file (mode 600, never in `kokpit.toml`) and sets `[modules] instagram = true` and `[instagram] analyse = true`. The Social tab shows the same steps and a paste field when no token is set. Later, `python -m kokpit instagram check` repeats the read-only check (and, with `publish = true`, whether the publish permission is there).
 
-1. You need an Instagram business or creator account (a personal account has no insights API).
-2. In the Meta developer portal create an app, add the product "Instagram" with "API setup with Instagram login", and add your account as an Instagram tester or app role holder (development mode is enough for your own account).
-3. Request two permissions: `instagram_business_basic` and `instagram_business_manage_insights`.
-4. Generate a token for the account in the portal and exchange it for a long-lived token (valid 60 days).
-5. Give the token to Kokpit in one of these ways (first match wins): the token file written by `python -m kokpit instagram refresh-token`, the environment variable `KOKPIT_INSTAGRAM_TOKEN`, or `token = "..."` under `[instagram]` in `kokpit.toml`. The environment variable is preferred; `kokpit.toml`, the token file and `data/` are git-ignored. The token is never printed, logged or shown on the dashboard, and it is removed from every error message.
-6. Set `instagram = true` under `[modules]` and `analyse = true` under `[instagram]`. `publish` is a separate switch, off by default, and unused by the analysis job.
+Step by step, once (about 10 minutes):
+
+1. Make the Instagram account a professional account (Business or Creator) and keep it public. In the Instagram app: Settings, Account type and tools, switch to a professional account. A personal account has no insights API.
+2. Open https://developers.facebook.com/apps and click Create app. Pick the use case Other, then the app type Business, give it a name and create it. (Meta's guide: "Create an app" in the source list below.)
+3. In the app dashboard find the product Instagram and click Set up. The left menu then shows Instagram, "API setup with Instagram login".
+4. On that page, under "Generate access tokens", click Add account and log in with the Instagram account. In development mode only accounts with a role on the app work. If Instagram shows a tester invite, accept it in the Instagram app (Settings, Apps and websites, Tester invites; on the web: Settings, Apps and websites). The exact menu names in the Instagram app change between versions; if you cannot find it, add the account under App roles, Roles in the app dashboard and look for the invite there.
+5. Click Generate token next to the account, log in again if asked and allow the permissions. The analysis needs `instagram_business_basic` and `instagram_business_manage_insights`; publishing also needs `instagram_business_content_publish`. Copy the token. A token made here is long-lived (60 days).
+6. Give it to Kokpit: paste it into `python -m kokpit instagram setup` or the Social tab. Other ways (first match wins): the token file, the environment variable `KOKPIT_INSTAGRAM_TOKEN`, or `token = "..."` under `[instagram]` in `kokpit.toml`. `kokpit.toml`, the token file and `data/` are git-ignored. The token is never printed, logged or shown on the dashboard, and it is removed from every error message.
+7. Schedule the job twice a day (stories expire after 24 hours): `crontab -e`, then `0 7,19 * * * cd /path/to/kokpit && python -m kokpit instagram collect`.
+8. Refresh the token before day 60: `python -m kokpit instagram refresh-token` (or monthly from cron).
+
+`publish` is a separate switch, off by default, and unused by the analysis job.
+
+Troubleshooting:
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| "The token is expired or not valid" (code 190) | Token older than 60 days, revoked, or copied with a missing part | Generate token again in the app dashboard and run `python -m kokpit instagram setup` |
+| "The token is missing a permission" (code 10 or 200 to 299) | A permission was not allowed when the token was made | Generate token again and allow `instagram_business_basic` and `instagram_business_manage_insights` |
+| "This account is not allowed to use the app yet" | The account has no role on the app, or the invite was not accepted | Add the account (step 4) and accept the invite in the Instagram app, then make a new token |
+| Account type is PERSONAL, insights fail | Not a professional account | Switch to Business or Creator in the Instagram app (step 1); the token can stay |
+| "Could not reach graph.instagram.com" | No internet, DNS or a firewall | Check the connection of the machine running Kokpit and try again |
+| Rate limit reached | Too many calls in an hour | Wait an hour; do not run collect in a loop |
+| Social tab still empty after setup | The job has not run yet | `python -m kokpit instagram collect`, then reload the tab |
+| Publish permission missing in `check` | Token made without `instagram_business_content_publish` | Generate the token again with it allowed, then `python -m kokpit instagram setup` |
+
+Sources (Meta developer docs, checked October 2026):
+
+- Overview and token types: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/
+- Create an app with the Instagram product: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/create-a-meta-app-with-instagram
+- Get started, `GET /me` and its fields: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/get-started
+- Business login and permissions: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/business-login
+- Content publishing and `content_publishing_limit`: https://developers.facebook.com/docs/instagram-platform/content-publishing
 
 What is read: account fields (follower and media count), account insights (views, reach, profile views, accounts engaged, interactions), recent posts and reels (up to `media_limit`) with views, reach, likes, comments, saves, shares, interactions and, for reels, average watch time, and active stories with views, reach, replies, shares, interactions. Captions, usernames and media files are not stored; the table keeps the media type, time, link and numbers.
 
@@ -134,7 +172,7 @@ Errors: every call is separate. A metric the API rejects for a media type (unsup
 
 Token refresh: `python -m kokpit instagram refresh-token` calls the `refresh_access_token` endpoint only when you run it, writes the new token to the token file (mode 600) and prints the new expiry date, not the token. The API refuses tokens younger than 24 hours or already expired; then the old token stays in place. Refresh before day 60.
 
-Commands: `python -m kokpit instagram collect`, `python -m kokpit instagram summary` (counts and totals only, no media ids or links).
+Commands: `python -m kokpit instagram setup`, `python -m kokpit instagram check`, `python -m kokpit instagram collect`, `python -m kokpit instagram summary` (counts and totals only, no media ids or links), `python -m kokpit instagram refresh-token`.
 
 ## Instagram publishing (off by default)
 

@@ -331,8 +331,32 @@ def make_handler(cfg: Config):
             except (ValueError, json.JSONDecodeError) as exc:
                 return self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
 
+        def _ig_token_post(self):
+            """Paste a token on the Social tab. JSON content type and the X-Kokpit header are required, so a page on
+            another site cannot send one. One read-only check, then the token file (mode 600). The answer never
+            contains the token, and the token is never logged."""
+            from .modules.instagram import connect as ig_connect
+            if not (self.headers.get("Content-Type") or "").startswith("application/json") or not self.headers.get("X-Kokpit"):
+                return self._json({"ok": False, "error": "JSON content type and X-Kokpit header required"}, HTTPStatus.FORBIDDEN)
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+                if n > 10_000:
+                    return self._json({"ok": False, "error": "request too large"}, HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                data = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(data, dict):
+                    raise ValueError("JSON object expected")
+                res = ig_connect.connect(cfg, data.get("token"))
+                return self._json({k: res[k] for k in ("ok", "username", "account_type", "professional", "warning", "changed")})
+            except ig_connect.ConnectError as exc:
+                code = HTTPStatus.BAD_GATEWAY if exc.kind in ("network", "rate") else HTTPStatus.BAD_REQUEST
+                return self._json({"ok": False, "kind": exc.kind, "error": exc.advice}, code)
+            except (ValueError, json.JSONDecodeError):
+                return self._json({"ok": False, "kind": "input", "error": "invalid request"}, HTTPStatus.BAD_REQUEST)
+
         def do_POST(self):
             path = urlparse(self.path).path
+            if path == "/api/instagram/token":
+                return self._ig_token_post()
             if path == "/api/organiser/decide":
                 return self._organiser_post()
             if path in ("/api/setup", "/api/setup/place"):

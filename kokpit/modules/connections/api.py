@@ -144,7 +144,8 @@ def _model_item(cfg: Config) -> dict:
             "reads": "nothing", "writes": "sends the listed fields to the local Hermes agent, only for uses that are switched on" if on else "nothing (off)",
             "permission": "none in Kokpit (no API key); Hermes uses its own connected accounts", "target": d["base_host"],
             "detail": "provider: hermes (local command, no API key). Command found: " + ("yes" if d.get("command_found") else "no")
-                      + f". Model: {d['model']}. key: {'set' if d['key_present'] else 'not set'} (not used with hermes). " + " | ".join(lines) + ".",
+                      + f". Model: {d['model']}. key: {'set' if d['key_present'] else 'not set'} (not used with hermes). " + " | ".join(lines) + "."
+                      + ("" if d.get("command_found") else " Next step: install Hermes (https://hermes-agent.nousresearch.com/docs) or set [model] hermes_bin to its full path, then run `python -m kokpit hermes status`."),
             "status": status, "last": next((r for r in reversed(runs) if r), None),
         }
     return {
@@ -276,7 +277,8 @@ def _instagram_item(cfg: Config) -> dict:
         "writes": "a post, reel, carousel or story to your account, only after you press Approve on that slot (publish switch is on)" if pub else "nothing (publishing is a separate switch and is off)",
         "permission": "instagram_business_basic, instagram_business_manage_insights" + ("; publishing: instagram_business_content_publish" if pub else " (read-only)"),
         "target": "graph.instagram.com",
-        "detail": f"Token configured: {'yes' if has else 'no'}. Last success: {d.get('last_success') or 'never'}. Metric errors in the last run: {len(d.get('errors') or [])}. The token is stored locally and never shown.",
+        "detail": f"Token configured: {'yes' if has else 'no'}. Last success: {d.get('last_success') or 'never'}. Metric errors in the last run: {len(d.get('errors') or [])}. The token is stored locally and never shown."
+                  + ("" if has else " Next step: run `python -m kokpit instagram setup`, or open /#instagram in Kokpit and paste the token there (the steps are shown on that screen)."),
         "status": status, "last": run,
     }
 

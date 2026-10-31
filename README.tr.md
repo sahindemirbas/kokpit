@@ -109,6 +109,8 @@ Veri `kokpit-data` volume'unda durur. Kokpit'te giriş yok; bu yüzden port yaln
 | `python -m kokpit ai-usage summary` | bugün, 7 ve 30 gün için AI kullanım toplamları |
 | `python -m kokpit context` | bir ajan hook'una verilecek beyin bağlamını yazdırır |
 | `python -m kokpit bot send-test` | ayarlı Telegram sohbetine bir deneme mesajı gönderir |
+| `python -m kokpit hermes status` / `hermes setup` | Hermes'e neyin bağlı olduğunu ve her eksiğin çözümünü gösterir / adım adım bağlar (her adımda y/N sorar, `--dry-run`) |
+| `python -m kokpit instagram setup` / `instagram check` | Instagram'ı bağlar: bağlantılarıyla Meta adımları, gizli token sorusu, tek salt okunur kontrol / kayıtlı token'ı kontrol eder |
 | `python -m unittest discover -s tests` | testleri çalıştırır |
 
 - **Notlar:** `kokpit.toml` içindeki `vault_path` değerini kendi Markdown klasörüne çevir.
@@ -118,6 +120,14 @@ Veri `kokpit-data` volume'unda durur. Kokpit'te giriş yok; bu yüzden port yaln
   `python -m kokpit init --vault <kopya> --db /tmp/demo.db --city "Ghent, Belgium" --name Sam --language en --yes`
 
 </details>
+
+### Hermes'i bağla
+
+`python -m kokpit hermes setup` çalıştır. Model çağrılarını Hermes üzerinden gönderir (Kokpit'te API anahtarı yok), Hermes kullanım okuyucusunu açar ve beyin eklentisini bağlar; her adımdan önce sorar. `python -m kokpit hermes status` eksik kalanı ve nasıl düzeltileceğini gösterir. Ayrıntı (İngilizce): [docs/connections.md#hermes-off-by-default](docs/connections.md#hermes-off-by-default).
+
+### Instagram'ı bağla
+
+`python -m kokpit instagram setup` çalıştır ya da Sosyal sekmesini aç. İkisi de Meta uygulama adımlarını bağlantılarıyla gösterir, token'ı alır, tek bir salt okunur çağrıyla dener ve analizi açar. Ayrıntı ve sorun giderme tablosu (İngilizce): [docs/connections.md#instagram-analysis-off-by-default](docs/connections.md#instagram-analysis-off-by-default).
 
 ## Şehrini ekle
 
