@@ -158,7 +158,7 @@ def within(records: list[dict], lat: float | None, lon: float | None, radius_km:
 
 
 def allevents(slug: str, language: str | None = None) -> list[dict]:
-    """``allevents.in/<slug>``; slug like ``lodi-it``."""
+    """``allevents.in/<slug>``; slug like ``gent-be``."""
     if not slug:
         return []
     page = fetch.get(f"https://allevents.in/{slug}")
@@ -166,7 +166,7 @@ def allevents(slug: str, language: str | None = None) -> list[dict]:
 
 
 def eventbrite(slug: str, country: str | None = None, language: str | None = None) -> list[dict]:
-    """``eventbrite.<tld>/d/<country>--<city>/<city>/``; slug like ``italy--lodi``."""
+    """``eventbrite.<tld>/d/<country>--<city>/<city>/``; slug like ``belgium--gent``."""
     if not slug:
         return []
     domain = EVENTBRITE_DOMAIN.get((country or "").upper(), "eventbrite.com")

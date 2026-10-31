@@ -8,15 +8,17 @@ Two levels. The first works today; the second has a contract but no loader yet.
 python -m kokpit init --vault ~/notes --db ./kokpit.db --city "Ghent, Belgium"
 ```
 
-`init` geocodes the name once (OpenStreetMap Nominatim), writes `kokpit.toml` and guesses two public listing slugs:
+`init` geocodes the name once (OpenStreetMap Nominatim), writes `kokpit.toml` and guesses two public listing slugs from the English city name, here `ghent-be` and `belgium--ghent`.
+
+The guess is a starting point. Both sites list Ghent under its Dutch name, so the slugs that work are:
 
 ```toml
 [events]
-allevents_slug  = "ghent-be"     # allevents.in/<slug>
-eventbrite_slug = "belgium--ghent"  # eventbrite.<tld>/d/<slug>/
+allevents_slug  = "gent-be"        # allevents.in/<slug>
+eventbrite_slug = "belgium--gent"  # eventbrite.<tld>/d/<slug>/
 ```
 
-Switch `events = true` in `[modules]`, run `python -m kokpit run-job events-collect`, open the Connections tab. A wrong slug is not an error: it shows as `0 rows`. Fix the slug in the browser address bar of the real listing page and paste it into `kokpit.toml`.
+Switch `events = true` in `[modules]`, run `python -m kokpit run-job events-collect`, open the Connections tab. A wrong slug is not an error: it shows as `0 rows` (allevents.in sends an unknown city to its generic search page). Fix the slug in the browser address bar of the real listing page and paste it into `kokpit.toml`.
 
 Weather needs nothing: Open-Meteo takes the coordinates from `init`.
 

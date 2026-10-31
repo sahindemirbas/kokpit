@@ -33,16 +33,16 @@ today = true
 events = false   # switched on later
 
 [place]                       # set by init
-city = "Lodi"   # old city
-country = "IT"
-lat = 45.31
-lon = 9.5
+city = "Ghent"   # old city
+country = "BE"
+lat = 51.05
+lon = 3.72
 radius_km = 25
-languages = ["it", "en"]
+languages = ["nl", "en"]
 
 [events]
-allevents_slug = "lodi-it"   # allevents.in/<slug>
-eventbrite_slug = "italy--lodi"
+allevents_slug = "gent-be"   # allevents.in/<slug>
+eventbrite_slug = "belgium--gent"
 adapters = []
 
 [server]
@@ -87,7 +87,8 @@ class SlugTest(unittest.TestCase):
         self.assertEqual(geocode.slugify("Reggio nell'Emilia"), "reggio-nell-emilia")
         self.assertEqual(geocode.slugify("München"), "munchen")
         self.assertEqual(geocode.slugify("  São Paulo "), "sao-paulo")
-        self.assertEqual(geocode.slugify("Lodi"), "lodi")
+        self.assertEqual(geocode.slugify("Ghent"), "ghent")
+        self.assertEqual(geocode.slugify("Sint-Martens-Latem"), "sint-martens-latem")
 
     def test_block_proposes_slugs_as_comments_until_confirmed(self):
         cand = place.parse(json.dumps(ANSWER))[2]
@@ -149,8 +150,8 @@ class WriteTest(unittest.TestCase):
                      "# allevents.in/<slug>"):
             self.assertIn(kept, text)
         # slug not confirmed: active values untouched, proposal left as comments
-        self.assertEqual(new["events"]["allevents_slug"], "lodi-it")
-        self.assertEqual(new["events"]["eventbrite_slug"], "italy--lodi")
+        self.assertEqual(new["events"]["allevents_slug"], "gent-be")
+        self.assertEqual(new["events"]["eventbrite_slug"], "belgium--gent")
         self.assertIn('# allevents_slug = "bergamo-it"  # proposed', text)
 
     def test_confirm_slug_writes_it_and_drops_proposal(self):

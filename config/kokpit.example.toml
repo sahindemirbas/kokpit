@@ -2,16 +2,16 @@
 # Copy to kokpit.toml and edit. Secrets go to .env, never here.
 
 [place]
-city = "Lodi"                 # geocoded once on `kokpit init`
-country = "IT"                # derived from geocoding, editable
-provinces = ["LO", "MI", "CR"]  # neighbouring provinces to include in events
+city = "Ghent"                # geocoded once on `kokpit init`
+country = "BE"                # derived from geocoding, editable
+provinces = ["VOV", "VWV"]    # neighbouring provinces to include in events
 radius_km = 40
-weather_cities = ["Lodi", "Istanbul"]
+weather_cities = ["Ghent", "Brussels"]
 
 [language]
 ui = "en"                     # dashboard language
 translate_to = "en"           # translate event text to this language; "" = off
-classify = "it"               # keyword language pack for event categories
+classify = "en"               # keyword language pack for event categories
 
 [modules]
 today = true
@@ -87,16 +87,16 @@ meetings_write = true         # false: Brain > Meetings is read-only (saving ans
 # sections = ["## Questions for the supplier", "## Open decisions"]
 
 [events]
-sources = ["allevents", "eventbrite", "sagramap"]   # chosen by country; edit to taste
-allevents_slug = "lodi-it"    # confirm on the Connections screen
-eventbrite_slug = "italy--lodi"
+sources = ["allevents", "eventbrite"]   # chosen by country; edit to taste
+allevents_slug = "gent-be"    # confirm on the Connections screen
+eventbrite_slug = "belgium--gent"
 adapters = []                 # adapter ids to enable, e.g. ["example-city"]; all off by default
 adapter_dirs = []             # your own adapter folders, e.g. ["~/kokpit-adapters/events"]
 
 [career]
 cv_path = "~/Documents/cv.pdf"
 target_roles = ["Data Analyst", "BI Developer"]
-locations = ["Milan", "Remote"]
+locations = ["Ghent", "Remote"]
 remote = "hybrid"             # remote | hybrid | onsite | any
 must_have = ["SQL", "Python"]
 nice_to_have = ["Power BI", "dbt"]

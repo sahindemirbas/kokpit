@@ -115,11 +115,12 @@ class EventsTests(unittest.TestCase):
 
 
     def test_geocode_parse_and_slugs(self):
-        body = '[{"lat":"45.31","lon":"9.50","name":"Lodi","display_name":"Lodi, Lombardia, Italia",' \
-               '"address":{"city":"Lodi","county":"Lodi","country":"Italy","country_code":"it"}}]'
+        body = '[{"lat":"51.05","lon":"3.72","name":"Ghent","display_name":"Ghent, East Flanders, Flanders, Belgium",' \
+               '"address":{"city":"Ghent","county":"East Flanders","country":"Belgium","country_code":"be"}}]'
         p = geocode.parse(body)
-        assert p["city"] == "Lodi" and p["country"] == "IT" and p["lat"] == 45.31
-        assert geocode.propose_slugs(p) == {"allevents_slug": "lodi-it", "eventbrite_slug": "italy--lodi"}
+        assert p["city"] == "Ghent" and p["country"] == "BE" and p["lat"] == 51.05
+        assert p["province"] == "East Flanders" and p["country_name"] == "Belgium"
+        assert geocode.propose_slugs(p) == {"allevents_slug": "ghent-be", "eventbrite_slug": "belgium--ghent"}
         assert geocode.parse("[]") is None and geocode.parse("nope") is None
 
 

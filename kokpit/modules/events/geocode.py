@@ -65,7 +65,7 @@ def propose_slugs(place: dict) -> dict:
 
 
 def allevents_candidates(place: dict) -> list[str]:
-    """AllEvents is inconsistent: big cities are ``/verona``, smaller ones ``/lodi-it``."""
+    """AllEvents is inconsistent: big cities are ``/verona``, smaller ones ``/gent-be``."""
     city = slugify(place.get("city") or "")
     cc = (place.get("country") or "").lower()
     out = [f"{city}-{cc}", city] if city and cc else [city]
