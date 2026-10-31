@@ -74,4 +74,5 @@ Moved out of M2:
 - [x] Licence chosen: MIT (`LICENSE`), compatible with the MIT notice of Avenox Beyin; third-party review in `THIRD_PARTY_NOTICES.md`. Data-source terms are reviewed per module as modules land.
 - [x] Every file derived from Avenox Beyin carries the MIT copyright line and a header stating the modification (checked 2026-10-29: no file is derived from Beyin; `kokpit/modules/brain/context.py` implements the contract itself and says so, notice in `THIRD_PARTY_NOTICES.md`).
 - [x] Docs re-read for anything that describes a non-existent feature as existing (2026-10-29, issue #6: README status line and "Try it" brought up to the M1 tab set; brain-protocol, modules, architecture wording fixed).
-- [x] Author's explicit go decision recorded (2026-10-29, repository made public).
+- [x] Author's explicit go decision recorded (2026-10-29); repository made public with the v0.1.0 release on 2026-10-31.
+
