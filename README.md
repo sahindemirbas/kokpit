@@ -107,9 +107,9 @@ cd kokpit
 ./run        # creates kokpit.toml and a starter vault, serves http://127.0.0.1:8501
 ```
 
-A browser tab opens on the setup screen. Answer seven short questions (language, name, city, news topics, CV, model, summary) or skip any of them, then press Finish. If no tab opens, use the address printed in the terminal. Every answer can be changed later from Connections > Setup or in `kokpit.toml`. Keys you type go to a `.env` file next to `kokpit.toml`, never into it.
+A browser tab opens on the setup screen. Answer seven short questions (language, name, city, news topics, CV, model, summary) or skip any of them, then press Finish. If no tab opens, use the address printed in the terminal; on a headless machine set `KOKPIT_NO_BROWSER=1` to skip the tab. Another port for one run: `./run --port 8622`; to keep it, set `port` under `[server]` in `kokpit.toml`. Every answer can be changed later from Connections > Setup or in `kokpit.toml`. Keys you type go to a `.env` file next to `kokpit.toml`, never into it.
 
-The screens are in English or Turkish; the language you pick applies everywhere, and another language is one file (see [docs/modules.md](docs/modules.md#languages)). To answer the same questions in the terminal, run `python -m kokpit init` before the first `./run`.
+The screens are in English or Turkish; the language you pick applies everywhere, and another language is one file (see [docs/modules.md](docs/modules.md#languages)). To answer the same questions in the terminal, run `python -m kokpit init` before the first `./run`. The commands below use `python`; where only `python3` exists (Debian, Raspberry Pi OS), type `python3`.
 
 ### Docker
 

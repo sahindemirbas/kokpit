@@ -107,9 +107,9 @@ cd kokpit
 ./run        # kokpit.toml ve başlangıç vault'unu oluşturur, http://127.0.0.1:8501
 ```
 
-Tarayıcıda kurulum ekranı açılır. Yedi kısa soruyu cevapla (dil, ad, şehir, haber konuları, özgeçmiş, model, özet) ya da istediğini atla, sonra Bitir'e bas. Sekme açılmazsa terminalde yazan adresi kullan. Her cevap sonra Bağlantılar > Kurulum'dan ya da `kokpit.toml` içinden değiştirilebilir. Girdiğin anahtarlar `kokpit.toml`'a değil, yanındaki `.env` dosyasına yazılır.
+Tarayıcıda kurulum ekranı açılır. Yedi kısa soruyu cevapla (dil, ad, şehir, haber konuları, özgeçmiş, model, özet) ya da istediğini atla, sonra Bitir'e bas. Sekme açılmazsa terminalde yazan adresi kullan; ekransız bir makinede sekmeyi atlamak için `KOKPIT_NO_BROWSER=1` ayarla. Tek bir çalıştırma için başka port: `./run --port 8622`; kalıcı olsun istersen `kokpit.toml` içinde `[server]` altındaki `port` değerini değiştir. Her cevap sonra Bağlantılar > Kurulum'dan ya da `kokpit.toml` içinden değiştirilebilir. Girdiğin anahtarlar `kokpit.toml`'a değil, yanındaki `.env` dosyasına yazılır.
 
-Ekranlar İngilizce ya da Türkçe; seçtiğin dil her yere uygulanır, yeni bir dil tek bir dosyadır (bkz. [docs/modules.md](docs/modules.md#languages)). Aynı soruları terminalde cevaplamak için ilk `./run`'dan önce `python -m kokpit init` çalıştır.
+Ekranlar İngilizce ya da Türkçe; seçtiğin dil her yere uygulanır, yeni bir dil tek bir dosyadır (bkz. [docs/modules.md](docs/modules.md#languages)). Aynı soruları terminalde cevaplamak için ilk `./run`'dan önce `python -m kokpit init` çalıştır. Aşağıdaki komutlar `python` kullanır; yalnızca `python3` olan sistemlerde (Debian, Raspberry Pi OS) `python3` yaz.
 
 ### Docker
 

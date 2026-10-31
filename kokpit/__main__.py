@@ -49,9 +49,9 @@ def cmd_init(args) -> int:
         try:
             wizard.ask_cli(path)
         except (EOFError, KeyboardInterrupt):
-            print("\nstopped; the setup screen opens on the first `kokpit run`")
+            print("\nstopped; the setup screen opens on the first `python -m kokpit run` (or ./run)")
     elif fresh:
-        print("answer the setup questions in the browser: run `kokpit run` (or ./run)")
+        print("answer the setup questions in the browser: run `python -m kokpit run` (or ./run)")
     return 0
 
 
@@ -66,6 +66,8 @@ def _load(args) -> cfgmod.Config:
 def cmd_run(args) -> int:
     from . import jobs
     cfg = _load(args)
+    if getattr(args, "port", None):
+        cfg.port = args.port  # this run only; kokpit.toml keeps its [server] port
     if not cfg.vault.exists():
         brain_api.init_vault(cfg.vault)
     if not cfg.db.exists():
@@ -540,6 +542,7 @@ def main(argv=None) -> int:
     p.add_argument("--yes", action="store_true", help="ask nothing; the setup screen asks in the browser")
     p.set_defaults(fn=cmd_init)
     p = sub.add_parser("run", help="start the dashboard")
+    p.add_argument("--port", type=int, help="port for this run (default: [server] port in kokpit.toml, 8501)")
     p.set_defaults(fn=cmd_run)
     p = sub.add_parser("run-job", help="run one scheduled job now")
     p.add_argument("name")

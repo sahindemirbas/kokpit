@@ -249,6 +249,19 @@ class CliTests(unittest.TestCase):
         cfg = cfgmod.load(d / "kokpit.toml")
         self.assertEqual((cfg.user_name, cfg.ui_language, cfg.setup_done), ("Ada Example", "tr", False))
 
+    def test_run_port_flag_overrides_config_for_this_run(self):
+        from kokpit import __main__ as cli
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            p = cfgmod.write_default(d / "kokpit.toml", vault=str(d / "v"), db=str(d / "k.db"))
+            seen = []
+            with mock.patch("kokpit.web.serve", lambda cfg: seen.append((cfg.host, cfg.port))), \
+                    mock.patch("builtins.print"):
+                self.assertEqual(cli.main(["--config", str(p), "run", "--port", "8622"]), 0)
+                cli.main(["--config", str(p), "run"])
+            self.assertEqual(seen, [("127.0.0.1", 8622), ("127.0.0.1", 8501)])
+            self.assertEqual(cfgmod.load(p).port, 8501)  # the file is not rewritten
+
     def test_ask_cli(self):
         d = Path(tempfile.mkdtemp())
         p = cfgmod.write_default(d / "kokpit.toml", vault=str(d / "v"), db=str(d / "k.db"))
