@@ -160,10 +160,15 @@ class Registration(unittest.TestCase):
     def test_stdlib_only_no_network(self):
         banned = ("import requests", "urllib.request", "http.client", "socket", "subprocess", "sys.modules",
                   "from kokpit", "import kokpit", "httpx")
-        for p in PLUGIN_DIR.glob("*.py"):
+        # the two reviewed exceptions: the dashboard API registers its private package name, and
+        # the server module runs `systemctl --user is-active <validated name>` with a list argv
+        allowed = {"dashboard/plugin_api.py": {"sys.modules"}, "server.py": {"subprocess"}}
+        for p in PLUGIN_DIR.rglob("*.py"):
+            rel = p.relative_to(PLUGIN_DIR).as_posix()
             text = p.read_text(encoding="utf-8")
             for b in banned:
-                self.assertNotIn(b, text, f"{p.name} contains {b}")
+                if b not in allowed.get(rel, set()):
+                    self.assertNotIn(b, text, f"{rel} contains {b}")
 
 
 class Demo(Base):
@@ -599,6 +604,102 @@ class DbPathAndSchema(Base):
         self.assertIn("unknown / database schema differs", r["error"])
 
 
+class Dashboard(Base):
+    """The web tab and the desktop panel render tools.overview: the same JSON the tools return."""
+
+    def test_manifest_and_files(self):
+        d = PLUGIN_DIR / "dashboard"
+        m = json.loads((d / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(m["name"], "kokpit")
+        self.assertEqual(m["tab"]["path"], "/kokpit")
+        for key in ("entry", "css", "api"):
+            self.assertTrue((d / m[key]).is_file(), m[key])
+        js = (d / m["entry"]).read_text(encoding="utf-8")
+        self.assertIn('__HERMES_PLUGINS__.register("kokpit"', js)
+        self.assertIn("Demo data", js)
+        self.assertNotIn("fetch(", js.replace("fetchJSON(", ""))  # only the SDK's authenticated fetch
+        self.assertNotRegex(js, r"https?://")                      # no CDN, works offline
+
+    def test_overview_is_the_tool_output(self):
+        env = self.env(demo="on")
+        o = T.overview(env)
+        self.assertTrue(o["ok"] and o["demo"])
+        for key, tool, args in T.OVERVIEW:
+            got, want = o[key], json.loads(T.handler(env, tool)(dict(args)))
+            self.assertEqual(got.keys(), want.keys(), key)
+            if key != "health":  # health ages move with the clock
+                self.assertEqual(got, want, key)
+        self.assertEqual({m["module"] for m in o["modules"]}, set(T.MODULE_TOOLS))
+        self.assertEqual({j["freshness"] for j in o["health"]["jobs"]} - {"fresh", "stale", "failed", "unknown"}, set())
+        self.assertIn("failed", {j["freshness"] for j in o["health"]["jobs"]})
+
+    def test_overview_shows_disabled_modules_and_setup_errors(self):
+        o = T.overview(self.live_env(modules={"events": False, "ai_usage": False}))
+        self.assertTrue(o["ok"])
+        off = {m["module"]: m for m in o["modules"] if not m["enabled"]}
+        self.assertEqual(set(off), {"events", "ai_usage"})
+        self.assertIn("[modules] events = true", off["events"]["enable"])
+        self.assertIn("module disabled", o["events"]["error"])
+        o = T.overview(self.env(demo="off"))
+        self.assertFalse(o["ok"])
+        self.assertIn("kokpit_config", o["fix"])
+
+    def test_api_routes_use_the_tools(self):
+        api = load_dashboard_api()
+        api.ENV = api.contract.Env(lambda k, default=None: {"demo": "on"}.get(k, default), data_dir=self.tmp / "dash")
+        o = api.overview()
+        self.assertTrue(o["demo"])
+        r = api.capture({"text": "From the dashboard", "kind": "task", "due": ""})
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["written"], "To-Do.md")
+        self.assertEqual(api.tool("kokpit_brain_search", query="irrigation")["results"][0]["path"], "notes/irrigation.md")
+        with self.assertRaises(Exception) as cm:
+            api.tool("kokpit_capture")
+        self.assertEqual(getattr(cm.exception, "status_code", None), 404)
+        self.assertEqual(api.plugin_settings.__name__, "plugin_settings")
+
+
+def load_dashboard_api():
+    """Import dashboard/plugin_api.py the way Hermes does (spec_from_file_location). Uses FastAPI
+    when installed; otherwise a stand-in with just APIRouter, Body and HTTPException."""
+    import importlib.util
+    try:
+        import fastapi  # noqa: F401
+    except ImportError:
+        import types
+
+        class Router:
+            def __init__(self):
+                self.routes = []
+
+            def _add(self, method, path):
+                def deco(fn):
+                    self.routes.append((method, path, fn))
+                    return fn
+                return deco
+
+            def get(self, path):
+                return self._add("GET", path)
+
+            def post(self, path):
+                return self._add("POST", path)
+
+        class HTTPException(Exception):
+            def __init__(self, status_code, detail=""):
+                super().__init__(detail)
+                self.status_code, self.detail = status_code, detail
+
+        stub = types.ModuleType("fastapi")
+        stub.APIRouter, stub.HTTPException, stub.Body = Router, HTTPException, lambda *a, **k: None
+        patcher = mock.patch.dict("sys.modules", {"fastapi": stub})
+        patcher.start()
+        unittest.addModuleCleanup(patcher.stop)
+    spec = importlib.util.spec_from_file_location("hermes_dashboard_plugin_kokpit_test", PLUGIN_DIR / "dashboard" / "plugin_api.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 class Command(Base):
     def test_subcommands(self):
         env = self.live_env()
@@ -626,7 +727,7 @@ class Privacy(unittest.TestCase):
         words = ("sa" + "hin", "demir" + "bas", "cre" + "mona", "@" + "gmail", "/ho" + "me/", "s" + "k-", "gh" + "p_",
                  "tok" + "en=", "api" + "_key")
         for p in PLUGIN_DIR.rglob("*"):
-            if p.is_file() and p.suffix in (".py", ".md", ".json", ".yaml"):
+            if p.is_file() and p.suffix in (".py", ".md", ".json", ".yaml", ".js", ".css"):
                 text = p.read_text(encoding="utf-8").lower()
                 for w in words:
                     self.assertNotIn(w, text, f"{p.relative_to(ROOT)} contains {w}")

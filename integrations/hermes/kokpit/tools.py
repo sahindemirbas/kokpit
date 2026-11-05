@@ -351,6 +351,22 @@ def _vault_files(state: dict) -> dict:
     return c.layout_report(Path(v), _layout(state))
 
 
+STALE_HOURS = 26  # Kokpit jobs run at least daily; older than this and the data is stale
+
+
+def _age(finished, status: str) -> tuple:
+    """(hours since the last run, freshness) where freshness is fresh, stale, failed or unknown."""
+    try:
+        age = round((datetime.now() - datetime.fromisoformat(str(finished))).total_seconds() / 3600, 1)
+    except (TypeError, ValueError):
+        age = None
+    if status == "failed":
+        return age, "failed"
+    if age is None:
+        return None, "unknown"
+    return age, "stale" if age > STALE_HOURS else "fresh"
+
+
 def health(state: dict, args: dict, conn=None) -> dict:
     _need(state, "health")
     own = conn is None
@@ -377,6 +393,7 @@ def health(state: dict, args: dict, conn=None) -> dict:
                     break
                 streak += 1
             j["failed_in_a_row"] = streak
+            j["age_hours"], j["freshness"] = _age(r["finished"], j["status"])
             jobs_.append(j)
         seen = {j["job"] for j in jobs_}
         problems = [f"{j}: never run" for j in expected if j not in seen]
@@ -420,6 +437,39 @@ def run(env: c.Env, name: str, args) -> dict:
     except OSError as e:
         return {"ok": False, "error": f"file could not be read or written: {type(e).__name__}", "fix": "check the vault path and permissions"}
     return {"ok": True, "mode": state["mode"], **body}
+
+
+# ---------------------------------------------------------------- one view for the dashboard and desktop panel
+
+# The panels render exactly these tool results; nothing is computed twice.
+OVERVIEW = (("today", "kokpit_today", {}), ("threads", "kokpit_threads", {}), ("health", "kokpit_health", {}),
+            ("ai_usage", "kokpit_ai_usage", {"days": 7}), ("events", "kokpit_events", {"days": 7, "limit": 5}),
+            ("jobs", "kokpit_jobs", {"limit": 5}))
+MODULE_TOOLS = {"today": "kokpit_today", "brain": "kokpit_threads", "health": "kokpit_health",
+                "events": "kokpit_events", "jobs": "kokpit_jobs", "ai_usage": "kokpit_ai_usage"}
+
+
+def modules(state: dict) -> list[dict]:
+    """Every module with on/off and, when off, how to turn it on."""
+    out = []
+    for name, tool in MODULE_TOOLS.items():
+        on = bool(state["cfg"]["modules"].get(name, c.MODULE_DEFAULTS.get(name, False)))
+        out.append({"module": name, "tool": tool, "enabled": on,
+                    **({} if on else {"enable": c.disabled(name).fix.replace("module disabled, ", "")})})
+    return out
+
+
+def overview(env: c.Env) -> dict:
+    """The tool results the panels show, keyed by section, plus mode and module states."""
+    try:
+        state = env.state()
+    except c.NotReady as e:
+        return {"ok": False, "error": e.error, "fix": e.fix}
+    out: dict[str, Any] = {"ok": True, "mode": state["mode"], "demo": state["mode"] == "demo",
+                           "generated": datetime.now().isoformat(timespec="seconds"), "modules": modules(state)}
+    for key, tool, args in OVERVIEW:
+        out[key] = run(env, tool, dict(args))
+    return out
 
 
 def handler(env: c.Env, name: str):

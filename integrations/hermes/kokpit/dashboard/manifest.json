@@ -1,0 +1,14 @@
+{
+  "name": "kokpit",
+  "label": "Kokpit",
+  "description": "Your Kokpit day: calendar, tasks, open threads, upcoming dates, job health, AI usage and quick capture. Same data as the kokpit_* tools.",
+  "icon": "Activity",
+  "version": "0.2.0",
+  "tab": {
+    "path": "/kokpit",
+    "position": "after:skills"
+  },
+  "entry": "dist/index.js",
+  "css": "dist/style.css",
+  "api": "plugin_api.py"
+}
