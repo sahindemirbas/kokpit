@@ -4,6 +4,7 @@ All notable changes to Kokpit are listed here. Versions follow [Semantic Version
 
 ## Unreleased
 
+- Hermes plugin 0.2.1: `Threads.md` owners with an empty value (`yok`, `none`, `-` ...) are no longer open items, bracket notes after an owner are kept (`note`, ISO date also `due`), and the panels show "You", "Me · Fri", "Someone". Older databases whose `runs` table has no `rows` column keep job health (`records: null`); a missing table reads "not collected here" and another shape "unknown format" on the cards. New `expected` setting for `kokpit_health`.
 - Podcast: Gemini speech is planned for the whole episode, intro included, in at most `max_requests` requests (default 10; `max_turns_stretch` lets a request hold up to 16 lines, and extra lines are trimmed with a note). The `openai_compatible` path is unchanged.
 
 ## 0.1.0 (2026-10-31)

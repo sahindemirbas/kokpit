@@ -1,5 +1,5 @@
 name: kokpit
-version: "0.2.0"
+version: "0.2.1"
 manifest_version: 2
 api_version: 1
 description: "Kokpit for Hermes: read your Kokpit day, brain vault, events, job listings, AI usage and job health (plus optional training-run and server status), capture notes and tasks, and keep a session card."

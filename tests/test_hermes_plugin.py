@@ -152,7 +152,7 @@ class Registration(unittest.TestCase):
         self.assertEqual(sorted(ctx.hooks), sorted(hooks))
         self.assertEqual(list(ctx.commands), ["kokpit"])
         self.assertTrue(all(t["toolset"] == "kokpit" for t in ctx.tools.values()))
-        self.assertIn('version: "0.2.0"', manifest)
+        self.assertIn('version: "0.2.1"', manifest)
         for name, t in ctx.tools.items():
             self.assertEqual(t["schema"]["name"], name)
             self.assertEqual(t["schema"]["parameters"]["type"], "object")

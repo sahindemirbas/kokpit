@@ -1,7 +1,7 @@
 # Kokpit plugin for Hermes Agent
 
 `integrations/hermes/kokpit/` is a Hermes Agent plugin (name `kokpit`, version
-0.2.0). It gives Hermes eight Kokpit tools plus two optional ones, a `/kokpit`
+0.2.1). It gives Hermes eight Kokpit tools plus two optional ones, a `/kokpit`
 command, the brain context on every turn, a session card plus receipt in the
 vault when a session ends, a Kokpit tab in the web dashboard and a right pane
 with a status chip in the desktop app. Claude Code, Codex and any other agent
@@ -74,6 +74,7 @@ One setting is also one command, for example
 | `receipts_dir` | str | `""` | Receipt folder; empty: `receipts/` |
 | `inbox_dir` | str | `""` | Capture folder; empty: `inbox/` |
 | `context_max_chars` | int | `1200` | Brain block budget per turn, 0 is off |
+| `expected` | list | `[]` | Job names (`runs.job`) `kokpit_health` expects, e.g. `["weather", "calendar"]`; empty: `[health] expected` |
 | `session_card` | bool | `true` | Card + receipt at session end |
 | `demo` | str | `auto` | `auto`, `on`, `off` |
 | `training` | bool | `false` | Turns on `kokpit_training` |
@@ -111,7 +112,17 @@ guessed; the tool answers with the paths found and the setting to fill in.
 heading.
 
 When a table or column the plugin expects is missing, the tool answers
-`unknown / database schema differs (table X missing)` instead of failing.
+`unknown / table X missing` or `unknown / table X missing columns: ...` instead
+of failing; the dashboard and desktop cards shorten this to "not collected
+here" (no table) or "unknown format" (another shape). "never run" means the
+table is there but holds no run. Some columns are optional: an older Kokpit
+`runs` table without `rows` still gives job health, with `records: null`
+(shown as "—", never as 0 records).
+
+In `Threads.md` an owner with an empty value (`Sende: yok`, `on you: none`,
+`-`, `n/a`, `nessuno` ...) is not an open item. A note in brackets after the
+owner (`Bende (Fri): ...`) is kept as `note` and shown as "Me · Fri"; an ISO
+date there also fills `due`.
 
 When a config is set but cannot be used (file missing, TOML error, vault
 missing), the plugin does not go quiet: the first tool call returns

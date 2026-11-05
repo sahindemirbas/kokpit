@@ -27,7 +27,7 @@ hermes plugins enable kokpit
 ```
 integrations/hermes/
   README.md                this file
-  kokpit/                  Hermes plugin "kokpit" 0.2.0 (tools, /kokpit, hooks, demo data)
+  kokpit/                  Hermes plugin "kokpit" 0.2.1 (tools, /kokpit, hooks, demo data)
   kokpit-brain/            older context-only plugin, superseded by kokpit/
 ```
 
