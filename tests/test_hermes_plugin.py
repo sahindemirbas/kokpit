@@ -316,6 +316,27 @@ class Live(Base):
         self.assertEqual(r["on_you"][0]["text"], "pick watering hours")
         self.assertEqual(r["last_session"]["title"], "Garden timer: relay test")
 
+    def test_threads_empty_values_and_owner_notes(self):
+        due = (D + timedelta(days=4)).isoformat()
+        (self.vault / "Threads.md").write_text(
+            "## Active Threads\n\n### Project X\nNerede kaldık: vendor access blocked. Açık: Sende: yok; "
+            "Bende (Fri): send the pilot plan; Başkası: Vendor; on Vendor team (" + due + "): sign the NDA.\n"
+            "Kaynak: [[notes/project-x]].\n\n### Quiet one\nWhere we left off: waiting... Open: on you: None.; "
+            "on me: -; Başkası: n/a\n", encoding="utf-8")
+        r = self.call(self.live_env(), "kokpit_threads")
+        px, quiet = r["threads"]
+        self.assertEqual(px["status"], "vendor access blocked")
+        self.assertEqual(quiet["status"], "waiting...")
+        self.assertEqual(quiet["open"], [])
+        self.assertEqual(r["on_you"], [])
+        self.assertEqual([(o["owner"], o["note"], o["text"]) for o in px["open"]],
+                         [("me", "Fri", "send the pilot plan"), ("someone", "", "Vendor"),
+                          ("vendor", due, "sign the NDA")])
+        self.assertEqual([o["due"] for o in px["open"]], ["", "", due])
+        self.assertFalse(any(o["on_you"] for o in px["open"]))
+        self.assertIn({"date": due, "text": "sign the NDA", "from": "Project X"},
+                      [{k: u[k] for k in ("date", "text", "from")} for u in self.call(self.live_env(), "kokpit_today")["upcoming"]])
+
 
 class Capture(Base):
     def test_capture_task_is_append_only(self):

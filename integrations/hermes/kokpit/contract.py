@@ -351,7 +351,9 @@ WIKILINK = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
 ISO_DATE = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
 DUE = re.compile(r"due:\s*(20\d\d-\d\d-\d\d)", re.I)
 TASK = re.compile(r"^\s*[-*]\s*\[( |x|X)\]\s*(.+?)\s*$")
-OWNER = re.compile(r"^\s*(?:on\s+(you|me|[\w .'-]+?)|(Sende|Bende|Başkası))\b[^:]*:\s*", re.I)
+OWNER = re.compile(r"^\s*(?:on\s+(you|me|[\w .'-]+?)|(Sende|Bende|Başkası))\b[^:(]*(?:\(([^)]*)\))?[^:]*:\s*", re.I)
+# "Sende: yok" / "on you: none" means nobody owes anything there, so it is not an open item
+EMPTY_VALUES = {"yok", "none", "nothing", "nobody", "-", "—", "–", "n/a", "na", "nessuno", "niente", "nulla", "boş"}
 WAIT_WORDS = re.compile(r"\b(approve|approval|decide|decision|waiting on you|onay|karar)\b", re.I)
 ACTIVE_HEADINGS = ("## Active Threads", "## Active threads", "## Aktif")
 CLOSED_HEADINGS = ("## Closed Threads", "## Closed threads", "## Kapanan")
@@ -405,7 +407,7 @@ def parse_threads(text: str) -> list[dict]:
             status = status.replace(m, "", 1)
         if status.lstrip().startswith("("):
             status = re.sub(r"^\s*\(?([^):]*)\)?:\s*", "", status.strip(), count=1)
-        status = status.strip().lstrip(":").strip()
+        status = re.sub(r"(?<!\.)\.$", "", status.strip().lstrip(":").strip())  # "blocked." -> "blocked", keeps "..."
         d = ISO_DATE.search(body)
         opens = []
         for item in re.split(r";|\n", open_part):
@@ -414,14 +416,17 @@ def parse_threads(text: str) -> list[dict]:
                 continue
             who = OWNER.match(item)
             txt = item[who.end():] if who else item
-            owner = ""
+            if txt.strip().rstrip(".").strip().casefold() in EMPTY_VALUES:
+                continue
+            owner, note = "", ""
             if who:
                 g = (who.group(1) or who.group(2) or "").strip().lower()
                 owner = {"sende": "you", "bende": "me", "başkası": "someone"}.get(g, g)
-            due = ISO_DATE.search(txt)
+                note = clean(who.group(3) or "", 40)
+            due = ISO_DATE.search(txt) or ISO_DATE.search(note)
             opens.append({"text": clean(txt, 260), "owner": owner,
                           "on_you": owner == "you" or (not owner and bool(WAIT_WORDS.search(item))),
-                          "due": due.group(1) if due else ""})
+                          "due": due.group(1) if due else "", "note": note})
         out.append({"title": clean(title), "date": d.group(1) if d else "", "status": clean(status, 520), "open": opens})
     return out
 
@@ -856,7 +861,7 @@ def context_block(vault: Path, message, max_chars: int, today: date | None = Non
         for t in v["threads"][:6]:
             lines.append(f"- {t['title']}: {clean(t['status'], 160)}")
             for o in t["open"][:3]:
-                who = f"on {o['owner']}: " if o["owner"] else ""
+                who = f"on {o['owner']}" + (f" ({o['note']})" if o.get("note") else "") + ": " if o["owner"] else ""
                 lines.append(f"  - {who}{clean(o['text'], 120)}")
         parts.append("\n".join(lines))
     if v["sessions"]:

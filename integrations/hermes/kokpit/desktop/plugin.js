@@ -166,15 +166,31 @@ function Upcoming({ r }) {
   })
 }
 
+// "You", "Me", "Someone" or the free owner name, plus the note in brackets: "Me · Fri"
+function ownerLabel(o) {
+  const names = { you: 'You', me: 'Me', someone: 'Someone' }
+  const w = o.owner ? (names[o.owner] || o.owner.charAt(0).toUpperCase() + o.owner.slice(1)) : (o.on_you ? 'You' : 'Open')
+  return o.note ? w + ' · ' + o.note : w
+}
+
 function Threads({ r }) {
-  if (!r || !r.ok) return jsx(Section, { title: 'On you', children: jsx(NotOk, { r }) })
+  if (!r || !r.ok) return jsx(Section, { title: 'Threads', children: jsx(NotOk, { r }) })
   const mine = (r.on_you || []).slice(0, 5)
-  return jsx(Section, {
-    title: 'On you',
-    badge: (r.threads || []).length + ' threads',
-    children: mine.length
-      ? mine.map((o, i) => jsx(Row, { left: jsx(Dot, { t: 'accent' }), title: o.thread, children: o.text }, i))
-      : jsx(Muted, { children: r.note || 'nothing waiting on you' })
+  const others = (r.threads || []).flatMap(t => (t.open || []).filter(o => !o.on_you).map(o => ({ thread: t.title, ...o })))
+    .slice(0, Math.max(0, 6 - mine.length))
+  const item = (o, i, on) => jsx(Row, {
+    left: jsx(Tag, { t: on ? 'accent' : 'muted', children: ownerLabel(o) }),
+    title: o.thread,
+    children: on ? jsx('b', { children: o.text }) : o.text
+  }, (on ? 'y' : 'o') + i)
+  return jsxs(Section, {
+    title: 'Threads',
+    badge: (r.threads || []).length + ' threads · ' + mine.length + ' on you',
+    children: [
+      ...mine.map((o, i) => item(o, i, true)),
+      ...others.map((o, i) => item(o, i, false)),
+      mine.length || others.length ? null : jsx(Muted, { children: r.note || 'nothing open' }, 'e')
+    ]
   })
 }
 

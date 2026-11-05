@@ -122,6 +122,13 @@
       })) : h(Empty, null, "No dated tasks or thread items."));
   }
 
+  // "You", "Me", "Someone" or the free owner name, plus the note in brackets: "Me · Fri"
+  function ownerLabel(o) {
+    var names = { you: "You", me: "Me", someone: "Someone" };
+    var w = o.owner ? (names[o.owner] || o.owner.charAt(0).toUpperCase() + o.owner.slice(1)) : (o.on_you ? "You" : "Open");
+    return o.note ? w + " · " + o.note : w;
+  }
+
   function Threads(props) {
     var r = props.r;
     if (!r || !r.ok) return h(Card, { title: "Open threads" }, h(Problem, { r: r }));
@@ -132,7 +139,7 @@
           h("div", { className: "kokpit-thread-title" }, t.title, t.date ? h("span", { className: "kokpit-from" }, t.date) : null),
           t.status ? h("div", { className: "kokpit-thread-status" }, t.status) : null,
           h("ul", { className: "kokpit-list" }, (t.open || []).map(function (o, j) {
-            return h("li", { key: j }, h(Pill, { tone: o.on_you ? "accent" : "muted" }, o.on_you ? "on you" : (o.owner || "open")), " " + o.text);
+            return h("li", { key: j, className: o.on_you ? "kokpit-on-you" : null }, h(Pill, { tone: o.on_you ? "accent" : "muted" }, ownerLabel(o)), " " + o.text);
           })));
       }) : h(Empty, null, r.note || "No active threads."),
       r.last_session ? h("div", { className: "kokpit-last" }, "Last session: ", h("b", null, r.last_session.title || ""), " (" + (r.last_session.at || "") + ")") : null);
