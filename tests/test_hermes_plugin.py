@@ -5,7 +5,10 @@ Run: python -m unittest tests.test_hermes_plugin
 import importlib.util
 import json
 import os
+import re
+import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -619,6 +622,23 @@ class Dashboard(Base):
         self.assertIn("Demo data", js)
         self.assertNotIn("fetch(", js.replace("fetchJSON(", ""))  # only the SDK's authenticated fetch
         self.assertNotRegex(js, r"https?://")                      # no CDN, works offline
+
+    def test_desktop_plugin_follows_the_sdk(self):
+        js = (PLUGIN_DIR / "desktop" / "plugin.js").read_text(encoding="utf-8")
+        specs = set(re.findall(r"""^\s*import\b[^'"]*['"]([^'"]+)['"]""", js, re.M))
+        self.assertLessEqual(specs, {"@hermes/plugin-sdk", "react", "react/jsx-runtime"})
+        self.assertIn("id: 'kokpit'", js)
+        self.assertIn("area: 'panes'", js)
+        self.assertIn("ctx.rest('/overview')", js)
+        self.assertIn("ctx.rest('/capture'", js)
+        self.assertIn("Demo data", js)
+        self.assertNotRegex(js, r"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(")  # theme variables only
+        self.assertNotRegex(js, r"https?://|\bfetch\(|window\.setInterval")
+        self.assertNotRegex(js, r"<[A-Za-z][^>]*/?>")                    # no JSX, there is no build step
+        if shutil.which("node"):
+            r = subprocess.run(["node", "--check", str(PLUGIN_DIR / "desktop" / "plugin.js")],
+                               capture_output=True, text=True, timeout=30)
+            self.assertEqual(r.returncode, 0, r.stderr)
 
     def test_overview_is_the_tool_output(self):
         env = self.env(demo="on")
