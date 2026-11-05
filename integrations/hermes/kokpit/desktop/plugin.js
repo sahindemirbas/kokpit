@@ -214,6 +214,47 @@ function Ai({ r }) {
   })
 }
 
+function Training({ r }) {
+  if (!r) return null
+  if (!r.ok) return jsx(Section, { title: 'Training', children: jsx(NotOk, { r }) })
+  const runs = r.runs || []
+  const t = s => s === 'running' ? 'ok' : s === 'finished' ? 'muted' : 'warn'
+  return jsxs(Section, {
+    title: 'Training',
+    badge: r.warnings && r.warnings.length ? `${r.warnings.length} may have stopped` : `${runs.length} runs`,
+    children: runs.length ? runs.slice(0, 5).map((x, i) => jsx(Row, {
+      left: jsx(Dot, { t: t(x.status) }),
+      title: x.warning || x.file || '',
+      right: jsx(Muted, { children: x.status === 'running' && x.eta_minutes != null ? `ETA ${Math.round(x.eta_minutes)}m` : x.status }),
+      children: `${x.run}${x.last_step != null ? ' · ' + k(x.last_step) + (x.total_steps ? '/' + k(x.total_steps) : '') : ''}${typeof x.loss === 'number' ? ' · loss ' + x.loss.toFixed(3) : ''}`
+    }, i)) : jsx(Muted, { children: r.note || 'no runs' })
+  })
+}
+
+function Server({ r }) {
+  if (!r) return null
+  if (!r.ok) return jsx(Section, { title: 'Server', children: jsx(NotOk, { r }) })
+  const temp = typeof r.cpu_temp_c === 'number' ? `${r.cpu_temp_c}°C` : 'temp ?'
+  const load = Array.isArray(r.load) ? r.load[0] : '?'
+  const mem = r.memory && typeof r.memory === 'object' ? `${r.memory.used_pct}%` : '?'
+  return jsxs(Section, {
+    title: 'Server',
+    badge: `${temp} · load ${load} · mem ${mem}`,
+    children: [
+      ...(r.disks || []).map((d, i) => jsx(Row, {
+        left: jsx(Dot, { t: d.status === 'ok' ? 'ok' : 'warn' }),
+        right: jsx(Muted, { children: d.used_pct != null ? d.used_pct + '%' : '?' }),
+        children: d.path
+      }, 'd' + i)),
+      ...(r.services || []).map((s, i) => jsx(Row, {
+        left: jsx(Dot, { t: s.state === 'active' ? 'ok' : s.state === 'unknown' ? 'muted' : 'bad' }),
+        right: jsx(Muted, { children: s.state }),
+        children: s.name
+      }, 's' + i))
+    ]
+  })
+}
+
 function Capture({ ctx, store }) {
   const [text, setText] = useState('')
   const [kind, setKind] = useState('note')
@@ -290,6 +331,8 @@ function Pane({ ctx, store }) {
       jsx(Upcoming, { r: data.today }, 'up'),
       jsx(Health, { r: data.health }, 'health'),
       on.ai_usage ? jsx(Ai, { r: data.ai_usage }, 'ai') : null,
+      on.training ? jsx(Training, { r: data.training }, 'training') : null,
+      on.server ? jsx(Server, { r: data.server }, 'server') : null,
       jsx(Capture, { ctx, store }, 'capture')
     ]
   }
@@ -304,10 +347,12 @@ function Chip({ store }) {
   const { data } = useStore(store)
   if (!data || !data.ok) return null
   const jobs = (data.health && data.health.jobs) || []
-  const worst = jobs.some(j => j.freshness === 'failed') ? 'bad' : jobs.some(j => j.freshness !== 'fresh') ? 'warn' : 'ok'
+  const extra = ['training', 'server'].flatMap(s => (data[s] && data[s].ok && data[s].warnings) || [])
+  const worst = jobs.some(j => j.freshness === 'failed') ? 'bad'
+    : jobs.some(j => j.freshness !== 'fresh') || extra.length ? 'warn' : 'ok'
   const mine = ((data.threads && data.threads.on_you) || []).length
   return jsxs('span', {
-    title: 'Kokpit: ' + ((data.health && data.health.problems) || []).slice(0, 3).join('; '),
+    title: 'Kokpit: ' + [...((data.health && data.health.problems) || []), ...extra].slice(0, 4).join('; '),
     style: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '0 6px', fontSize: '0.6875rem', color: 'var(--ui-text-tertiary)' },
     children: [jsx(Dot, { t: worst }), `kokpit${mine ? ' · ' + mine : ''}${data.demo ? ' (demo)' : ''}`]
   })

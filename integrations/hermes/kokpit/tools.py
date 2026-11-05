@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from . import contract as c
+from . import server as _server
+from . import training as _training
 
 NO_DB = "no database yet: run a Kokpit job first (python -m kokpit run-job <name>)"
 VAULT_FIX = "create the vault ([brain] vault_path in kokpit.toml) or run `python -m kokpit init`"
@@ -412,9 +414,49 @@ def health(state: dict, args: dict, conn=None) -> dict:
             conn.close()
 
 
+def training(state: dict, args: dict) -> dict:
+    """kokpit_training: progress of the runs in the configured log files. Reads only."""
+    _need(state, "training")
+    cfg = state["cfg"]
+    patterns = cfg.get("training_logs") or []
+    if not patterns:
+        raise c.NotReady("no training logs configured",
+                         "set training_logs to a list of JSONL/CSV globs (hermes config set "
+                         "plugins.entries.kokpit.settings.training_logs '[\"~/runs/*/metrics.jsonl\"]')")
+    stall = args.get("stall_minutes")
+    stall_m = c.as_num(stall, cfg.get("training_stall_minutes", 30), 1, 10080) if stall not in (None, "") \
+        else cfg.get("training_stall_minutes", 30)
+    body = _training.status(patterns, stall_m)
+    if not body["files"]:
+        body["note"] = "no file matches the training_logs globs yet"
+    return body
+
+
+DEMO_SERVER = {"disks": [{"path": "/", "used_pct": 45.2, "free_gb": 256.7, "total_gb": 468.4, "status": "ok"},
+                         {"path": "/srv/backup", "used_pct": 92.4, "free_gb": 70.5, "total_gb": 931.5, "status": "warn"}],
+               "cpu_temp_c": 54.3, "load": [0.42, 0.61, 0.58],
+               "memory": {"total_gb": 7.9, "available_gb": 5.0, "used_pct": 36.5},
+               "uptime": {"seconds": 431000, "text": "4d 23h 43m"},
+               "services": [{"name": "kokpit-web.service", "state": "active"},
+                            {"name": "kokpit-bot.service", "state": "active"},
+                            {"name": "demo-sync.service", "state": "failed"}]}
+
+
+def server(state: dict, args: dict) -> dict:
+    """kokpit_server: disks, temperature, load, memory, uptime and listed user services. Reads only."""
+    _need(state, "server")
+    cfg = state["cfg"]
+    if cfg.get("server_demo"):
+        body = json.loads(json.dumps(DEMO_SERVER))
+        body["warnings"] = _server.warnings(body)
+        return body
+    return _server.status(cfg.get("server_paths") or ["/"], cfg.get("server_units") or [])
+
+
 TOOLS = {"kokpit_today": today, "kokpit_brain_search": brain_search, "kokpit_threads": threads,
          "kokpit_capture": capture, "kokpit_events": events, "kokpit_jobs": jobs,
-         "kokpit_ai_usage": ai_usage, "kokpit_health": health}
+         "kokpit_ai_usage": ai_usage, "kokpit_health": health,
+         "kokpit_training": training, "kokpit_server": server}
 
 
 def run(env: c.Env, name: str, args) -> dict:
@@ -444,9 +486,10 @@ def run(env: c.Env, name: str, args) -> dict:
 # The panels render exactly these tool results; nothing is computed twice.
 OVERVIEW = (("today", "kokpit_today", {}), ("threads", "kokpit_threads", {}), ("health", "kokpit_health", {}),
             ("ai_usage", "kokpit_ai_usage", {"days": 7}), ("events", "kokpit_events", {"days": 7, "limit": 5}),
-            ("jobs", "kokpit_jobs", {"limit": 5}))
+            ("jobs", "kokpit_jobs", {"limit": 5}), ("training", "kokpit_training", {}), ("server", "kokpit_server", {}))
 MODULE_TOOLS = {"today": "kokpit_today", "brain": "kokpit_threads", "health": "kokpit_health",
-                "events": "kokpit_events", "jobs": "kokpit_jobs", "ai_usage": "kokpit_ai_usage"}
+                "events": "kokpit_events", "jobs": "kokpit_jobs", "ai_usage": "kokpit_ai_usage",
+                "training": "kokpit_training", "server": "kokpit_server"}
 
 
 def modules(state: dict) -> list[dict]:

@@ -2,7 +2,7 @@ name: kokpit
 version: "0.2.0"
 manifest_version: 2
 api_version: 1
-description: "Kokpit for Hermes: read your Kokpit day, brain vault, events, job listings, AI usage and job health, capture notes and tasks, and keep a session card."
+description: "Kokpit for Hermes: read your Kokpit day, brain vault, events, job listings, AI usage and job health (plus optional training-run and server status), capture notes and tasks, and keep a session card."
 author: kokpit
 license: MIT
 requires_hermes: ">=0.22.0"
@@ -16,6 +16,8 @@ provides_tools:
   - kokpit_jobs
   - kokpit_ai_usage
   - kokpit_health
+  - kokpit_training
+  - kokpit_server
 provides_hooks:
   - pre_llm_call
   - post_tool_call
@@ -66,3 +68,27 @@ config_schema:
     type: str
     default: "auto"
     description: "auto, on or off. auto uses the bundled demo when no Kokpit config and no vault are found."
+  training:
+    type: bool
+    default: false
+    description: "Turn on the optional kokpit_training module (reads training logs only)."
+  training_logs:
+    type: list
+    default: []
+    description: "Glob list of JSONL or CSV training log files, e.g. [\"~/runs/*/metrics.jsonl\"]."
+  training_stall_minutes:
+    type: int
+    default: 30
+    description: "Minutes without a new step before a run is flagged as may have stopped."
+  server:
+    type: bool
+    default: false
+    description: "Turn on the optional kokpit_server module (disk, temperature, load, memory, uptime, user services)."
+  server_paths:
+    type: list
+    default: ["/"]
+    description: "Paths whose disk usage kokpit_server reports."
+  server_units:
+    type: list
+    default: []
+    description: "systemd --user units to check with systemctl --user is-active (names are validated)."

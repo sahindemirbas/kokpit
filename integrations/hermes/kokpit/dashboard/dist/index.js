@@ -205,6 +205,44 @@
       })) : (!r.status ? h(Empty, null, "No open listings.") : null));
   }
 
+  function Training(props) {
+    var r = props.r;
+    if (!r || !r.ok) return h(Card, { title: "Training runs" }, h(Problem, { r: r }));
+    var runs = r.runs || [];
+    function tone(s) { return s === "running" ? "ok" : s === "finished" ? "muted" : "warn"; }
+    return h(Card, { title: "Training runs", badge: runs.length + " runs" },
+      runs.length ? h("ul", { className: "kokpit-list" }, runs.map(function (x, i) {
+        var bits = [];
+        if (x.last_step !== undefined) bits.push("step " + num(x.last_step) + (x.total_steps ? "/" + num(x.total_steps) : ""));
+        if (typeof x.loss === "number") bits.push("loss " + x.loss.toFixed(4));
+        if (x.steps_per_sec) bits.push(x.steps_per_sec + " it/s");
+        if (x.eta_minutes !== null && x.eta_minutes !== undefined && x.status === "running") bits.push("ETA " + Math.round(x.eta_minutes) + " min");
+        if (x.minutes_since_update !== undefined) bits.push("updated " + Math.round(x.minutes_since_update) + " min ago");
+        return h("li", { key: i, title: x.file || "" }, h(Pill, { tone: tone(x.status) }, x.status), " " + x.run,
+          h("span", { className: "kokpit-from" }, bits.join(" · ") || x.reason || ""),
+          x.warning ? h("div", { className: "kokpit-fix" }, x.warning) : null);
+      })) : h(Empty, null, r.note || "No runs in the configured logs."));
+  }
+
+  function Server(props) {
+    var r = props.r;
+    if (!r || !r.ok) return h(Card, { title: "Server" }, h(Problem, { r: r }));
+    var load = Array.isArray(r.load) ? r.load.join(" / ") : String(r.load);
+    var mem = r.memory && typeof r.memory === "object" ? r.memory.used_pct + "% used" : String(r.memory);
+    var up = r.uptime && typeof r.uptime === "object" ? r.uptime.text : String(r.uptime);
+    var temp = typeof r.cpu_temp_c === "number" ? r.cpu_temp_c + " °C" : String(r.cpu_temp_c);
+    return h(Card, { title: "Server", badge: (r.warnings || []).length ? r.warnings.length + " warnings" : "" },
+      h("div", { className: "kokpit-stats" },
+        h(Stat, { label: "CPU", value: temp }), h(Stat, { label: "Load", value: load }),
+        h(Stat, { label: "Memory", value: mem }), h(Stat, { label: "Uptime", value: up })),
+      h("ul", { className: "kokpit-list" }, (r.disks || []).map(function (d, i) {
+        return h("li", { key: "d" + i }, h(Pill, { tone: d.status === "ok" ? "ok" : "warn" }, d.used_pct !== undefined ? d.used_pct + "%" : "?"),
+          " " + d.path, d.free_gb !== undefined ? h("span", { className: "kokpit-from" }, d.free_gb + " GB free") : null);
+      }).concat((r.services || []).map(function (s, i) {
+        return h("li", { key: "s" + i }, h(Pill, { tone: s.state === "active" ? "ok" : s.state === "unknown" ? "muted" : "bad" }, s.state), " " + s.name);
+      }))));
+  }
+
   function Modules(props) {
     var ms = props.modules || [];
     return h(Card, { title: "Modules" },
@@ -284,6 +322,8 @@
       on.ai_usage ? h(AiUsage, { key: "ai", r: data.ai_usage }) : null,
       on.events ? h(Events, { key: "events", r: data.events }) : null,
       on.jobs ? h(Jobs, { key: "jobs", r: data.jobs }) : null,
+      on.training ? h(Training, { key: "training", r: data.training }) : null,
+      on.server ? h(Server, { key: "server", r: data.server }) : null,
       h(Capture, { key: "capture", demo: data.demo, onDone: load }),
       h(Modules, { key: "modules", modules: data.modules })
     ];

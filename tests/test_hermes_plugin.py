@@ -11,6 +11,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
@@ -147,7 +148,7 @@ class Registration(unittest.TestCase):
         tools = [l.strip()[2:] for l in manifest.split("provides_tools:")[1].split("provides_hooks:")[0].splitlines() if l.strip()]
         hooks = [l.strip()[2:] for l in manifest.split("provides_hooks:")[1].split("config_schema:")[0].splitlines() if l.strip()]
         self.assertEqual(sorted(ctx.tools), sorted(tools))
-        self.assertEqual(len(ctx.tools), 8)
+        self.assertEqual(len(ctx.tools), 10)
         self.assertEqual(sorted(ctx.hooks), sorted(hooks))
         self.assertEqual(list(ctx.commands), ["kokpit"])
         self.assertTrue(all(t["toolset"] == "kokpit" for t in ctx.tools.values()))
@@ -657,7 +658,7 @@ class Dashboard(Base):
         o = T.overview(self.live_env(modules={"events": False, "ai_usage": False}))
         self.assertTrue(o["ok"])
         off = {m["module"]: m for m in o["modules"] if not m["enabled"]}
-        self.assertEqual(set(off), {"events", "ai_usage"})
+        self.assertEqual(set(off), {"events", "ai_usage", "training", "server"})
         self.assertIn("[modules] events = true", off["events"]["enable"])
         self.assertIn("module disabled", o["events"]["error"])
         o = T.overview(self.env(demo="off"))
@@ -718,6 +719,109 @@ def load_dashboard_api():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+class OptionalModules(Base):
+    def live(self, **settings):
+        base = {"kokpit_config": str(self.config()), "demo": "off"}
+        base.update(settings)
+        return self.env(**base)
+
+    def write_jsonl(self, name, rows):
+        p = self.tmp / "runs" / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+        return p
+
+    def test_off_by_default_with_enable_hint(self):
+        env = self.live()
+        for tool, mod in (("kokpit_training", "training"), ("kokpit_server", "server")):
+            out = self.call(env, tool)
+            self.assertFalse(out["ok"])
+            self.assertEqual(out["error"], "module disabled")
+            self.assertIn(f"plugins.entries.kokpit.settings.{mod} true", out["fix"])
+        mods = C.load_config(self.config())["modules"]
+        self.assertFalse(mods["training"] or mods["server"])
+
+    def test_training_running_stalled_finished(self):
+        now = time.time()
+        self.write_jsonl("a.jsonl", [{"step": s, "time": now - (100 - s) * 2, "loss": 1.0 / (s + 1),
+                                      "total_steps": 200, "acc": 0.5} for s in range(0, 101, 10)])
+        self.write_jsonl("b.jsonl", [{"step": s, "time": now - 7200 + s, "loss": 0.9} for s in range(0, 51, 10)])
+        csv = self.tmp / "runs" / "c.csv"
+        csv.write_text("step,max_steps,loss\n10,20,0.5\n20,20,0.25\n", encoding="utf-8")
+        env = self.live(training=True, training_logs=json.dumps([str(self.tmp / "runs" / "*.jsonl"), str(csv)]),
+                        training_stall_minutes=30)
+        out = self.call(env, "kokpit_training")
+        self.assertTrue(out["ok"], out)
+        runs = {r["run"]: r for r in out["runs"]}
+        self.assertEqual(runs["a"]["status"], "running")
+        self.assertEqual(runs["a"]["last_step"], 100)
+        self.assertAlmostEqual(runs["a"]["steps_per_sec"], 0.5, places=2)
+        self.assertAlmostEqual(runs["a"]["eta_minutes"], 100 / 0.5 / 60, places=0)
+        self.assertEqual(runs["a"]["metrics"]["acc"], 0.5)
+        self.assertEqual(runs["b"]["status"], "stalled?")
+        self.assertIn("may have stopped", runs["b"]["warning"])
+        self.assertEqual(runs["c"]["status"], "finished")
+        self.assertEqual(len(out["warnings"]), 1)
+        # a per-call threshold overrides the setting
+        self.assertEqual(self.call(env, "kokpit_training", {"stall_minutes": 1000})["warnings"], [])
+
+    def test_training_without_logs_or_bad_rows(self):
+        out = self.call(self.live(training="true"), "kokpit_training")
+        self.assertFalse(out["ok"])
+        self.assertIn("training_logs", out["fix"])
+        bad = self.tmp / "runs" / "bad.jsonl"
+        bad.parent.mkdir(parents=True)
+        bad.write_text("not json\n{\"note\": 1}\n", encoding="utf-8")
+        out = self.call(self.live(training=True, training_logs=[str(bad)]), "kokpit_training")
+        self.assertTrue(out["ok"])
+        self.assertEqual(out["runs"][0]["status"], "unknown")
+        out = self.call(self.live(training=True, training_logs=[str(self.tmp / "none" / "*.jsonl")]), "kokpit_training")
+        self.assertEqual(out["files"], 0)
+        self.assertIn("note", out)
+
+    def test_server_reads_machine_and_validates_units(self):
+        env = self.live(server=True, server_paths=[str(self.tmp)], server_units=["ok-name.service", "bad; rm -rf /"])
+        with mock.patch.object(P.server.subprocess, "run") as run:
+            run.return_value = mock.Mock(stdout="active\n")
+            with mock.patch.object(P.server.shutil, "which", return_value="/usr/bin/systemctl"):
+                out = self.call(env, "kokpit_server")
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(out["disks"][0]["path"], str(self.tmp))
+        self.assertIsInstance(out["disks"][0]["used_pct"], float)
+        svc = {s["name"]: s["state"] for s in out["services"]}
+        self.assertEqual(svc["ok-name.service"], "active")
+        self.assertEqual(svc["bad; rm -rf /"], "invalid name")
+        argv = run.call_args.args[0]
+        self.assertEqual(argv[1:], ["--user", "is-active", "--", "ok-name.service"])
+        self.assertIsInstance(argv, list)
+        self.assertEqual(run.call_count, 1)
+        self.assertIn("service bad; rm -rf /: invalid name", out["warnings"])
+
+    def test_server_unknowns(self):
+        self.assertEqual(P.server.cpu_temp(self.tmp / "no-thermal"), "unknown")
+        self.assertEqual(P.server.memory(self.tmp / "no-proc"), "unknown")
+        self.assertEqual(P.server.uptime(self.tmp / "no-proc"), "unknown")
+        with mock.patch.object(P.server.shutil, "which", return_value=None):
+            self.assertEqual(P.server.unit_state("x.service"), "unknown")
+        zone = self.tmp / "th" / "thermal_zone0"
+        zone.mkdir(parents=True)
+        (zone / "temp").write_text("61500\n")
+        self.assertEqual(P.server.cpu_temp(self.tmp / "th"), 61.5)
+        self.assertEqual(P.server.disks([str(self.tmp / "missing")])[0]["status"][:7], "unknown")
+
+    def test_demo_has_synthetic_training_and_server(self):
+        env = self.env(demo="on")
+        tr = self.call(env, "kokpit_training")
+        self.assertTrue(tr["ok"], tr)
+        self.assertEqual(sorted(r["status"] for r in tr["runs"]), ["finished", "running", "stalled?"])
+        sv = self.call(env, "kokpit_server")
+        self.assertTrue(sv["ok"])
+        self.assertTrue(any("disk" in w for w in sv["warnings"]))
+        ov = T.overview(env)
+        self.assertTrue(ov["training"]["ok"] and ov["server"]["ok"])
+        self.assertTrue(all(m["enabled"] for m in ov["modules"]))
 
 
 class Command(Base):

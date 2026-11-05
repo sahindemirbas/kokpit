@@ -17,6 +17,7 @@ import os
 import re
 import sqlite3
 import tempfile
+import time
 import tomllib
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -24,7 +25,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 DEMO_SRC = HERE / "demo"
 DEFAULT_LOCATIONS = (Path("kokpit.toml"), Path.home() / ".config" / "kokpit" / "kokpit.toml")
-MODULE_DEFAULTS = {"today": True, "brain": True, "health": True, "events": False, "jobs": False, "ai_usage": False}
+MODULE_DEFAULTS = {"today": True, "brain": True, "health": True, "events": False, "jobs": False, "ai_usage": False,
+                   "training": False, "server": False}
+# optional modules switched on by one plugin setting each (no kokpit.toml needed)
+PLUGIN_MODULES = ("training", "server")
 CARD_MAX = 800
 FIX_CONFIG = ("set plugins.entries.kokpit.settings.kokpit_config to your kokpit.toml "
               "(hermes config set plugins.entries.kokpit.settings.kokpit_config /path/kokpit.toml), "
@@ -38,7 +42,44 @@ class NotReady(Exception):
 
 
 def disabled(module: str) -> NotReady:
+    if module in PLUGIN_MODULES:
+        return NotReady("module disabled", f"module disabled, enable with hermes config set "
+                                           f"plugins.entries.kokpit.settings.{module} true "
+                                           f"(or [modules] {module} = true in kokpit.toml)")
     return NotReady("module disabled", f"module disabled, enable with [modules] {module} = true in kokpit.toml")
+
+
+def as_list(v) -> list[str]:
+    """A list setting: a YAML/JSON list, or a string split on commas and newlines."""
+    if v is None:
+        return []
+    if isinstance(v, str):
+        t = v.strip()
+        if t.startswith("["):
+            try:
+                v = json.loads(t)
+            except ValueError:
+                v = t.strip("[]")
+        if isinstance(v, str):
+            parts = (x.strip().strip("'\"") for x in re.split(r"[,\n]", v))
+            return [x for x in parts if x]
+    if isinstance(v, (list, tuple)):
+        return [str(x).strip() for x in v if str(x).strip()]
+    return []
+
+
+def as_bool(v) -> bool:
+    if isinstance(v, str):
+        return v.strip().lower() in ("1", "true", "yes", "on")
+    return bool(v)
+
+
+def as_num(v, default: float, lo: float, hi: float) -> float:
+    try:
+        n = float(v)
+    except (TypeError, ValueError):
+        return default
+    return min(hi, max(lo, n))
 
 
 # ---------------------------------------------------------------- config
@@ -69,7 +110,12 @@ def load_config(path: Path) -> dict:
     for k, v in (raw.get("modules") or {}).items():
         mods[k] = bool(v)
     brain, health, ai = raw.get("brain") or {}, raw.get("health") or {}, raw.get("ai_usage") or {}
+    train, server = raw.get("training") or {}, raw.get("server") or {}
     return {"path": str(path), "modules": mods,
+            "training_logs": [str(resolve(x)) for x in as_list(train.get("logs"))],
+            "training_stall_minutes": as_num(train.get("stall_minutes"), 30, 1, 10080),
+            "server_paths": as_list(server.get("paths")) or ["/"],
+            "server_units": as_list(server.get("units")),
             "vault": resolve(brain.get("vault_path", "data/vault")),
             "quick_capture": bool(brain.get("quick_capture", True)),
             "db": resolve(health.get("db_path", "data/kokpit.db")),
@@ -106,10 +152,26 @@ class Env:
     def state(self) -> dict:
         """-> {mode, vault, db, cfg, layout}. Raises NotReady with a fix when nothing usable is configured."""
         st = self._state()
+        if st["mode"] != "demo":
+            self.apply_module_settings(st["cfg"])
         v = st["vault"]
         st["layout"] = resolve_layout(v, {} if st["mode"] == "demo" else self.layout_settings()) \
             if v is not None and Path(v).is_dir() else None
         return st
+
+    def apply_module_settings(self, cfg: dict) -> None:
+        """Plugin settings for the optional modules win over kokpit.toml when they are set."""
+        for m in PLUGIN_MODULES:
+            if as_bool(self.setting(m, False)):
+                cfg["modules"][m] = True
+        logs = as_list(self.setting("training_logs", []))
+        cfg["training_logs"] = [os.path.expanduser(x) for x in logs] or cfg.get("training_logs") or []
+        stall = self.setting("training_stall_minutes", None)
+        base = cfg.get("training_stall_minutes", 30)
+        cfg["training_stall_minutes"] = base if stall in (None, "") else as_num(stall, base, 1, 10080)
+        paths, units = as_list(self.setting("server_paths", [])), as_list(self.setting("server_units", []))
+        cfg["server_paths"] = paths or cfg.get("server_paths") or ["/"]
+        cfg["server_units"] = units or cfg.get("server_units") or []
 
     def _state(self) -> dict:
         demo = str(self.setting("demo", "auto")).strip().lower() or "auto"
@@ -153,11 +215,34 @@ class Env:
             build_demo_db(db)
         cfg = {"path": "", "modules": {k: True for k in MODULE_DEFAULTS}, "vault": vault, "quick_capture": True,
                "db": db, "expected": ["weather", "calendar", "events-collect", "career", "ai_usage", "backup"],
-               "prices": DEMO_SRC / "prices.json"}
+               "prices": DEMO_SRC / "prices.json",
+               "training_logs": [str(p) for p in write_demo_training(root / "training")],
+               "training_stall_minutes": 30, "server_paths": ["/"], "server_units": [], "server_demo": True}
         return {"mode": "demo", "vault": vault, "db": db, "cfg": cfg}
 
 
 DEMO_DATE = re.compile(r"\{\{([+-]\d+)\}\}")
+
+
+def write_demo_training(folder: Path, now: float | None = None) -> list[Path]:
+    """Synthetic training logs relative to now: one run in progress, one stalled, one finished (CSV)."""
+    now = time.time() if now is None else now
+    paths = [folder / "demo-finetune.jsonl", folder / "demo-sweep.jsonl", folder / "demo-baseline.csv"]
+    if all(p.is_file() and now - p.stat().st_mtime < 300 for p in paths):
+        return paths
+    folder.mkdir(parents=True, exist_ok=True)
+    live = [{"step": s, "time": round(now - (1200 - s) * 1.5 - 20, 1), "total_steps": 2000,
+             "loss": round(2.4 * 0.9985 ** s + 0.31, 4), "eval_acc": round(0.52 + s / 4000, 4)}
+            for s in range(0, 1201, 50)]
+    stuck = [{"step": s, "time": round(now - 95 * 60 - (600 - s) * 2.0, 1), "total_steps": 3000,
+              "loss": round(1.9 * 0.998 ** s + 0.4, 4)} for s in range(0, 601, 50)]
+    paths[0].write_text("".join(json.dumps(r) + "\n" for r in live), encoding="utf-8")
+    paths[1].write_text("".join(json.dumps(r) + "\n" for r in stuck), encoding="utf-8")
+    rows = ["step,time,max_steps,loss,val_f1"] + [
+        f"{s},{datetime.fromtimestamp(now - 86400 + s * 9, timezone.utc).isoformat(timespec='seconds')},500,"
+        f"{round(1.2 * 0.995 ** s + 0.2, 4)},{round(0.6 + s / 2000, 3)}" for s in range(0, 501, 100)]
+    paths[2].write_text("\n".join(rows) + "\n", encoding="utf-8")
+    return paths
 
 
 def copy_demo_vault(dest: Path, today: date | None = None) -> None:

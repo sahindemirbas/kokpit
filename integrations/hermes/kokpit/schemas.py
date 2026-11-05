@@ -25,4 +25,7 @@ ALL = {
     "kokpit_ai_usage": _s("kokpit_ai_usage", "AI token usage per tool and model from Kokpit. Cost is a number only when a price is known, otherwise unknown. Read-only.",
                           {"days": {"type": "integer", "description": "Days back, default 7."}}),
     "kokpit_health": _s("kokpit_health", "Kokpit job health: last run per job, ok or failed, record counts (0 is flagged), expected jobs that never ran. Read-only."),
+    "kokpit_training": _s("kokpit_training", "Optional module (off by default). Training runs from the configured JSONL/CSV log files: last step, last loss and metrics, steps per second, ETA, minutes since the last update and a may-have-stopped warning. Read-only, never touches processes.",
+                          {"stall_minutes": {"type": "integer", "description": "Minutes without a new step before a run is flagged, default from settings (30)."}}),
+    "kokpit_server": _s("kokpit_server", "Optional module (off by default). Local machine status: disk usage for the configured paths, CPU temperature, load average, memory, uptime and whether the listed systemd --user services are active. Read-only."),
 }
