@@ -100,8 +100,18 @@ class Env:
                 self._data_dir = Path(tempfile.gettempdir()) / "kokpit-hermes-plugin"
         return self._data_dir
 
+    def layout_settings(self) -> dict:
+        return {k: str(self.setting(k, "") or "") for k in LAYOUT_SETTINGS}
+
     def state(self) -> dict:
-        """-> {mode, vault, db, cfg}. Raises NotReady with a fix when nothing usable is configured."""
+        """-> {mode, vault, db, cfg, layout}. Raises NotReady with a fix when nothing usable is configured."""
+        st = self._state()
+        v = st["vault"]
+        st["layout"] = resolve_layout(v, {} if st["mode"] == "demo" else self.layout_settings()) \
+            if v is not None and Path(v).is_dir() else None
+        return st
+
+    def _state(self) -> dict:
         demo = str(self.setting("demo", "auto")).strip().lower() or "auto"
         if demo == "on":
             return self.demo()
@@ -296,11 +306,44 @@ def parse_threads(text: str) -> list[dict]:
     return out
 
 
+TODO_OPEN = ("open", "açık", "acik", "to do", "todo", "aperti", "da fare")
+TODO_DONE = ("done", "bitti", "tamamlanan", "tamamlandı", "completed", "fatto", "fatti")
+_H2 = re.compile(r"^## +(.+?)\s*$", re.M)
+
+
+def _heading_kind(title: str) -> str:
+    t = re.sub(r"[^\w ]", "", title.casefold(), flags=re.U).strip()
+    if any(t == w or t.startswith(w + " ") for w in TODO_OPEN):
+        return "open"
+    if any(t == w or t.startswith(w + " ") for w in TODO_DONE):
+        return "done"
+    return ""
+
+
+def todo_open_heading(text: str):
+    """The first '## Open' style heading (Open, Açık, To do, Aperti ...) or None."""
+    for m in _H2.finditer(text):
+        if _heading_kind(m.group(1)) == "open":
+            return m
+    return None
+
+
 def parse_todo(text: str, today: date | None = None) -> list[dict]:
+    """Unchecked tasks. With an Open-style heading only that section counts; without one every
+    section counts except Done-style ones (Done, Bitti, Fatto ...)."""
     today = today or date.today()
-    m = re.search(r"^## Open\b.*$", text, re.M)
-    section = text[m.end():] if m else text
-    section = re.split(r"^## ", section, maxsplit=1, flags=re.M)[0]
+    m = todo_open_heading(text)
+    if m:
+        section = re.split(r"^## ", text[m.end():], maxsplit=1, flags=re.M)[0]
+    else:
+        keep, on = [], True
+        for line in text.splitlines():
+            h = _H2.match(line)
+            if h:
+                on = _heading_kind(h.group(1)) != "done"
+            elif on:
+                keep.append(line)
+        section = "\n".join(keep)
     out = []
     for line in section.splitlines():
         m = TASK.match(line)
@@ -352,38 +395,182 @@ def upcoming(threads, todo, today: date | None = None, horizon: int = 120) -> li
 _CACHE: dict = {}
 
 
-def read_vault(vault: Path, today: date | None = None) -> dict:
+def _file(layout: dict | None, vault: Path, key: str) -> Path | None:
+    """Path of a layout file (None when ambiguous); the root default when no layout was resolved."""
+    if layout is None:
+        return Path(vault) / FILES[key][1]
+    return layout[key]["path"]
+
+
+def read_vault(vault: Path, today: date | None = None, layout: dict | None = None) -> dict:
     """Parsed Threads, To-Do and Last-Session, cached by file modification times and sizes."""
     vault = Path(vault)
-    names = ("Threads.md", "To-Do.md", "Last-Session.md")
+    paths = [_file(layout, vault, k) for k in ("threads", "todo", "last_session")]
 
-    def stamp(p: Path):
+    def stamp(p: Path | None):
         try:
-            st = p.stat()
-            return (st.st_mtime_ns, st.st_size)
+            st = p.stat() if p is not None else None
+            return (str(p), st.st_mtime_ns, st.st_size) if st else (None, 0, 0)
         except OSError:
-            return (0, 0)
+            return (str(p), 0, 0)
 
-    key = (str(vault), str(today or date.today()), tuple(stamp(vault / n) for n in names))
+    key = (str(vault), str(today or date.today()), tuple(stamp(p) for p in paths))
     if _CACHE.get("key") == key:
         return _CACHE["value"]
-    threads = parse_threads(read(vault / "Threads.md"))
-    todo = parse_todo(read(vault / "To-Do.md"), today)
+    text = [read(p) if p is not None else "" for p in paths]
+    threads = parse_threads(text[0])
+    todo = parse_todo(text[1], today)
     value = {"exists": vault.is_dir(), "threads": threads, "todo": todo,
-             "sessions": parse_sessions(read(vault / "Last-Session.md")), "upcoming": upcoming(threads, todo, today)}
+             "sessions": parse_sessions(text[2]), "upcoming": upcoming(threads, todo, today)}
     _CACHE.update(key=key, value=value)
     return value
 
 
+# ---------------------------------------------------------------- vault layout (settings, then root, then discovery)
+
 SKIP_DIRS = {"receipts", "archive", ".obsidian", ".git", ".trash"}
+FILES = {"threads": ("threads_file", "Threads.md"), "todo": ("todo_file", "To-Do.md"),
+         "last_session": ("last_session_file", "Last-Session.md")}
+DIRS = {"receipts": ("receipts_dir", "receipts"), "inbox": ("inbox_dir", "inbox")}
+LAYOUT_SETTINGS = tuple(s for s, _ in (*FILES.values(), *DIRS.values()))
+DISCOVER_DEPTH = 4          # folders below the vault root
+DISCOVER_MAX_ENTRIES = 20000
+DISCOVER_TTL = 120          # seconds a discovery result is reused
+_FOUND: dict = {}
 
 
-def note_files(vault: Path) -> list[Path]:
+def in_vault(vault: Path, value: str) -> Path:
+    """A layout setting: absolute (or ~) as given, otherwise relative to the vault."""
+    p = Path(os.path.expanduser(str(value).strip()))
+    return p if p.is_absolute() else Path(vault) / p
+
+
+def discover(vault: Path, name: str, depth: int = DISCOVER_DEPTH, max_entries: int = DISCOVER_MAX_ENTRIES) -> list[Path]:
+    """Files called `name` (case-insensitive) under the vault, breadth first. Never follows symbolic
+    links, skips hidden folders and archive/receipts, stops after depth folders, max_entries entries
+    or the third match (two are enough to call it ambiguous)."""
+    want, hits, seen = name.casefold(), [], 0
+    level = [Path(vault)]
+    for _ in range(depth + 1):
+        nxt = []
+        for d in level:
+            try:
+                with os.scandir(d) as it:
+                    entries = sorted(it, key=lambda e: e.name)
+            except OSError:
+                continue
+            for e in entries:
+                seen += 1
+                if seen > max_entries:
+                    return hits
+                try:
+                    if e.is_symlink():
+                        continue
+                    if e.is_dir(follow_symlinks=False):
+                        if not e.name.startswith(".") and e.name.lower() not in SKIP_DIRS:
+                            nxt.append(Path(e.path))
+                    elif e.name.casefold() == want and e.is_file(follow_symlinks=False):
+                        hits.append(Path(e.path))
+                        if len(hits) >= 3:
+                            return hits
+                except OSError:
+                    continue
+        level = nxt
+        if not level:
+            break
+    return hits
+
+
+def _discover_cached(vault: Path, name: str) -> list[Path]:
+    key = (str(vault), name)
+    hit = _FOUND.get(key)
+    now = datetime.now().timestamp()
+    if hit and now - hit[0] < DISCOVER_TTL and all(p.is_file() for p in hit[1]):
+        return hit[1]
+    found = discover(vault, name)
+    _FOUND[key] = (now, found)
+    return found
+
+
+def resolve_layout(vault: Path, settings: dict | None = None) -> dict:
+    """Where Threads, To-Do, Last-Session, receipts/ and inbox/ live in this vault.
+
+    Order: the plugin setting (vault-relative or absolute), the vault root, then a single match
+    found by discover(). Several matches -> how="ambiguous", path None: reads see nothing and
+    writes refuse until the setting is filled in. No match -> the root path (created on write)."""
+    vault, settings = Path(vault), settings or {}
+    out: dict = {}
+    for key, (setting, name) in FILES.items():
+        val = str(settings.get(setting) or "").strip()
+        item = {"name": name, "setting": setting, "candidates": []}
+        if val:
+            item.update(path=in_vault(vault, val), how="setting")
+        elif (vault / name).is_file():
+            item.update(path=vault / name, how="root")
+        else:
+            hits = _discover_cached(vault, name) if vault.is_dir() else []
+            if len(hits) == 1:
+                item.update(path=hits[0], how="discovered")
+            elif hits:
+                item.update(path=None, how="ambiguous", candidates=hits)
+            else:
+                item.update(path=vault / name, how="default")
+        item["found"] = item["path"] is not None and item["path"].is_file()
+        out[key] = item
+    for key, (setting, name) in DIRS.items():
+        val = str(settings.get(setting) or "").strip()
+        p = in_vault(vault, val) if val else vault / name
+        out[key] = {"name": name + "/", "setting": setting, "candidates": [], "path": p,
+                    "how": "setting" if val else "default", "found": p.is_dir()}
+    return out
+
+
+def rel(vault: Path, p: Path | None) -> str:
+    """Vault-relative posix path when inside the vault, otherwise the path as given."""
+    if p is None:
+        return ""
+    try:
+        return Path(p).relative_to(Path(vault)).as_posix()
+    except ValueError:
+        return str(p)
+
+
+def layout_report(vault: Path, layout: dict) -> dict:
+    """JSON-friendly view: which vault files were found, where, and how."""
+    out = {}
+    for key, item in layout.items():
+        r = {"file": rel(vault, item["path"]) if item["path"] is not None else "",
+             "found": item["found"], "how": item["how"]}
+        if item["how"] == "ambiguous":
+            r["candidates"] = [rel(vault, p) for p in item["candidates"]]
+            r["fix"] = f"several {item['name']} files; set plugins.entries.kokpit.settings.{item['setting']}"
+        out[key] = r
+    return out
+
+
+def ambiguous(layout: dict | None, key: str) -> NotReady | None:
+    if layout is None or layout[key]["how"] != "ambiguous":
+        return None
+    item = layout[key]
+    return NotReady(f"{item['name']} is ambiguous ({len(item['candidates'])} matches in the vault)",
+                    f"set plugins.entries.kokpit.settings.{item['setting']} to the right file, vault-relative or absolute")
+
+
+def note_files(vault: Path, extra_dirs=()) -> list[Path]:
     vault = Path(vault)
     out = sorted(vault.glob("*.md"))
-    for sub in ("notes", "inbox"):
-        if (vault / sub).is_dir():
-            out += [p for p in sorted((vault / sub).rglob("*.md")) if not (set(p.relative_to(vault).parts) & SKIP_DIRS)]
+    subs = [vault / "notes", vault / "inbox"] + [Path(d) for d in extra_dirs if d]
+    seen = set()
+    for sub in subs:
+        try:
+            key = sub.resolve()
+            sub.relative_to(vault)
+        except (OSError, ValueError):
+            continue  # outside the vault: never searched
+        if key in seen or not sub.is_dir():
+            continue
+        seen.add(key)
+        out += [p for p in sorted(sub.rglob("*.md")) if not (set(p.relative_to(vault).parts) & SKIP_DIRS)]
     return out
 
 
@@ -404,12 +591,12 @@ def note_meta(p: Path, text: str) -> tuple[str, list[str]]:
     return title, aliases
 
 
-def search(vault: Path, query: str, limit: int = 5) -> list[dict]:
+def search(vault: Path, query: str, limit: int = 5, extra_dirs=()) -> list[dict]:
     words = [w for w in re.findall(r"\w+", str(query).lower(), re.U) if len(w) > 1]
     if not words or not Path(vault).is_dir():
         return []
     out = []
-    for p in note_files(vault):
+    for p in note_files(vault, extra_dirs):
         text = read(p)
         title, aliases = note_meta(p, text)
         hay = (title + " " + " ".join(aliases) + " " + p.stem + " " + text).lower()
@@ -455,12 +642,12 @@ def _slug(s: str) -> str:
     return s[:48] or "note"
 
 
-def capture_note(vault: Path, text: str, now: datetime | None = None) -> Path:
+def capture_note(vault: Path, text: str, now: datetime | None = None, inbox: Path | None = None) -> Path:
     text = CONTROL.sub("", text).strip()
     if not text or len(text) > 2000:
         raise ValueError("note must be 1-2000 characters")
     now = now or datetime.now()
-    inbox = Path(vault) / "inbox"
+    inbox = Path(inbox) if inbox is not None else Path(vault) / "inbox"
     inbox.mkdir(parents=True, exist_ok=True)
     base = f"{now:%Y-%m-%d-%H%M}-{_slug(text.splitlines()[0])}"
     p, n = inbox / f"{base}.md", 1
@@ -471,19 +658,19 @@ def capture_note(vault: Path, text: str, now: datetime | None = None) -> Path:
     return p
 
 
-def capture_task(vault: Path, text: str, due: str = "") -> str:
+def capture_task(vault: Path, text: str, due: str = "", path: Path | None = None) -> str:
     text = " ".join(CONTROL.sub("", text).split())
     if not text or len(text) > 300:
         raise ValueError("task must be 1-300 characters")
     if due and not re.fullmatch(r"20\d\d-\d\d-\d\d", due):
         raise ValueError("due must be YYYY-MM-DD")
     line = f"- [ ] {text}" + (f" (due: {due})" if due else "")
-    p = Path(vault) / "To-Do.md"
+    p = Path(path) if path is not None else Path(vault) / "To-Do.md"
     body = read(p) if p.exists() else "# To-Do\n\n## Open\n"
-    h = re.search(r"^## Open\b.*$", body, re.M)
+    h = todo_open_heading(body)  # the vault's own heading (## Open, ## Açık, ## To do ...)
     if not h:
         body = body.rstrip("\n") + "\n\n## Open\n"
-        h = re.search(r"^## Open\b.*$", body, re.M)
+        h = todo_open_heading(body)
     head, tail = body[: h.end()], body[h.end():]
     m = re.search(r"^## ", tail, re.M)
     if m:
@@ -498,11 +685,12 @@ def safe_session(s) -> str:
     return re.sub(r"[^A-Za-z0-9_-]", "", str(s or ""))[:64]
 
 
-def write_card(vault: Path, session: str, title: str, lines: list[str], now: datetime | None = None) -> str:
+def write_card(vault: Path, session: str, title: str, lines: list[str], now: datetime | None = None,
+               path: Path | None = None) -> str:
     """Insert or update this session's card at the top of Last-Session.md (newest first, one card per session id)."""
     now = now or datetime.now()
     card = (f"## {now:%Y-%m-%d %H:%M} · {title} · {session}\n" + "\n".join(lines))[:CARD_MAX].rstrip() + "\n"
-    p = Path(vault) / "Last-Session.md"
+    p = Path(path) if path is not None else Path(vault) / "Last-Session.md"
     blocks = re.split(r"(?=^## )", read(p), flags=re.M)
     pre, kept = blocks[0], []
     for b in blocks[1:]:
@@ -516,29 +704,32 @@ def write_card(vault: Path, session: str, title: str, lines: list[str], now: dat
     return card
 
 
-def write_receipt(vault: Path, event_id: str, summary: str, refs: list[str], session: str) -> dict:
+def write_receipt(vault: Path, event_id: str, summary: str, refs: list[str], session: str,
+                  folder: Path | None = None) -> dict:
     """Same file format as kokpit/modules/brain/receipt.py: receipts/<sha256(event id)>.md with a JSON block."""
     name = hashlib.sha256(event_id.encode("utf-8")).hexdigest() + ".md"
-    path = Path(vault) / "receipts" / name
-    rel = f"receipts/{name}"
+    folder = Path(folder) if folder is not None else Path(vault) / "receipts"
+    path = folder / name
+    rel_ = rel(vault, path)
     if path.exists():
-        return {"status": "unchanged", "path": rel}
+        return {"status": "unchanged", "path": rel_}
     meta = {"kind": "receipt", "event_id": event_id, "harness": "hermes", "refs": refs,
             "created_at": datetime.now(timezone.utc).isoformat()}
     if session:
         meta["session"] = session
     atomic_write(path, "---\n" + json.dumps(meta, indent=2, ensure_ascii=False) + "\n---\n" + summary.strip()[:4000] + "\n")
-    return {"status": "succeeded", "path": rel}
+    return {"status": "succeeded", "path": rel_}
 
 
 # ---------------------------------------------------------------- context block (mirrors brain/context.py priorities)
 
-def context_block(vault: Path, message, max_chars: int, today: date | None = None, full: bool = True) -> str:
+def context_block(vault: Path, message, max_chars: int, today: date | None = None, full: bool = True,
+                  layout: dict | None = None) -> str:
     """Threads, last session, upcoming dates and related notes, cut to max_chars.
     full=False keeps only the notes related to this message (used on later turns)."""
     if max_chars <= 0 or not Path(vault).is_dir():
         return ""
-    v = read_vault(vault, today) if full else {"threads": [], "sessions": [], "upcoming": []}
+    v = read_vault(vault, today, layout) if full else {"threads": [], "sessions": [], "upcoming": []}
     parts = []
     if v["threads"]:
         lines = ["## Active threads"]
@@ -557,8 +748,9 @@ def context_block(vault: Path, message, max_chars: int, today: date | None = Non
     if isinstance(message, str) and message.strip():
         seen: dict = {}
         for w in sorted(set(re.findall(r"\w{4,}", message.lower())), key=len, reverse=True)[:6]:
-            for h in search(vault, w, 3):
-                if h["path"].startswith(("notes/", "inbox/")):
+            inbox = rel(vault, layout["inbox"]["path"]).rstrip("/") + "/" if layout else "inbox/"
+            for h in search(vault, w, 3, [layout["inbox"]["path"]] if layout else ()):
+                if h["path"].startswith(("notes/", "inbox/", inbox)):
                     seen.setdefault(h["path"], h)
         if seen:
             parts.append("## Related notes\n" + "\n".join(f"- {h['path']}: {h['snippet']}" for h in list(seen.values())[:3]))

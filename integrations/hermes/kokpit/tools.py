@@ -42,6 +42,14 @@ def _vault(state: dict) -> Path:
     return Path(v)
 
 
+def _layout(state: dict) -> dict:
+    """The resolved vault layout (settings, root, discovery); resolved here when a caller built state by hand."""
+    lay = state.get("layout")
+    if lay is None:
+        lay = state["layout"] = c.resolve_layout(_vault(state))
+    return lay
+
+
 def _db(state: dict):
     """Read-only connection or None (no database yet)."""
     return c.open_db(state["db"])
@@ -109,7 +117,7 @@ def today(state: dict, args: dict) -> dict:
                            "current": w.get("current"), "days": w.get("days", [])[:3]})
         out["weather"]["freshness"] = freshness(conn, "weather")
         if cfg["modules"].get("brain", True) and state["vault"] is not None and Path(state["vault"]).is_dir():
-            v = c.read_vault(state["vault"])
+            v = c.read_vault(state["vault"], layout=_layout(state))
             out["tasks"] = {"open": len(v["todo"]), "overdue": sum(1 for t in v["todo"] if t["overdue"]),
                             "next": v["todo"][:6]}
             out["upcoming"] = v["upcoming"][:8]
@@ -152,36 +160,45 @@ def brain_search(state: dict, args: dict) -> dict:
     if not query:
         raise c.NotReady("query is empty", "pass query: the words to look for")
     vault = _vault(state)
-    hits = c.search(vault, query, _int(args.get("limit"), 5, 1, 20))
+    hits = c.search(vault, query, _int(args.get("limit"), 5, 1, 20), [_layout(state)["inbox"]["path"]])
     return {"query": query, "results": hits, "count": len(hits),
             **({} if hits else {"note": "no note matched every word"})}
 
 
 def threads(state: dict, args: dict) -> dict:
     _need(state, "brain")
-    v = c.read_vault(_vault(state))
+    vault, lay = _vault(state), _layout(state)
+    err = c.ambiguous(lay, "threads")
+    if err:
+        raise err
+    v = c.read_vault(vault, layout=lay)
+    src = c.rel(vault, lay["threads"]["path"])
+    note = {} if v["threads"] else {"note": f"{src} has no active threads" if lay["threads"]["found"]
+                                    else f"{src} not found; set plugins.entries.kokpit.settings.threads_file"}
     return {"threads": v["threads"], "on_you": [{"thread": t["title"], **o} for t in v["threads"] for o in t["open"] if o["on_you"]],
-            "last_session": v["sessions"][0] if v["sessions"] else None,
-            **({} if v["threads"] else {"note": "Threads.md has no active threads"})}
+            "last_session": v["sessions"][0] if v["sessions"] else None, "source": src, **note}
 
 
 def capture(state: dict, args: dict) -> dict:
     _need(state, "brain")
     if not state["cfg"].get("quick_capture", True):
         raise c.NotReady("quick capture is off", "enable with [brain] quick_capture = true in kokpit.toml")
-    vault = _vault(state)
+    vault, lay = _vault(state), _layout(state)
     kind = str(args.get("kind") or "note").strip().lower()
     text = str(args.get("text") or "")
     try:
         if kind == "task":
-            line = c.capture_task(vault, text, str(args.get("due") or "").strip())
-            return {"written": "To-Do.md", "kind": "task", "line": line}
+            err = c.ambiguous(lay, "todo")
+            if err:
+                raise err
+            line = c.capture_task(vault, text, str(args.get("due") or "").strip(), path=lay["todo"]["path"])
+            return {"written": c.rel(vault, lay["todo"]["path"]), "kind": "task", "line": line}
         if kind != "note":
             raise ValueError("kind must be note or task")
-        p = c.capture_note(vault, text)
+        p = c.capture_note(vault, text, inbox=lay["inbox"]["path"])
     except ValueError as e:
         raise c.NotReady(str(e), "shorten or fix the text and try again")
-    return {"written": p.relative_to(vault).as_posix(), "kind": "note"}
+    return {"written": c.rel(vault, p), "kind": "note"}
 
 
 def events(state: dict, args: dict) -> dict:
@@ -316,15 +333,26 @@ def ai_usage(state: dict, args: dict) -> dict:
             conn.close()
 
 
+def _vault_files(state: dict) -> dict:
+    """Which vault files the plugin uses: path, found, and how (setting, root, discovered, ambiguous, default)."""
+    v = state.get("vault")
+    if v is None or not Path(v).is_dir():
+        return {"status": "vault not found", "vault": str(v) if v else ""}
+    return c.layout_report(Path(v), _layout(state))
+
+
 def health(state: dict, args: dict, conn=None) -> dict:
     _need(state, "health")
     own = conn is None
     conn = _db(state) if own else conn
     expected = state["cfg"].get("expected") or []
+    vault_files = _vault_files(state)
+    vault_problems = [f"vault: {r['fix']}" for r in vault_files.values() if isinstance(r, dict) and r.get("fix")]
     try:
         if conn is None or not c.has_table(conn, "runs"):
             return {"db": "missing" if conn is None else "empty", "reason": NO_DB, "jobs": [],
-                    "problems": [f"{j}: never run" for j in expected], "expected": expected}
+                    "problems": [f"{j}: never run" for j in expected] + vault_problems, "expected": expected,
+                    "vault_files": vault_files}
         jobs_ = []
         for r in c.rows(conn, "SELECT r.job, r.day, r.finished, r.ok, r.rows, r.info, r.warnings FROM runs r JOIN "
                               "(SELECT job, MAX(id) AS id FROM runs GROUP BY job) m ON r.id = m.id ORDER BY r.job"):
@@ -348,8 +376,9 @@ def health(state: dict, args: dict, conn=None) -> dict:
             elif j["records"] == 0:
                 problems.append(f"{j['job']}: last run produced 0 records")
             problems += [f"{j['job']}: {w}" for w in j["warnings"]]
+        problems += vault_problems
         return {"db": "ok", "jobs": jobs_, "problems": problems, "expected": expected,
-                "never_run": [j for j in expected if j not in seen]}
+                "never_run": [j for j in expected if j not in seen], "vault_files": vault_files}
     finally:
         if own and conn is not None:
             conn.close()

@@ -57,6 +57,16 @@ TODO = f"""# To-Do
 ## Done
 - [x] Solder the header
 """
+TODO_TR = f"""# Yapılacaklar
+
+## Açık
+- [ ] Prune the tomatoes (due: {D + timedelta(days=1)})
+- [ ] Buy seeds
+
+## Bitti
+- [ ] Old unticked item that is already done
+- [x] Order soil
+"""
 NOTE = "# Garden timer\n\nThe relay sits on GPIO 17. Watering hours are still open.\n"
 
 
@@ -92,6 +102,7 @@ class Base(unittest.TestCase):
                         mock.patch.dict(os.environ, {"KOKPIT_CONFIG": ""})]
         for p in self.patches:
             p.start()
+        C._FOUND.clear()
 
     def tearDown(self):
         for p in self.patches:
@@ -394,6 +405,120 @@ class Hooks(Base):
         self.assertIsNone(h.on_session_finalize(session_id="s2"))
         self.assertEqual((self.vault / "Last-Session.md").read_text(encoding="utf-8"), LAST)
         self.assertFalse((self.vault / "receipts").exists())
+
+
+class VaultLayout(Base):
+    """Real vaults keep the files in folders, sometimes with emoji or non-ASCII names."""
+
+    def nest(self):
+        for n in ("Threads.md", "To-Do.md", "Last-Session.md"):
+            (self.vault / n).unlink()
+        comp = self.vault / "🧭 Companion"
+        tasks = self.vault / "notes" / "Görevler"
+        comp.mkdir()
+        tasks.mkdir(parents=True)
+        (comp / "Threads.md").write_text(THREADS, encoding="utf-8")
+        (comp / "Last-Session.md").write_text(LAST, encoding="utf-8")
+        (tasks / "To-Do.md").write_text(TODO_TR, encoding="utf-8")
+        return comp, tasks
+
+    def nested_env(self, **settings):
+        return self.env(kokpit_config=str(self.config()), demo="off", **settings)
+
+    def test_discovers_single_match_in_unicode_folders(self):
+        comp, tasks = self.nest()
+        env = self.nested_env()
+        r = self.call(env, "kokpit_threads")
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["threads"][0]["title"], "Garden timer")
+        self.assertEqual(r["source"], "🧭 Companion/Threads.md")
+        r = self.call(env, "kokpit_today")
+        self.assertEqual(r["tasks"]["open"], 2)  # Bitti section is skipped
+        r = self.call(env, "kokpit_health")
+        vf = r["vault_files"]
+        self.assertEqual(vf["threads"], {"file": "🧭 Companion/Threads.md", "found": True, "how": "discovered"})
+        self.assertEqual(vf["todo"]["file"], "notes/Görevler/To-Do.md")
+        self.assertEqual(vf["last_session"]["how"], "discovered")
+        self.assertIn("Vault files: 🧭 Companion/Threads.md (found by search)", CMD.run(env, "health"))
+        r = self.call(env, "kokpit_capture", {"kind": "task", "text": "Water the basil"})
+        self.assertEqual(r["written"], "notes/Görevler/To-Do.md")
+        text = (tasks / "To-Do.md").read_text(encoding="utf-8")
+        self.assertLess(text.index("Water the basil"), text.index("## Bitti"))
+        self.assertFalse((self.vault / "To-Do.md").exists())
+
+    def test_ambiguous_match_asks_for_the_setting(self):
+        comp, _ = self.nest()
+        (self.vault / "notes" / "old").mkdir()
+        (self.vault / "notes" / "old" / "Threads.md").write_text(THREADS, encoding="utf-8")
+        env = self.nested_env()
+        r = self.call(env, "kokpit_threads")
+        self.assertFalse(r["ok"])
+        self.assertIn("ambiguous", r["error"])
+        self.assertIn("threads_file", r["fix"])
+        r = self.call(env, "kokpit_health")
+        self.assertEqual(r["vault_files"]["threads"]["how"], "ambiguous")
+        self.assertEqual(len(r["vault_files"]["threads"]["candidates"]), 2)
+        self.assertTrue(any(p.startswith("vault: several Threads.md") for p in r["problems"]))
+        r = self.call(self.nested_env(threads_file="🧭 Companion/Threads.md"), "kokpit_threads")
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["source"], "🧭 Companion/Threads.md")
+
+    def test_settings_relative_and_absolute(self):
+        comp, tasks = self.nest()
+        abs_todo = self.tmp / "elsewhere" / "Tasks.md"
+        abs_todo.parent.mkdir()
+        abs_todo.write_text("# Tasks\n\n## To do\n- [ ] Elsewhere task\n", encoding="utf-8")
+        env = self.nested_env(threads_file="🧭 Companion/Threads.md", todo_file=str(abs_todo),
+                              last_session_file="🧭 Companion/Last-Session.md", inbox_dir="📥 Gelen",
+                              receipts_dir="🧭 Companion/receipts")
+        r = self.call(env, "kokpit_today")
+        self.assertEqual([t["text"] for t in r["tasks"]["next"]], ["Elsewhere task"])
+        r = self.call(env, "kokpit_capture", {"text": "Basil likes morning sun"})
+        self.assertTrue(r["written"].startswith("📥 Gelen/"), r)
+        r = self.call(env, "kokpit_brain_search", {"query": "basil morning"})
+        self.assertTrue(r["results"] and r["results"][0]["path"].startswith("📥 Gelen/"))
+        r = self.call(env, "kokpit_health")
+        self.assertEqual(r["vault_files"]["todo"], {"file": str(abs_todo), "found": True, "how": "setting"})
+        h = H.Hooks(env)
+        h.pre_llm_call(session_id="s-1", user_message="plan the garden", is_first_turn=True)
+        msg = h.on_session_finalize(session_id="s-1")
+        self.assertIn("🧭 Companion/Last-Session.md", msg["message"])
+        self.assertIn("· s-1", (comp / "Last-Session.md").read_text(encoding="utf-8"))
+        self.assertEqual(len(list((comp / "receipts").glob("*.md"))), 1)
+        self.assertFalse((self.vault / "Last-Session.md").exists())
+        self.assertFalse((self.vault / "receipts").exists())
+
+    def test_discovery_skips_symlinks_hidden_and_deep_folders(self):
+        for n in ("Threads.md",):
+            (self.vault / n).unlink()
+        outside = self.tmp / "outside"
+        outside.mkdir()
+        (outside / "Threads.md").write_text(THREADS, encoding="utf-8")
+        (self.vault / "link").symlink_to(outside, target_is_directory=True)
+        (self.vault / ".obsidian").mkdir()
+        (self.vault / ".obsidian" / "Threads.md").write_text(THREADS, encoding="utf-8")
+        deep = self.vault.joinpath("a", "b", "c", "d", "e")
+        deep.mkdir(parents=True)
+        (deep / "Threads.md").write_text(THREADS, encoding="utf-8")
+        self.assertEqual(C.discover(self.vault, "Threads.md"), [])
+        self.assertEqual(C.discover(self.vault, "Threads.md", depth=5), [deep / "Threads.md"])
+        r = self.call(self.nested_env(), "kokpit_health")
+        self.assertEqual(r["vault_files"]["threads"]["how"], "default")
+        self.assertFalse(r["vault_files"]["threads"]["found"])
+        r = self.call(self.nested_env(), "kokpit_threads")
+        self.assertIn("not found", r["note"])
+
+    def test_local_todo_headings(self):
+        self.assertEqual([t["text"] for t in C.parse_todo(TODO_TR, D)], ["Prune the tomatoes", "Buy seeds"])
+        no_open = "# To-Do\n\n- [ ] Loose task\n\n## ✅ Done\n- [ ] Forgotten tick\n\n## Ideas\n- [ ] Compost\n"
+        self.assertEqual(sorted(t["text"] for t in C.parse_todo(no_open, D)), ["Compost", "Loose task"])
+        body = "# Liste\n\n## Aperti\n- [ ] uno\n\n## Fatti\n- [x] due\n"
+        p = self.tmp / "it.md"
+        p.write_text(body, encoding="utf-8")
+        C.capture_task(self.vault, "tre", path=p)
+        text = p.read_text(encoding="utf-8")
+        self.assertLess(text.index("- [ ] tre"), text.index("## Fatti"))
+        self.assertNotIn("## Open", text)
 
 
 class Command(Base):

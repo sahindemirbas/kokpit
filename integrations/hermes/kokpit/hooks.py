@@ -1,7 +1,7 @@
 """Hooks: brain context before a turn, a session card and a receipt when the session ends.
 
 No model calls and no network: the card is built from rules (which tools ran, which files
-were written, what Threads.md still lists as open).
+were written, what the Threads file still lists as open).
 """
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ class Hooks:
             state = self.env.state()
             if not state["cfg"]["modules"].get("brain", True) or state["vault"] is None:
                 return None
-            block = c.context_block(state["vault"], text, budget, full=full)
+            block = c.context_block(state["vault"], text, budget, full=full, layout=state.get("layout"))
             if not block:
                 return None
             if state["mode"] == "demo":
@@ -125,7 +125,7 @@ class Hooks:
 
     # ------------------------------------------------------------ on_session_finalize
 
-    def card_lines(self, s: dict, vault: Path) -> tuple[str, list[str]]:
+    def card_lines(self, s: dict, vault: Path, layout: dict | None = None) -> tuple[str, list[str]]:
         first = c.clean(s["first"], 70)
         title = "Hermes session" if not first or SECRET.search(first) else first
         tools = ", ".join(f"{n} x{k}" if k > 1 else n for n, k in s["tools"].most_common(8)) or "none"
@@ -136,8 +136,9 @@ class Hooks:
             lines.append("- Files written: " + ", ".join(shown) + (f" (+{more} more)" if more > 0 else "") + ".")
         if s["captured"]:
             lines.append("- Captured: " + ", ".join(s["captured"][:5]) + ".")
-        opens = [f"{t['title']}: {o['text']}" for t in c.read_vault(vault)["threads"] for o in t["open"]][:3]
-        lines.append("- Open (from Threads.md): " + ("; ".join(c.clean(x, 90) for x in opens) if opens else "none listed") + ".")
+        opens = [f"{t['title']}: {o['text']}" for t in c.read_vault(vault, layout=layout)["threads"] for o in t["open"]][:3]
+        threads_name = layout["threads"]["name"] if layout else "Threads.md"
+        lines.append(f"- Open (from {threads_name}): " + ("; ".join(c.clean(x, 90) for x in opens) if opens else "none listed") + ".")
         lines.append("- Written by the kokpit plugin without a model; edit it if the summary needs more.")
         return title, lines
 
@@ -159,12 +160,19 @@ class Hooks:
             vault = state["vault"]
             if vault is None or not Path(vault).is_dir():
                 return None
-            title, lines = self.card_lines(s, Path(vault))
-            card = c.write_card(vault, sid, title, lines)
-            rec = c.write_receipt(vault, f"hermes-session-{sid}", card, ["Last-Session.md", *s["captured"][:5]], sid)
+            layout = state.get("layout") or c.resolve_layout(vault)
+            if c.ambiguous(layout, "last_session"):
+                return {"message": "Kokpit: session card not written, several Last-Session.md files in the vault; "
+                                   "set plugins.entries.kokpit.settings.last_session_file."}
+            card_path = layout["last_session"]["path"]
+            title, lines = self.card_lines(s, Path(vault), layout)
+            card = c.write_card(vault, sid, title, lines, path=card_path)
+            card_rel = c.rel(vault, card_path)
+            rec = c.write_receipt(vault, f"hermes-session-{sid}", card, [card_rel, *s["captured"][:5]], sid,
+                                  folder=layout["receipts"]["path"])
         except c.NotReady:
             return None
         except Exception as e:
             return {"message": f"Kokpit: session card not written ({type(e).__name__})."}
         where = "demo vault" if state["mode"] == "demo" else "vault"
-        return {"message": f"Kokpit: session card saved to Last-Session.md in the {where} ({rec['path']})."}
+        return {"message": f"Kokpit: session card saved to {card_rel} in the {where} ({rec['path']})."}

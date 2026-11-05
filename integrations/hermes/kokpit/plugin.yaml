@@ -30,6 +30,26 @@ config_schema:
     type: str
     default: ""
     description: "Markdown vault. Empty: [brain] vault_path from kokpit.toml."
+  threads_file:
+    type: str
+    default: ""
+    description: "Threads file, vault-relative (Companion/Threads.md) or absolute. Empty: Threads.md at the vault root, else the single match found in the vault."
+  todo_file:
+    type: str
+    default: ""
+    description: "To-Do file, vault-relative or absolute. Empty: To-Do.md at the root, else the single match in the vault."
+  last_session_file:
+    type: str
+    default: ""
+    description: "Last-Session file for session cards, vault-relative or absolute. Empty: Last-Session.md at the root, else the single match in the vault."
+  receipts_dir:
+    type: str
+    default: ""
+    description: "Folder for session receipts, vault-relative or absolute. Empty: receipts/ in the vault."
+  inbox_dir:
+    type: str
+    default: ""
+    description: "Folder for captured notes, vault-relative or absolute. Empty: inbox/ in the vault."
   context_max_chars:
     type: int
     default: 1200

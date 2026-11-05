@@ -69,12 +69,29 @@ def search_text(r: dict) -> str:
     return "\n".join(lines)
 
 
+def vault_text(files: dict) -> str:
+    if not files or files.get("status"):
+        return "Vault files: " + str((files or {}).get("status") or "unknown")
+    parts = []
+    for item in files.values():
+        if item["how"] == "ambiguous":
+            parts.append(f"{', '.join(item['candidates'][:2])} (ambiguous)")
+        else:
+            parts.append(item["file"] + ("" if item["found"] else " (missing)")
+                         + (" (found by search)" if item["how"] == "discovered" else ""))
+    return "Vault files: " + ", ".join(parts)
+
+
 def health_text(r: dict) -> str:
     if r.get("db") in ("missing", "empty"):
-        return f"Kokpit health{_demo(r)}: no runs recorded yet. {tools.NO_DB}"
-    ok = sum(1 for j in r["jobs"] if j["status"] == "ok")
-    lines = [f"Kokpit health{_demo(r)}: {ok} of {len(r['jobs'])} jobs ok"]
-    lines += [f"- {p}" for p in r["problems"][:10]] or ["- no problems"]
+        lines = [f"Kokpit health{_demo(r)}: no runs recorded yet. {tools.NO_DB}"]
+        lines += [f"- {p}" for p in r["problems"] if p.startswith("vault:")]
+    else:
+        ok = sum(1 for j in r["jobs"] if j["status"] == "ok")
+        lines = [f"Kokpit health{_demo(r)}: {ok} of {len(r['jobs'])} jobs ok"]
+        lines += [f"- {p}" for p in r["problems"][:10]] or ["- no problems"]
+    if "vault_files" in r:
+        lines.append(vault_text(r["vault_files"]))
     return "\n".join(lines)
 
 
