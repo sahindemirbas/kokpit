@@ -84,7 +84,7 @@ def vault_text(files: dict) -> str:
 
 def health_text(r: dict) -> str:
     if r.get("db") in ("missing", "empty"):
-        lines = [f"Kokpit health{_demo(r)}: no runs recorded yet. {tools.NO_DB}"]
+        lines = [f"Kokpit health{_demo(r)}: no runs recorded yet. {r.get('reason') or tools.NO_DB}"]
         lines += [f"- {p}" for p in r["problems"] if p.startswith("vault:")]
     else:
         ok = sum(1 for j in r["jobs"] if j["status"] == "ok")

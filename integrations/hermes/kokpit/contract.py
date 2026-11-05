@@ -116,6 +116,8 @@ class Env:
         if demo == "on":
             return self.demo()
         vault_setting = str(self.setting("vault_path", "") or "").strip()
+        db_setting = str(self.setting("db_path", "") or "").strip()
+        db_override = Path(os.path.expanduser(db_setting)) if db_setting else None
         explicit = str(self.setting("kokpit_config", "") or "").strip()
         cfg_path = find_config(explicit)
         if explicit and cfg_path is None:
@@ -128,11 +130,15 @@ class Env:
                                f"fix the TOML syntax in {cfg_path}")
             if vault_setting:
                 cfg["vault"] = Path(os.path.expanduser(vault_setting))
+            if db_override is not None:
+                cfg["db"] = db_override
             return {"mode": "live", "vault": cfg["vault"], "db": cfg["db"], "cfg": cfg}
-        if vault_setting:
-            cfg = {"path": "", "modules": dict(MODULE_DEFAULTS), "vault": Path(os.path.expanduser(vault_setting)),
-                   "quick_capture": True, "db": None, "expected": [], "prices": None}
-            return {"mode": "live", "vault": cfg["vault"], "db": None, "cfg": cfg}
+        if vault_setting or db_override is not None:
+            # no kokpit.toml: a vault and/or a database given directly in the plugin settings
+            vault = Path(os.path.expanduser(vault_setting)) if vault_setting else None
+            cfg = {"path": "", "modules": dict(MODULE_DEFAULTS), "vault": vault,
+                   "quick_capture": True, "db": db_override, "expected": [], "prices": None}
+            return {"mode": "live", "vault": vault, "db": db_override, "cfg": cfg}
         if demo == "auto":
             return self.demo()
         raise NotReady("kokpit not configured", FIX_CONFIG)
@@ -219,6 +225,35 @@ def open_db(path: Path | None) -> sqlite3.Connection | None:
 def has_table(conn, name: str) -> bool:
     return conn is not None and conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
+
+
+# Columns each reader needs, per kokpit/modules/*/schema.sql. Extra columns are fine; missing ones
+# turn the reader into "unknown / table X missing ..." instead of an OperationalError.
+SCHEMA = {
+    "runs": ("id", "job", "day", "finished", "ok", "rows", "info", "warnings"),
+    "calendar": ("id", "fetched", "ok", "payload"),
+    "weather": ("id", "fetched", "payload"),
+    "events": ("title", "start", "end", "venue", "city", "price", "category", "distance_km", "url"),
+    "job_listings": ("title", "company", "location", "remote", "url", "posted_at", "score", "reasons",
+                     "status", "last_seen"),
+    "ai_usage_hours": ("tool", "model", "session_hash", "bucket", "last_seen", "input_tokens", "output_tokens",
+                       "cache_read_tokens", "cache_write_tokens"),
+    "ai_usage_readers": ("tool", "status", "last_run", "rows", "error"),
+}
+
+
+def table_problem(conn, name: str) -> str | None:
+    """None when the table exists with the columns the readers use, else an honest status string."""
+    if conn is None:
+        return f"unknown / table {name} missing (no database)"
+    try:
+        if not has_table(conn, name):
+            return f"unknown / table {name} missing"
+        have = {r[1] for r in conn.execute(f'PRAGMA table_info("{name}")')}
+    except sqlite3.Error as e:
+        return f"unknown / table {name} unreadable ({type(e).__name__})"
+    lost = [col for col in SCHEMA.get(name, ()) if col not in have]
+    return f"unknown / table {name} missing columns: {', '.join(lost)}" if lost else None
 
 
 def rows(conn, sql: str, args=()) -> list[dict]:

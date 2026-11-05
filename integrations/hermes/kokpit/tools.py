@@ -38,7 +38,7 @@ def _need(state: dict, module: str) -> None:
 def _vault(state: dict) -> Path:
     v = state["vault"]
     if v is None or not Path(v).is_dir():
-        raise c.NotReady("vault not found", f"{v} does not exist; " + VAULT_FIX)
+        raise c.NotReady("vault not found", (f"{v} does not exist; " if v is not None else "no vault configured; ") + VAULT_FIX)
     return Path(v)
 
 
@@ -59,8 +59,11 @@ def _db(state: dict):
 
 def freshness(conn, job: str) -> dict:
     """Same shape as kokpit/modules/health/store.py freshness()."""
-    if conn is None or not c.has_table(conn, "runs"):
+    if conn is None:
         return {"job": job, "last_status": "never run", "last_success": None, "records": None}
+    bad = c.table_problem(conn, "runs")
+    if bad:
+        return {"job": job, "last_status": bad, "last_success": None, "records": None}
     last = conn.execute("SELECT ok, finished, info FROM runs WHERE job=? ORDER BY id DESC LIMIT 1", (job,)).fetchone()
     if not last:
         return {"job": job, "last_status": "never run", "last_success": None, "records": None}
@@ -81,8 +84,12 @@ def _json(text, default):
 
 
 def _latest_payload(conn, table: str, where: str = "") -> dict | None:
-    if conn is None or not c.has_table(conn, table):
+    """Newest payload row, None when never run, {"status": "unknown / table ..."} when the schema differs."""
+    if conn is None:
         return None
+    bad = c.table_problem(conn, table)
+    if bad:
+        return {"_problem": bad}
     r = conn.execute(f"SELECT fetched, payload FROM {table} {where} ORDER BY id DESC LIMIT 1").fetchone()
     if not r:
         return None
@@ -104,15 +111,15 @@ def today(state: dict, args: dict) -> dict:
     out: dict[str, Any] = {"date": date.today().isoformat()}
     try:
         cal = _latest_payload(conn, "calendar", "WHERE ok=1")
-        if cal is None:
-            out["calendar"] = {"status": "never run", "events": []}
+        if cal is None or "_problem" in cal:
+            out["calendar"] = {"status": cal["_problem"] if cal else "never run", "events": []}
         else:
             start = date.today().isoformat()
             out["calendar"] = {"status": "stale" if cal["stale"] else "ok", "fetched": cal["fetched"],
                                "events": [e for e in cal.get("events", []) if str(e.get("date", "")) >= start][:12]}
         out["calendar"]["freshness"] = freshness(conn, "calendar")
         w = _latest_payload(conn, "weather")
-        out["weather"] = ({"status": "never run"} if w is None else
+        out["weather"] = ({"status": w["_problem"] if w else "never run"} if w is None or "_problem" in w else
                           {"status": "stale" if w["stale"] else "ok", "fetched": w["fetched"],
                            "current": w.get("current"), "days": w.get("days", [])[:3]})
         out["weather"]["freshness"] = freshness(conn, "weather")
@@ -141,13 +148,13 @@ def today(state: dict, args: dict) -> dict:
 
 
 def _count(conn, table: str, where: str = "1=1"):
-    if conn is None or not c.has_table(conn, table):
+    if conn is None or c.table_problem(conn, table):
         return "unknown"
     return conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {where}").fetchone()[0]
 
 
 def _count_events(conn, days: int):
-    if conn is None or not c.has_table(conn, "events"):
+    if conn is None or c.table_problem(conn, "events"):
         return "unknown"
     lo, hi = date.today().isoformat(), (date.today() + timedelta(days=days)).isoformat()
     return conn.execute("SELECT COUNT(*) FROM events WHERE substr(start,1,10) >= ? AND substr(start,1,10) <= ?",
@@ -209,8 +216,9 @@ def events(state: dict, args: dict) -> dict:
         if conn is None:
             return {"status": "never run", "reason": NO_DB, "events": [], "freshness": freshness(None, "events-collect")}
         fr = freshness(conn, "events-collect")
-        if not c.has_table(conn, "events"):
-            return {"status": "never run", "events": [], "freshness": fr}
+        bad = c.table_problem(conn, "events")
+        if bad:
+            return {"status": bad, "events": [], "freshness": fr}
         lo, hi = date.today().isoformat(), (date.today() + timedelta(days=days)).isoformat()
         rs = c.rows(conn, "SELECT title, start, end, venue, city, price, category, distance_km, url FROM events "
                           "WHERE substr(start,1,10) >= ? AND substr(start,1,10) <= ? ORDER BY start LIMIT ?", (lo, hi, limit))
@@ -234,8 +242,9 @@ def jobs(state: dict, args: dict) -> dict:
         if conn is None:
             return {"status": "never run", "reason": NO_DB, "listings": [], "freshness": freshness(None, "career")}
         fr = freshness(conn, "career")
-        if not c.has_table(conn, "job_listings"):
-            return {"status": "never run", "listings": [], "freshness": fr}
+        bad = c.table_problem(conn, "job_listings")
+        if bad:
+            return {"status": bad, "listings": [], "freshness": fr}
         sql = ("SELECT title, company, location, remote, url, posted_at, score, reasons FROM job_listings "
                "WHERE status='open'")
         params: list = []
@@ -304,8 +313,9 @@ def ai_usage(state: dict, args: dict) -> dict:
         if conn is None:
             return {"status": "never run", "reason": NO_DB, "rows": [], "freshness": freshness(None, "ai_usage")}
         fr = freshness(conn, "ai_usage")
-        if not c.has_table(conn, "ai_usage_hours"):
-            return {"status": "never run", "rows": [], "freshness": fr}
+        bad = c.table_problem(conn, "ai_usage_hours")
+        if bad:
+            return {"status": bad, "rows": [], "freshness": fr}
         since = (date.today() - timedelta(days=days - 1)).isoformat()
         rs = c.rows(conn, "SELECT tool, model, SUM(input_tokens) AS input_tokens, SUM(output_tokens) AS output_tokens, "
                           "SUM(cache_read_tokens) AS cache_read_tokens, SUM(cache_write_tokens) AS cache_write_tokens, "
@@ -322,7 +332,7 @@ def ai_usage(state: dict, args: dict) -> dict:
             else:
                 known += v
         readers = c.rows(conn, "SELECT tool, status, last_run, rows, error FROM ai_usage_readers ORDER BY tool") \
-            if c.has_table(conn, "ai_usage_readers") else []
+            if not c.table_problem(conn, "ai_usage_readers") else []
         return {"days": days, "since": since, "rows": rs,
                 "total_cost_usd": round(known, 4) if not unpriced else "unknown",
                 "known_cost_usd": round(known, 4), "unpriced_models": sorted(set(unpriced)),
@@ -349,8 +359,9 @@ def health(state: dict, args: dict, conn=None) -> dict:
     vault_files = _vault_files(state)
     vault_problems = [f"vault: {r['fix']}" for r in vault_files.values() if isinstance(r, dict) and r.get("fix")]
     try:
-        if conn is None or not c.has_table(conn, "runs"):
-            return {"db": "missing" if conn is None else "empty", "reason": NO_DB, "jobs": [],
+        bad = None if conn is None else c.table_problem(conn, "runs")
+        if conn is None or bad:
+            return {"db": "missing" if conn is None else "empty", "reason": bad or NO_DB, "jobs": [],
                     "problems": [f"{j}: never run" for j in expected] + vault_problems, "expected": expected,
                     "vault_files": vault_files}
         jobs_ = []
@@ -396,6 +407,13 @@ def run(env: c.Env, name: str, args) -> dict:
         body = TOOLS[name](state, args)
     except c.NotReady as e:
         return {"ok": False, "error": e.error, "fix": e.fix}
+    except sqlite3.OperationalError as e:
+        msg = str(e)
+        if msg.startswith(("no such table", "no such column")):  # schema newer or older than this plugin
+            return {"ok": False, "error": f"unknown / database schema differs ({c.clean(msg, 120)})",
+                    "fix": "update Kokpit and the plugin together; `python -m kokpit hermes status` shows the schema"}
+        return {"ok": False, "error": f"database could not be read: {type(e).__name__}",
+                "fix": "check [health] db_path in kokpit.toml or the db_path plugin setting"}
     except sqlite3.Error as e:
         return {"ok": False, "error": f"database could not be read: {type(e).__name__}",
                 "fix": "check [health] db_path in kokpit.toml; run `python -m kokpit hermes status`"}

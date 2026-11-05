@@ -521,6 +521,84 @@ class VaultLayout(Base):
         self.assertNotIn("## Open", text)
 
 
+class DbPathAndSchema(Base):
+    """db_path without kokpit.toml, and databases whose schema is older, newer or partial."""
+
+    def test_db_path_without_kokpit_toml(self):
+        conn = self.make_db()
+        conn.execute("INSERT INTO runs(day, job, finished, ok, rows) VALUES ('2026-01-01', 'weather', '2026-01-01T07:00', 1, 3)")
+        conn.commit()
+        conn.close()
+        env = self.env(db_path=str(self.db), vault_path=str(self.vault), demo="off")
+        r = self.call(env, "kokpit_health")
+        self.assertEqual(r["mode"], "live")
+        self.assertEqual(r["db"], "ok")
+        self.assertEqual(r["jobs"][0]["job"], "weather")
+        r = self.call(self.env(db_path=str(self.db), demo="off"), "kokpit_health")  # no vault at all
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["vault_files"]["status"], "vault not found")
+        r = self.call(self.env(db_path=str(self.db), demo="off"), "kokpit_threads")
+        self.assertFalse(r["ok"])
+        self.assertIn("no vault configured", r["fix"])
+
+    def test_db_path_setting_beats_kokpit_toml(self):
+        other = self.tmp / "other.db"
+        conn = sqlite3.connect(other)
+        conn.executescript(json.loads((PLUGIN_DIR / "demo" / "seed.json").read_text(encoding="utf-8"))["schema"])
+        conn.execute("INSERT INTO runs(day, job, finished, ok, rows) VALUES ('2026-01-01', 'backup', '2026-01-01T03:30', 1, 1)")
+        conn.commit()
+        conn.close()
+        env = self.env(kokpit_config=str(self.config()), db_path=str(other), demo="off")
+        self.assertEqual([j["job"] for j in self.call(env, "kokpit_health")["jobs"]], ["backup"])
+
+    def test_missing_tables_say_unknown(self):
+        sqlite3.connect(self.db).close()  # a database with no tables at all
+        env = self.live_env()
+        r = self.call(env, "kokpit_events")
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["status"], "unknown / table events missing")
+        self.assertEqual(self.call(env, "kokpit_jobs")["status"], "unknown / table job_listings missing")
+        self.assertEqual(self.call(env, "kokpit_ai_usage")["status"], "unknown / table ai_usage_hours missing")
+        r = self.call(env, "kokpit_health")
+        self.assertEqual(r["reason"], "unknown / table runs missing")
+        r = self.call(env, "kokpit_today")
+        self.assertEqual(r["calendar"]["status"], "unknown / table calendar missing")
+        self.assertEqual(r["weather"]["status"], "unknown / table weather missing")
+        self.assertEqual(r["counts"]["open_job_listings"], "unknown")
+
+    def test_missing_columns_say_unknown(self):
+        conn = sqlite3.connect(self.db)
+        conn.executescript("CREATE TABLE runs (id INTEGER PRIMARY KEY, job TEXT, ok INTEGER);"
+                           "CREATE TABLE events (id INTEGER PRIMARY KEY, title TEXT, start TEXT);"
+                           "CREATE TABLE job_listings (id INTEGER PRIMARY KEY, title TEXT);"
+                           "CREATE TABLE ai_usage_hours (id INTEGER PRIMARY KEY, tool TEXT);"
+                           "CREATE TABLE calendar (id INTEGER PRIMARY KEY, fetched TEXT);"
+                           "INSERT INTO runs(job, ok) VALUES ('weather', 1);")
+        conn.close()
+        env = self.live_env()
+        for tool, key in (("kokpit_events", "status"), ("kokpit_jobs", "status"), ("kokpit_ai_usage", "status"),
+                          ("kokpit_health", "reason")):
+            r = self.call(env, tool)
+            self.assertTrue(r["ok"], (tool, r))
+            self.assertRegex(r[key], r"^unknown / table \w+ missing columns: ", tool)
+        r = self.call(env, "kokpit_events")
+        self.assertIn("venue", r["status"])
+        self.assertTrue(r["freshness"]["last_status"].startswith("unknown / table runs missing columns"))
+        r = self.call(env, "kokpit_today")
+        self.assertTrue(r["ok"], r)
+        self.assertIn("missing columns: ok, payload", r["calendar"]["status"])
+        self.assertIn("no runs recorded yet. unknown / table runs missing columns", CMD.run(env, "health"))
+
+    def test_unexpected_schema_error_is_reported_not_raised(self):
+        env = self.live_env()
+        self.make_db().close()
+        boom = mock.Mock(side_effect=sqlite3.OperationalError("no such column: r.day"))
+        with mock.patch.dict(T.TOOLS, {"kokpit_health": boom}):
+            r = self.call(env, "kokpit_health")
+        self.assertFalse(r["ok"])
+        self.assertIn("unknown / database schema differs", r["error"])
+
+
 class Command(Base):
     def test_subcommands(self):
         env = self.live_env()

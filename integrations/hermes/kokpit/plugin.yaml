@@ -30,6 +30,10 @@ config_schema:
     type: str
     default: ""
     description: "Markdown vault. Empty: [brain] vault_path from kokpit.toml."
+  db_path:
+    type: str
+    default: ""
+    description: "Kokpit SQLite database, opened read-only. Empty: [health] db_path from kokpit.toml. Works without kokpit.toml."
   threads_file:
     type: str
     default: ""
