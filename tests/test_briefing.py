@@ -16,7 +16,8 @@ from kokpit.db import connect
 from kokpit.modules.briefing import api, collect, feeds, match, tts
 from kokpit.modules.connections import api as conn_api
 
-NOW = datetime(2026, 10, 30, 12, 0, tzinfo=timezone.utc)
+# relative to the real clock: jobs.run() uses the current time, so fixed dates age out of the feed window
+NOW = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
 KEY = "sk-" + "tts" + "-" + "y" * 6
 
 
