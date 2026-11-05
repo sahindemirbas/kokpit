@@ -125,6 +125,15 @@ function k(n) {
   return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n)
 }
 
+// The tools say "unknown / table X missing ..." so the agent knows why; the pane only needs the short form.
+function plain(status) {
+  const s = String(status || '')
+  if (!s.startsWith('unknown / table ')) return s
+  if (/missing columns|unreadable/.test(s)) return 'unknown format'
+  if (/ missing( \(no database\))?$/.test(s)) return 'not collected here'
+  return s
+}
+
 // ------------------------------------------------------------ sections
 
 function Today({ r }) {
@@ -134,7 +143,7 @@ function Today({ r }) {
   const t = r.tasks || {}
   const events = (cal.events || []).filter(e => e.date === r.date)
   const cur = w.current || {}
-  const weather = w.status === 'ok' || w.status === 'stale' ? `${cur.temp ?? '?'}° ${cur.text || ''}` : w.status
+  const weather = w.status === 'ok' || w.status === 'stale' ? `${cur.temp ?? '?'}° ${cur.text || ''}` : 'weather: ' + plain(w.status)
   return jsxs(Section, {
     title: 'Today',
     badge: r.date,
@@ -142,7 +151,7 @@ function Today({ r }) {
       jsx(Row, { left: jsx(Dot, { t: tone(w.status) }), children: weather }, 'w'),
       ...events.slice(0, 4).map((e, i) =>
         jsx(Row, { left: jsx(Dot, { t: 'accent' }), right: jsx(Muted, { children: e.all_day ? 'all day' : e.start }), children: e.title }, 'e' + i)),
-      cal.status !== 'ok' && cal.status !== 'stale' ? jsx(Muted, { children: 'calendar: ' + cal.status }, 'c') : null,
+      cal.status !== 'ok' && cal.status !== 'stale' ? jsx(Muted, { children: 'calendar: ' + plain(cal.status) }, 'c') : null,
       jsx(Row, {
         left: jsx(Dot, { t: t.overdue ? 'bad' : 'muted' }),
         children: t.open === undefined ? 'tasks: ' + (t.status || 'unknown') : `${t.open} open tasks${t.overdue ? `, ${t.overdue} overdue` : ''}`
@@ -198,14 +207,15 @@ function Health({ r }) {
   if (!r || !r.ok) return jsx(Section, { title: 'Jobs', children: jsx(NotOk, { r }) })
   const jobs = r.jobs || []
   const never = r.never_run || []
+  const fresh = jobs.filter(j => j.freshness === 'fresh').length
   return jsxs(Section, {
     title: 'Jobs',
-    badge: r.db === 'ok' ? `${jobs.filter(j => j.freshness === 'fresh').length}/${jobs.length} fresh` : r.db,
+    badge: r.db === 'ok' ? `${fresh}/${jobs.length} fresh` : null,
     children: [
-      r.db !== 'ok' ? jsx(Muted, { children: r.reason }, 'r') : null,
+      r.db !== 'ok' ? jsx(Muted, { children: plain(r.reason) }, 'r') : null,
       ...jobs.map(j => jsx(Row, {
         left: jsx(Dot, { t: tone(j.freshness) }),
-        right: jsx(Muted, { children: j.freshness }),
+        right: jsx(Muted, { children: j.freshness + (j.records === null || j.records === undefined ? ' · —' : ` · ${k(j.records)}`) }),
         title: j.error || (j.warnings || []).join('; '),
         children: j.job
       }, j.job)),
@@ -217,7 +227,7 @@ function Health({ r }) {
 function Ai({ r }) {
   if (!r || !r.ok) return null
   const rows = r.rows || []
-  if (!rows.length) return jsx(Section, { title: 'AI usage', children: jsx(Muted, { children: r.status || r.note || 'no rows' }) })
+  if (!rows.length) return jsx(Section, { title: 'AI usage', children: jsx(Muted, { children: plain(r.status) || r.note || 'no rows' }) })
   const total = r.total_cost_usd === 'unknown' ? `≥ $${r.known_cost_usd}` : `$${r.total_cost_usd}`
   return jsxs(Section, {
     title: 'AI usage',

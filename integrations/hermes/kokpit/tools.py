@@ -69,7 +69,8 @@ def freshness(conn, job: str) -> dict:
     last = conn.execute("SELECT ok, finished, info FROM runs WHERE job=? ORDER BY id DESC LIMIT 1", (job,)).fetchone()
     if not last:
         return {"job": job, "last_status": "never run", "last_success": None, "records": None}
-    good = conn.execute("SELECT finished, rows FROM runs WHERE job=? AND ok=1 ORDER BY id DESC LIMIT 1", (job,)).fetchone()
+    good = conn.execute(f"SELECT finished, {c.optional_col(conn, 'runs', 'rows')} FROM runs "
+                        "WHERE job=? AND ok=1 ORDER BY id DESC LIMIT 1", (job,)).fetchone()
     out = {"job": job, "last_status": "ok" if last["ok"] else "error", "last_run": last["finished"],
            "last_success": good["finished"] if good else None, "records": good["rows"] if good else None}
     if not last["ok"]:
@@ -379,11 +380,14 @@ def health(state: dict, args: dict, conn=None) -> dict:
     try:
         bad = None if conn is None else c.table_problem(conn, "runs")
         if conn is None or bad:
+            # no database: the jobs never ran here; a runs table of another shape: their state is unknown
+            probs = [f"{j}: never run" for j in expected] if conn is None else [f"job runs: {bad}"]
             return {"db": "missing" if conn is None else "empty", "reason": bad or NO_DB, "jobs": [],
-                    "problems": [f"{j}: never run" for j in expected] + vault_problems, "expected": expected,
+                    "problems": probs + vault_problems, "expected": expected,
                     "vault_files": vault_files}
         jobs_ = []
-        for r in c.rows(conn, "SELECT r.job, r.day, r.finished, r.ok, r.rows, r.info, r.warnings FROM runs r JOIN "
+        for r in c.rows(conn, f"SELECT r.job, r.day, r.finished, r.ok, {c.optional_col(conn, 'runs', 'rows', 'r')}, "
+                              "r.info, r.warnings FROM runs r JOIN "
                               "(SELECT job, MAX(id) AS id FROM runs GROUP BY job) m ON r.id = m.id ORDER BY r.job"):
             j = {"job": r["job"], "last_run": r["finished"], "status": "ok" if r["ok"] else "failed",
                  "records": r["rows"], "warnings": _json(r["warnings"], [])}

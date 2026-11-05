@@ -60,6 +60,10 @@ config_schema:
     type: int
     default: 1200
     description: "Budget for the brain context block added to a turn. 0 turns it off."
+  expected:
+    type: list
+    default: []
+    description: "Job names kokpit_health expects in the runs table, e.g. [\"weather\", \"calendar\"]. Empty uses [health] expected from kokpit.toml."
   session_card:
     type: bool
     default: true

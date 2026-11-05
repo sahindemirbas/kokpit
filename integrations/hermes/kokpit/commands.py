@@ -23,16 +23,16 @@ def _demo(r: dict) -> str:
 def today_text(r: dict) -> str:
     lines = [f"Today {r['date']}{_demo(r)}"]
     cal = r["calendar"]
-    if cal.get("status") == "never run":
-        lines.append("Calendar: never run")
+    if cal.get("status") not in ("ok", "stale"):  # never run, or unknown / table calendar missing ...
+        lines.append(f"Calendar: {cal.get('status') or 'unknown'}")
     else:
         todays = [e for e in cal["events"] if e.get("date") == r["date"]]
         lines.append("Calendar" + (" (stale)" if cal.get("status") == "stale" else "") + ":"
                      + ("" if todays else " nothing today"))
         lines += [f"- {e.get('start') or 'all day'} {e.get('title', '')}" for e in todays[:6]]
     w = r["weather"]
-    if w.get("status") == "never run":
-        lines.append("Weather: never run")
+    if w.get("status") not in ("ok", "stale"):
+        lines.append(f"Weather: {w.get('status') or 'unknown'}")
     else:
         d = (w.get("days") or [{}])[0]
         lines.append(f"Weather: {d.get('text', 'unknown')}, {d.get('min', '?')} to {d.get('max', '?')} C"

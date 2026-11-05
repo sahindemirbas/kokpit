@@ -172,6 +172,9 @@ class Env:
         paths, units = as_list(self.setting("server_paths", [])), as_list(self.setting("server_units", []))
         cfg["server_paths"] = paths or cfg.get("server_paths") or ["/"]
         cfg["server_units"] = units or cfg.get("server_units") or []
+        # job names from runs.job, e.g. ["weather", "calendar"]; the plugin setting wins over [health] expected
+        expected = [x for x in as_list(self.setting("expected", [])) if x.strip()]
+        cfg["expected"] = expected or cfg.get("expected") or []
 
     def _state(self) -> dict:
         demo = str(self.setting("demo", "auto")).strip().lower() or "auto"
@@ -315,7 +318,7 @@ def has_table(conn, name: str) -> bool:
 # Columns each reader needs, per kokpit/modules/*/schema.sql. Extra columns are fine; missing ones
 # turn the reader into "unknown / table X missing ..." instead of an OperationalError.
 SCHEMA = {
-    "runs": ("id", "job", "day", "finished", "ok", "rows", "info", "warnings"),
+    "runs": ("id", "job", "day", "finished", "ok", "info", "warnings"),
     "calendar": ("id", "fetched", "ok", "payload"),
     "weather": ("id", "fetched", "payload"),
     "events": ("title", "start", "end", "venue", "city", "price", "category", "distance_km", "url"),
@@ -325,6 +328,26 @@ SCHEMA = {
                        "cache_read_tokens", "cache_write_tokens"),
     "ai_usage_readers": ("tool", "status", "last_run", "rows", "error"),
 }
+# Columns a reader uses when they are there; older Kokpit databases lack them (runs.rows came later).
+# A missing optional column is not a problem: the reader leaves it out and reports null (unknown).
+OPTIONAL = {
+    "runs": ("rows",),
+}
+
+
+def has_column(conn, table: str, column: str) -> bool:
+    try:
+        return any(r[1] == column for r in conn.execute(f'PRAGMA table_info("{table}")'))
+    except sqlite3.Error:
+        return False
+
+
+def optional_col(conn, table: str, column: str, alias: str = "") -> str:
+    """SQL for an OPTIONAL column: the column itself, or NULL under the same name when the table lacks it."""
+    if column not in OPTIONAL.get(table, ()):
+        raise ValueError(f"{table}.{column} is not an optional column")
+    col = f"{alias}.{column}" if alias else column
+    return col if has_column(conn, table, column) else f'NULL AS "{column}"'
 
 
 def table_problem(conn, name: str) -> str | None:

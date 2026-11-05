@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -617,7 +617,63 @@ class DbPathAndSchema(Base):
         r = self.call(env, "kokpit_today")
         self.assertTrue(r["ok"], r)
         self.assertIn("missing columns: ok, payload", r["calendar"]["status"])
+        self.assertEqual(self.call(env, "kokpit_health")["problems"][0][:38], "job runs: unknown / table runs missing")
         self.assertIn("no runs recorded yet. unknown / table runs missing columns", CMD.run(env, "health"))
+
+    def old_runs_db(self):
+        """An older Kokpit: runs without the rows column, no weather/calendar, an events table of another shape."""
+        conn = sqlite3.connect(self.db)
+        conn.executescript(
+            "CREATE TABLE runs (id INTEGER PRIMARY KEY, day TEXT, job TEXT, started TEXT, finished TEXT, ok INTEGER,"
+            " info TEXT, warnings TEXT);"
+            "CREATE TABLE events (id INTEGER PRIMARY KEY, name TEXT, starts_at TEXT, place TEXT);")
+        now = datetime.now().isoformat(timespec="seconds")
+        conn.executemany("INSERT INTO runs(day, job, started, finished, ok, info, warnings) VALUES (?,?,?,?,?,?,?)",
+                         [(D.isoformat(), "vendor-sync", now, now, 1, "{}", "[]"),
+                          (D.isoformat(), "nightly-copy", now, now, 0, '{"error": "disk full"}', "[]")])
+        conn.commit()
+        conn.close()
+
+    def test_optional_runs_rows_column(self):
+        self.old_runs_db()
+        env = self.env(kokpit_config=str(self.config()), demo="off", expected="vendor-sync, report")
+        r = self.call(env, "kokpit_health")
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["db"], "ok")
+        self.assertEqual({j["job"]: j["records"] for j in r["jobs"]}, {"nightly-copy": None, "vendor-sync": None})
+        self.assertEqual(r["expected"], ["vendor-sync", "report"])
+        self.assertEqual(r["never_run"], ["report"])
+        self.assertFalse(any("0 records" in p for p in r["problems"]), r["problems"])
+        self.assertIn("nightly-copy: failed (disk full)", r["problems"])
+        self.assertEqual(T.freshness(C.open_db(self.db), "vendor-sync")["records"], None)
+        with self.assertRaises(ValueError):
+            C.optional_col(C.open_db(self.db), "runs", "job")
+
+    def test_foreign_schema_never_raises(self):
+        self.old_runs_db()
+        env = self.live_env()
+        for name in T.TOOLS:
+            if name == "kokpit_capture":
+                continue
+            r = self.call(env, name, {"query": "garden"} if name == "kokpit_brain_search" else {})
+            self.assertNotIn("database schema differs", str(r.get("error", "")), name)
+            self.assertNotIn("could not be read", str(r.get("error", "")), name)
+        t = self.call(env, "kokpit_today")
+        self.assertEqual(t["weather"]["status"], "unknown / table weather missing")
+        self.assertEqual(t["calendar"]["status"], "unknown / table calendar missing")
+        self.assertEqual(t["counts"]["events_next_7_days"], "unknown")
+        self.assertRegex(self.call(env, "kokpit_events")["status"], r"^unknown / table events missing columns: ")
+        text = CMD.run(env, "today")
+        self.assertIn("Weather: unknown / table weather missing", text)
+        self.assertIn("Calendar: unknown / table calendar missing", text)
+        api = load_dashboard_api()
+        api.ENV = env
+        o = api.overview()
+        self.assertTrue(o["ok"])
+        for key in ("today", "threads", "health", "events"):
+            self.assertTrue(o[key]["ok"], (key, o[key]))
+        for name in api.READ_TOOLS:
+            self.assertIsInstance(api.tool(name, query="garden"), dict)
 
     def test_unexpected_schema_error_is_reported_not_raised(self):
         env = self.live_env()
@@ -661,6 +717,26 @@ class Dashboard(Base):
             r = subprocess.run(["node", "--check", str(PLUGIN_DIR / "desktop" / "plugin.js")],
                                capture_output=True, text=True, timeout=30)
             self.assertEqual(r.returncode, 0, r.stderr)
+
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_panels_label_owners_and_statuses(self):
+        """ownerLabel() and plain() are the same in the web tab and the desktop pane, and say what they should."""
+        cases = {"o": [{"owner": "you", "on_you": True, "note": ""}, {"owner": "me", "note": "Fri"},
+                       {"owner": "someone", "note": ""}, {"owner": "vendor team", "note": "2026-01-09"},
+                       {"owner": "", "on_you": False, "note": ""}],
+                 "s": ["unknown / table weather missing", "unknown / table runs missing (no database)",
+                       "unknown / table events missing columns: venue", "unknown / table runs unreadable (DatabaseError)",
+                       "never run", "stale"]}
+        want = [["You", "Me · Fri", "Someone", "Vendor team · 2026-01-09", "Open"],
+                ["not collected here", "not collected here", "unknown format", "unknown format", "never run", "stale"]]
+        for f in (PLUGIN_DIR / "dashboard" / "dist" / "index.js", PLUGIN_DIR / "desktop" / "plugin.js"):
+            js = f.read_text(encoding="utf-8")
+            fns = [re.search(r"^ *function %s\(.*?^ *\}$" % n, js, re.M | re.S).group(0) for n in ("ownerLabel", "plain")]
+            prog = "\n".join(fns) + f"\nconst c = {json.dumps(cases)};\n" \
+                "console.log(JSON.stringify([c.o.map(ownerLabel), c.s.map(plain)]))"
+            r = subprocess.run(["node", "-e", prog], capture_output=True, text=True, timeout=30)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(json.loads(r.stdout), want, f.name)
 
     def test_overview_is_the_tool_output(self):
         env = self.env(demo="on")

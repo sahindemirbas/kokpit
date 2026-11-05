@@ -57,6 +57,19 @@
     return "muted";
   }
 
+  // The tools say "unknown / table X missing ..." so the agent knows why; a card only needs the short form.
+  function plain(status) {
+    var s = String(status || "");
+    if (s.indexOf("unknown / table ") !== 0) return s;
+    if (/missing columns|unreadable/.test(s)) return "unknown format";
+    if (/ missing( \(no database\))?$/.test(s)) return "not collected here";
+    return s;
+  }
+
+  function StatusLine(props) {
+    return h("p", { className: "kokpit-empty", title: String(props.s || "") }, plain(props.s));
+  }
+
   function when(iso) {
     if (!iso) return "never";
     var s = String(iso);
@@ -89,8 +102,8 @@
     return h(Card, { title: "Today", badge: r.date },
       h("div", { className: "kokpit-stats" },
         h(Stat, { label: "Weather", value: w.status === "ok" || w.status === "stale" ? (cur.temp !== undefined ? cur.temp + "°" : "?") : "—",
-                  sub: w.status === "ok" || w.status === "stale" ? cur.text : w.status }),
-        h(Stat, { label: "Events today", value: cal.status === "ok" || cal.status === "stale" ? todays.length : "—", sub: cal.status }),
+                  sub: w.status === "ok" || w.status === "stale" ? cur.text : plain(w.status) }),
+        h(Stat, { label: "Events today", value: cal.status === "ok" || cal.status === "stale" ? todays.length : "—", sub: plain(cal.status) }),
         h(Stat, { label: "Open tasks", value: t.open !== undefined ? t.open : "—", sub: t.overdue ? t.overdue + " overdue" : (t.status || "") }),
         h(Stat, { label: "Threads", value: r.threads !== undefined ? r.threads : "—", sub: "active" })),
       todays.length ? h("ul", { className: "kokpit-list" }, todays.map(function (e, i) {
@@ -149,18 +162,20 @@
     var r = props.r;
     if (!r || !r.ok) return h(Card, { title: "Job health" }, h(Problem, { r: r }));
     var jobs = r.jobs || [], never = r.never_run || (r.db !== "ok" ? r.expected || [] : []);
+    // "never run" only when Kokpit has no database or the runs table has no row for the job
+    var neverLabel = r.db === "ok" || r.db === "missing" ? "never run" : plain(r.reason);
     var files = r.vault_files || {};
     return h(Card, { title: "Job health", badge: r.db === "ok" ? jobs.length + " jobs" : r.db },
-      r.db !== "ok" ? h(Empty, null, r.reason || "no database yet") : null,
+      r.db !== "ok" ? h(StatusLine, { s: r.reason || "no database yet" }) : null,
       jobs.length || never.length ? h("table", { className: "kokpit-table" }, h("tbody", null,
         jobs.map(function (j) {
           return h("tr", { key: j.job },
             h("td", null, j.job),
             h("td", null, h(Pill, { tone: statusTone(j.freshness), title: j.error || "" }, j.freshness === "failed" && j.failed_in_a_row > 1 ? "failed x" + j.failed_in_a_row : j.freshness)),
             h("td", { className: "kokpit-muted" }, when(j.last_run)),
-            h("td", { className: "kokpit-muted" }, j.records === null || j.records === undefined ? "" : j.records + " rows"));
+            h("td", { className: "kokpit-muted" }, j.records === null || j.records === undefined ? "—" : j.records + " rows"));
         }).concat(never.map(function (n) {
-          return h("tr", { key: "n-" + n }, h("td", null, n), h("td", null, h(Pill, { tone: "muted" }, "never run")), h("td", null, ""), h("td", null, ""));
+          return h("tr", { key: "n-" + n }, h("td", null, n), h("td", null, h(Pill, { tone: "muted" }, neverLabel)), h("td", null, ""), h("td", null, ""));
         })))) : null,
       (r.problems || []).length ? h("ul", { className: "kokpit-list kokpit-problems" }, r.problems.slice(0, 6).map(function (p, i) {
         return h("li", { key: i }, p);
@@ -178,7 +193,7 @@
     var rows = r.rows || [];
     var total = r.total_cost_usd === "unknown" ? "≥ $" + r.known_cost_usd : "$" + r.total_cost_usd;
     return h(Card, { title: "AI usage", badge: (r.days || 7) + " days" },
-      r.status ? h(Empty, null, r.status) : null,
+      r.status ? h(StatusLine, { s: r.status }) : null,
       rows.length ? h("table", { className: "kokpit-table" }, h("tbody", null, rows.map(function (x, i) {
         return h("tr", { key: i },
           h("td", null, x.tool), h("td", { className: "kokpit-muted" }, x.model),
@@ -193,7 +208,7 @@
     if (!r || !r.ok) return h(Card, { title: "Events" }, h(Problem, { r: r }));
     var ev = r.events || [];
     return h(Card, { title: "Events", badge: "next " + (r.days || 7) + " days" },
-      r.status ? h(Empty, null, r.status) : null,
+      r.status ? h(StatusLine, { s: r.status }) : null,
       ev.length ? h("ul", { className: "kokpit-list" }, ev.map(function (e, i) {
         return h("li", { key: i }, h("span", { className: "kokpit-time" }, when(e.start)), " " + e.title,
           e.venue && e.venue !== "unknown" ? h("span", { className: "kokpit-from" }, e.venue) : null);
@@ -205,7 +220,7 @@
     if (!r || !r.ok) return h(Card, { title: "Job listings" }, h(Problem, { r: r }));
     var ls = r.listings || [];
     return h(Card, { title: "Job listings", badge: r.open_total !== undefined ? r.open_total + " open" : "" },
-      r.status ? h(Empty, null, r.status) : null,
+      r.status ? h(StatusLine, { s: r.status }) : null,
       ls.length ? h("ul", { className: "kokpit-list" }, ls.map(function (x, i) {
         return h("li", { key: i }, h(Pill, { tone: typeof x.score === "number" && x.score >= 70 ? "ok" : "muted" }, String(x.score)), " " + x.title,
           h("span", { className: "kokpit-from" }, [x.company, x.remote].filter(Boolean).join(", ")));
