@@ -10,7 +10,8 @@ agent is required.
 Status: the conventions are in daily use in the reference instance. The
 read-only context hook is in this repository (`kokpit brain hook` for Claude
 Code, Codex, Antigravity and any tool that runs a command, `kokpit context`
-for plain text, the Hermes plugin under `integrations/hermes/kokpit-brain/`);
+for plain text, the Hermes plugin under `integrations/hermes/kokpit/`, see
+[hermes-plugin.md](hermes-plugin.md));
 the night organiser is in this repository as a proposals-only module (§3).
 
 ## 0. Origin and credit
@@ -108,7 +109,7 @@ merge it into your own file by hand. Output is JSON: `written`, `skipped`,
 | Claude Code | `CLAUDE.md`, `.claude/settings.json` | `CLAUDE.md` is one line, `@AGENTS.md` (Claude Code's import syntax). Hooks on `SessionStart` and `UserPromptSubmit`. |
 | Codex | `.codex/hooks.json`, `.codex/config.toml` | Same two events. Codex runs hooks only with `[features] hooks = true` in its config. |
 | Antigravity | `.agents/hooks.json` | One `PreInvocation` hook, run with `--event SessionStart`, so every invocation gets the block. Verified against the reference instance's config file shape, not against Antigravity documentation. |
-| Hermes | `integrations/hermes/kokpit-brain/` | The existing plugin (`pre_llm_call`); unchanged. |
+| Hermes | `integrations/hermes/kokpit/` | The `kokpit` plugin: context on every turn (`pre_llm_call`), again after compaction, and a session card plus receipt at session end. See [hermes-plugin.md](hermes-plugin.md). It replaces `kokpit-brain/`. |
 | Any other tool | your tool's hook setting | `kokpit brain hook --harness generic --event UserPromptSubmit`, prompt as JSON on stdin; prints plain text. |
 
 Check a setup by hand: `echo '{"hook_event_name":"SessionStart"}' | kokpit
@@ -179,6 +180,40 @@ does not exist yet is reported in `missing_refs` but does not block the write.
 
 Receipts are an audit trail for the user and the next agent. They are not
 context: the context hook never reads `receipts/` or `archive/`.
+
+Example file (`receipts/<64 hex characters>.md`):
+
+```
+---
+{
+  "kind": "receipt",
+  "event_id": "hermes-session-20260105_211000_ab12cd",
+  "harness": "hermes",
+  "refs": [
+    "Last-Session.md"
+  ],
+  "created_at": "2026-01-05T20:10:00.000000+00:00",
+  "session": "20260105_211000_ab12cd"
+}
+---
+## 2026-01-05 21:10 · Fix the garden timer schedule · 20260105_211000_ab12cd
+- Harness: hermes. Turns: 6. Tools: terminal x3, write_file.
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `kind` | yes | always `receipt` |
+| `event_id` | yes | the agent's id for this piece of work; the file name is its SHA-256 |
+| `harness` | yes | which agent wrote it: `hermes`, `claude`, `codex`, `antigravity`, ... |
+| `refs` | yes | vault-relative paths the work touched (may be empty) |
+| `created_at` | yes | ISO 8601 in UTC |
+| `session` | no | the agent's session id, letters, digits, `_` and `-` only |
+
+The text under the block is the summary (at most 4000 characters). The Hermes
+plugin writes one receipt per session automatically, with event id
+`hermes-session-<session id>` and the session card as the summary; other agents
+call `kokpit brain receipt`. Both produce the same file shape, so the Brain tab
+and `kokpit brain receipts` list them together.
 
 ### Dates
 

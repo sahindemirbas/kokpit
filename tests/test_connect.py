@@ -148,7 +148,7 @@ class HermesSetup(Base):
         self.assertEqual(fresh.model["provider"], "hermes")
         self.assertTrue(fresh.modules["ai_usage"])
         self.assertIn("hermes", fresh.ai_usage["readers"])
-        link = self.home / ".hermes" / "plugins" / "kokpit-brain"
+        link = self.home / ".hermes" / "plugins" / "kokpit"
         self.assertTrue(link.is_symlink())
         self.assertEqual(link.resolve(), hermes.plugin_source().resolve())
         self.assertIn("KOKPIT_CONFIG=" + str(cfg.path), out)
@@ -168,7 +168,7 @@ class HermesSetup(Base):
         cfg = self.cfg()
         other = self.tmp / "other-plugin"
         other.mkdir()
-        link = self.home / ".hermes" / "plugins" / "kokpit-brain"
+        link = self.home / ".hermes" / "plugins" / "kokpit"
         link.parent.mkdir(parents=True)
         link.symlink_to(other)
         rc, out = self.run_setup(cfg, yes=True)

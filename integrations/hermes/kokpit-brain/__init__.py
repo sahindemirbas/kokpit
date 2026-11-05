@@ -1,5 +1,10 @@
 """Kokpit brain context for Hermes Agent. Read-only.
 
+Superseded: use the ``kokpit`` plugin in ../kokpit/ instead. It adds the same
+brain context plus tools, ``/kokpit`` and a session card, and does not need the
+Kokpit package on Hermes's Python path. This folder stays for existing links;
+do not enable both (each adds a context block).
+
 On every user turn (``pre_llm_call``) this plugin reads the Kokpit vault
 (Threads.md, Last-Session.md, To-Do.md, notes/) and returns a short text block
 that Hermes appends to the user message. It never writes to the vault, never

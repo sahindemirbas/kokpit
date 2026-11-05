@@ -1,0 +1,43 @@
+{
+  "note": "Synthetic demo data for the Kokpit Hermes plugin. Column names follow kokpit/modules/*/schema.sql. '@+2' means today plus 2 days; '@-1T07:00:00' adds a time.",
+  "schema": "CREATE TABLE runs (id INTEGER PRIMARY KEY AUTOINCREMENT, day TEXT NOT NULL, job TEXT NOT NULL, started TEXT, finished TEXT, ok INTEGER NOT NULL, rows INTEGER, info TEXT, warnings TEXT); CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, source_id TEXT NOT NULL, title TEXT NOT NULL, description TEXT, start TEXT NOT NULL, end TEXT, venue TEXT, address TEXT, city TEXT, lat REAL, lon REAL, url TEXT, image TEXT, price TEXT NOT NULL DEFAULT 'unknown', category TEXT NOT NULL DEFAULT 'other', distance_km REAL, language TEXT, title_tr TEXT, description_tr TEXT, translated_to TEXT, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL); CREATE TABLE job_listings (id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, external_id TEXT NOT NULL, title TEXT NOT NULL, company TEXT, location TEXT, remote TEXT NOT NULL DEFAULT 'unknown', url TEXT, posted_at TEXT, description TEXT, language TEXT, norm_key TEXT, sources TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open', first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, closed_at TEXT, reopened_at TEXT, checked_at TEXT, score INTEGER, reasons TEXT NOT NULL DEFAULT '[]'); CREATE TABLE ai_usage_hours (id INTEGER PRIMARY KEY AUTOINCREMENT, tool TEXT NOT NULL, model_raw TEXT NOT NULL, model TEXT NOT NULL, session_hash TEXT NOT NULL, place TEXT NOT NULL DEFAULT '', started_at TEXT, last_seen TEXT, bucket TEXT NOT NULL DEFAULT '', approx INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cache_read_tokens INTEGER NOT NULL DEFAULT 0, cache_write_tokens INTEGER NOT NULL DEFAULT 0); CREATE TABLE ai_usage_readers (tool TEXT PRIMARY KEY, last_run TEXT, status TEXT NOT NULL, error TEXT, rows INTEGER NOT NULL DEFAULT 0, last_data TEXT, source_mtime TEXT); CREATE TABLE weather (id INTEGER PRIMARY KEY AUTOINCREMENT, fetched TEXT NOT NULL, lat REAL, lon REAL, payload TEXT NOT NULL); CREATE TABLE calendar (id INTEGER PRIMARY KEY AUTOINCREMENT, fetched TEXT NOT NULL, ok INTEGER NOT NULL, payload TEXT NOT NULL);",
+  "rows": {
+    "runs": [
+      {"day": "@+0", "job": "weather", "started": "@+0T06:00:00", "finished": "@+0T06:00:02", "ok": 1, "rows": 5, "info": {}, "warnings": []},
+      {"day": "@+0", "job": "calendar", "started": "@+0T06:05:00", "finished": "@+0T06:05:03", "ok": 1, "rows": 4, "info": {"feeds": 1, "feeds_ok": 1}, "warnings": []},
+      {"day": "@+0", "job": "events-collect", "started": "@+0T06:10:00", "finished": "@+0T06:10:40", "ok": 1, "rows": 0, "info": {}, "warnings": []},
+      {"day": "@-1", "job": "career", "started": "@-1T07:00:00", "finished": "@-1T07:01:10", "ok": 0, "rows": null, "info": {"error": "listing page timed out"}, "warnings": []},
+      {"day": "@+0", "job": "career", "started": "@+0T07:00:00", "finished": "@+0T07:01:05", "ok": 0, "rows": null, "info": {"error": "listing page timed out"}, "warnings": []},
+      {"day": "@+0", "job": "ai_usage", "started": "@+0T05:30:00", "finished": "@+0T05:30:01", "ok": 1, "rows": 6, "info": {}, "warnings": ["claude_code: no session files found"]}
+    ],
+    "events": [
+      {"source": "demo", "source_id": "e1", "title": "Farmers market on the main square", "start": "@+1T09:00:00", "end": "@+1T13:00:00", "venue": "Main square", "price": "free", "category": "food", "distance_km": 0.6, "first_seen": "@-3", "last_seen": "@+0", "url": "https://example.org/events/market"},
+      {"source": "demo", "source_id": "e2", "title": "Evening string quartet", "start": "@+2T20:30:00", "venue": "Town theatre", "price": "paid", "category": "music", "distance_km": 1.4, "first_seen": "@-5", "last_seen": "@+0", "url": "https://example.org/events/quartet"},
+      {"source": "demo", "source_id": "e3", "title": "Open data meetup", "start": "@+4T18:30:00", "venue": "Library hall", "price": "unknown", "category": "tech", "distance_km": null, "first_seen": "@-1", "last_seen": "@+0", "url": "https://example.org/events/meetup"},
+      {"source": "demo", "source_id": "e4", "title": "Past bike swap", "start": "@-2T10:00:00", "venue": "Park", "price": "free", "category": "sport", "distance_km": 2.0, "first_seen": "@-9", "last_seen": "@-2"}
+    ],
+    "job_listings": [
+      {"source": "demo", "external_id": "j1", "title": "Data Analyst", "company": "Example Foods", "location": "Example City", "remote": "hybrid", "url": "https://example.org/jobs/1", "posted_at": "@-2", "sources": "demo", "status": "open", "first_seen": "@-2", "last_seen": "@+0", "score": 82, "reasons": {"reasons": [{"kind": "title", "effect": "+", "text": "title matches target role"}, {"kind": "skills", "effect": "+", "text": "SQL and Python in the posting"}, {"kind": "language", "effect": "-", "text": "local language at B2 asked"}], "max_known": 100, "unknowns": []}},
+      {"source": "demo", "external_id": "j2", "title": "BI Developer", "company": "Sample Logistics", "location": "Remote", "remote": "remote", "url": "https://example.org/jobs/2", "posted_at": "@-6", "sources": "demo", "status": "open", "first_seen": "@-6", "last_seen": "@+0", "score": 64, "reasons": {"reasons": [{"kind": "skills", "effect": "+", "text": "dashboard tools match"}, {"kind": "seniority", "effect": "-", "text": "5+ years asked"}], "max_known": 80, "unknowns": ["salary"]}},
+      {"source": "demo", "external_id": "j3", "title": "Junior Data Engineer", "company": "Demo Energy", "location": "Example City", "remote": "unknown", "posted_at": null, "sources": "demo", "status": "open", "first_seen": "@-1", "last_seen": "@+0", "score": null, "reasons": {"reasons": [], "max_known": 0, "unknowns": ["description"]}},
+      {"source": "demo", "external_id": "j4", "title": "Closed role", "company": "Old Co", "remote": "onsite", "sources": "demo", "status": "closed", "first_seen": "@-30", "last_seen": "@-10", "score": 70, "reasons": {"reasons": []}}
+    ],
+    "ai_usage_hours": [
+      {"tool": "hermes", "model_raw": "demo-large", "model": "demo-large", "session_hash": "a1b2c3d4e5f6", "place": "cli", "started_at": "@+0T08:00:00", "last_seen": "@+0T08:00:00", "bucket": "@+0T08:00:00", "input_tokens": 42000, "output_tokens": 6100, "cache_read_tokens": 180000},
+      {"tool": "hermes", "model_raw": "demo-large", "model": "demo-large", "session_hash": "a1b2c3d4e5f6", "place": "cli", "started_at": "@-1T15:00:00", "last_seen": "@-1T15:00:00", "bucket": "@-1T15:00:00", "input_tokens": 12000, "output_tokens": 2000},
+      {"tool": "codex", "model_raw": "demo-small", "model": "demo-small", "session_hash": "0f9e8d7c6b5a", "place": "exec", "started_at": "@-2T10:00:00", "last_seen": "@-2T10:00:00", "bucket": "@-2T10:00:00", "input_tokens": 9000, "output_tokens": 1500},
+      {"tool": "claude_code", "model_raw": "demo-unpriced", "model": "demo-unpriced", "session_hash": "112233445566", "place": "cli", "started_at": "@-3T11:00:00", "last_seen": "@-3T11:00:00", "bucket": "@-3T11:00:00", "input_tokens": 30000, "output_tokens": 4000}
+    ],
+    "ai_usage_readers": [
+      {"tool": "hermes", "last_run": "@+0T05:30:01", "status": "ok", "rows": 2, "last_data": "@+0T08:00:00"},
+      {"tool": "codex", "last_run": "@+0T05:30:01", "status": "ok", "rows": 1, "last_data": "@-2T10:00:00"},
+      {"tool": "claude_code", "last_run": "@+0T05:30:01", "status": "empty", "rows": 0}
+    ],
+    "weather": [
+      {"fetched": "@+0T06:00:02", "lat": 0.0, "lon": 0.0, "payload": {"current": {"temp": 14.5, "code": 2, "text": "partly cloudy"}, "days": [{"date": "@+0", "code": 2, "text": "partly cloudy", "max": 17, "min": 8, "rain_mm": 0.0, "rain_pct": 10}, {"date": "@+1", "code": 61, "text": "light rain", "max": 15, "min": 9, "rain_mm": 3.2, "rain_pct": 70}], "timezone": "UTC"}}
+    ],
+    "calendar": [
+      {"fetched": "@+0T06:05:03", "ok": 1, "payload": {"window_start": "@+0", "days": 7, "feeds": 1, "feeds_ok": 1, "errors": [], "warnings": [], "unsupported_rrule": 0, "events": [{"date": "@+0", "start": "10:00", "end": "11:00", "all_day": false, "title": "Dentist", "location": "", "calendar": 1}, {"date": "@+0", "start": "18:30", "end": "19:30", "all_day": false, "title": "Italian lesson", "location": "", "calendar": 1}, {"date": "@+2", "start": null, "end": null, "all_day": true, "title": "Library card renewal window opens", "location": "", "calendar": 1}, {"date": "@+3", "start": "09:00", "end": "09:30", "all_day": false, "title": "Call with the plumber", "location": "", "calendar": 1}]}}
+    ]
+  }
+}

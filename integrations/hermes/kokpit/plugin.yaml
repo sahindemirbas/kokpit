@@ -1,0 +1,44 @@
+name: kokpit
+version: "0.2.0"
+manifest_version: 2
+api_version: 1
+description: "Kokpit for Hermes: read your Kokpit day, brain vault, events, job listings, AI usage and job health, capture notes and tasks, and keep a session card."
+author: kokpit
+license: MIT
+requires_hermes: ">=0.22.0"
+tags: [productivity, notes, dashboard]
+provides_tools:
+  - kokpit_today
+  - kokpit_brain_search
+  - kokpit_threads
+  - kokpit_capture
+  - kokpit_events
+  - kokpit_jobs
+  - kokpit_ai_usage
+  - kokpit_health
+provides_hooks:
+  - pre_llm_call
+  - post_tool_call
+  - on_session_finalize
+  - post_compaction
+config_schema:
+  kokpit_config:
+    type: str
+    default: ""
+    description: "Path to kokpit.toml. Empty: ./kokpit.toml, then ~/.config/kokpit/kokpit.toml (KOKPIT_CONFIG wins when set)."
+  vault_path:
+    type: str
+    default: ""
+    description: "Markdown vault. Empty: [brain] vault_path from kokpit.toml."
+  context_max_chars:
+    type: int
+    default: 1200
+    description: "Budget for the brain context block added to a turn. 0 turns it off."
+  session_card:
+    type: bool
+    default: true
+    description: "Write a Last-Session card and a receipt into the vault when a session ends."
+  demo:
+    type: str
+    default: "auto"
+    description: "auto, on or off. auto uses the bundled demo when no Kokpit config and no vault are found."

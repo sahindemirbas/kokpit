@@ -3,7 +3,8 @@
 Four pieces, each optional:
   model    [model] provider = "hermes": model calls run ``hermes chat --oneshot``, no API key in Kokpit
   usage    the ai_usage reader "hermes": token counts from Hermes's state.db, opened read-only
-  plugin   integrations/hermes/kokpit-brain linked into ~/.hermes/plugins: brain context on every Hermes turn
+  plugin   integrations/hermes/kokpit linked into ~/.hermes/plugins: Kokpit tools, /kokpit, brain context on every
+           turn and a session card at the end (enable it with ``hermes plugins enable kokpit``)
   vault    the Markdown folder both sides share (Brain tab, ``kokpit brain receipt``)
 
 ``status`` reads only: no network, no writes. ``setup`` asks before each change, writes kokpit.toml through the
@@ -19,7 +20,8 @@ from . import tomledit, wizard
 from .config import Config
 
 INSTALL_URL = "https://hermes-agent.nousresearch.com/docs"
-PLUGIN = "kokpit-brain"
+PLUGIN = "kokpit"
+LEGACY = "kokpit-brain"  # the older context-only plugin; the kokpit plugin covers it
 
 
 def repo_root() -> Path:
@@ -63,8 +65,26 @@ def plugin_state() -> tuple[str, str]:
     return "other", target
 
 
+def legacy_link() -> Path:
+    return Path.home() / ".hermes" / "plugins" / LEGACY
+
+
+def legacy_linked() -> bool:
+    """True when the old kokpit-brain plugin from this repo is still linked (both would add brain context)."""
+    link = legacy_link()
+    try:
+        return link.is_symlink() and link.resolve() == (repo_root() / "integrations" / "hermes" / LEGACY).resolve()
+    except OSError:
+        return False
+
+
 def env_lines(cfg: Config) -> list[str]:
-    return [f"KOKPIT_CONFIG={cfg.path}", f"KOKPIT_SRC={repo_root()}"]
+    return [f"KOKPIT_CONFIG={cfg.path}"]
+
+
+def settings_lines(cfg: Config) -> list[str]:
+    """The ~/.hermes/config.yaml block that points the plugin at this config (the alternative to KOKPIT_CONFIG)."""
+    return ["plugins:", "  entries:", "    kokpit:", "      settings:", f"        kokpit_config: {cfg.path}"]
 
 
 def status(cfg: Config) -> list[dict]:
@@ -93,7 +113,7 @@ def status(cfg: Config) -> list[dict]:
            "other": f"{link} already exists and points to {detail}. Kokpit does not replace it. Remove or rename it yourself, then run python -m kokpit hermes setup",
            "no-source": f"The plugin folder {detail} is missing. Use a git checkout of Kokpit (the plugin is not part of a plain pip install)."}[st]
     out.append({"id": "plugin", "ok": st == "ok",
-                "what": f"kokpit-brain plugin: {link}" + {"ok": "", "missing": " (not linked)", "other": " (points elsewhere)", "no-source": " (no source)"}[st],
+                "what": f"kokpit plugin: {link}" + {"ok": "", "missing": " (not linked)", "other": " (points elsewhere)", "no-source": " (no source)"}[st],
                 "fix": fix})
     v = cfg.vault
     out.append({"id": "vault", "ok": v.is_dir(), "what": f"shared vault: {v}" + ("" if v.is_dir() else " (folder not found)"),
@@ -108,7 +128,11 @@ def status_text(cfg: Config) -> str:
         lines.append(f"{'ok     ' if r['ok'] else 'missing'}  {r['what']}")
         if r["fix"]:
             lines.append(f"         fix: {r['fix']}")
-    lines.append("Hermes needs these two lines in the environment it starts with (for example ~/.hermes/.env) for the plugin:")
+    if legacy_linked():
+        lines.append(f"note     the older kokpit-brain plugin is still linked ({legacy_link()}); the kokpit plugin replaces it.")
+        lines.append(f"         fix: hermes plugins disable {LEGACY} && rm {legacy_link()}")
+    lines.append("Then: hermes plugins enable kokpit. The plugin finds kokpit.toml through this line in the environment Hermes")
+    lines.append("starts with (for example ~/.hermes/.env), or through kokpit_config in its settings (docs/hermes-plugin.md):")
     lines += ["         " + x for x in env_lines(cfg)]
     return "\n".join(lines)
 
@@ -163,19 +187,27 @@ def setup(cfg: Config, ask=input, say=print, yes: bool = False, dry_run: bool = 
     st, detail = plugin_state()
     src, link = plugin_source(), plugin_link()
     if st == "ok":
-        say("3. The kokpit-brain plugin is already linked.")
+        say("3. The kokpit plugin is already linked.")
     elif st == "other":
         say(f"3. {link} already exists and points to {detail}. It is left alone. Remove or rename it yourself if you want this repo's plugin, then run this again.")
     elif st == "no-source":
         say(f"3. Skipped: the plugin folder {detail} is missing (needs a git checkout of Kokpit).")
-    elif ok(f"3. Link the kokpit-brain plugin into Hermes ({link} -> {src})? It gives Hermes read-only brain context on every turn."):
+    elif ok(f"3. Link the kokpit plugin into Hermes ({link} -> {src})? It adds read-only Kokpit tools, /kokpit, brain context on every turn and a session card in the vault."):
         if not dry_run:
             link.parent.mkdir(parents=True, exist_ok=True)
             link.symlink_to(src, target_is_directory=True)
         say(f"   {pre}create the link {link}.")
 
-    say("4. For the plugin, add these lines to the environment Hermes starts with (for example ~/.hermes/.env). Kokpit does not edit Hermes's files:")
+    if legacy_linked():
+        say(f"   The older kokpit-brain plugin is still linked ({legacy_link()}). The kokpit plugin replaces it; to avoid a double context block run:")
+        say(f"   hermes plugins disable {LEGACY} && rm {legacy_link()}")
+    say("4. Kokpit does not edit Hermes's files. Turn the plugin on and point it at this config yourself:")
+    say("   hermes plugins enable kokpit")
+    say("   and add this line to the environment Hermes starts with (for example ~/.hermes/.env):")
     for x in env_lines(cfg):
+        say("   " + x)
+    say("   or this block to ~/.hermes/config.yaml:")
+    for x in settings_lines(cfg):
         say("   " + x)
     if not by["vault"]["ok"]:
         say(f"   The shared vault folder {cfg.vault} does not exist yet. {by['vault']['fix']}.")
