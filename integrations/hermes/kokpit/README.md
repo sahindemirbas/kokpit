@@ -61,5 +61,10 @@ It writes to the vault only through capture, `/kokpit setup` (new files only),
 accepted night proposals, the session card and receipts. It never edits, moves
 or deletes your notes, and refuses receipt text that looks like a key.
 
+Off by default: `night_model` sends vault excerpts to the host model you
+already use in Hermes. The `server` module reads disk, load, memory and
+temperature from the local system and runs `systemctl --user is-active <unit>`
+for the units you list in `server_units` (names are validated, no shell).
+
 Settings, vault layout, tools, hooks, the dashboard tab and the desktop pane:
 [docs/hermes-plugin.md](../../../docs/hermes-plugin.md). MIT license.
