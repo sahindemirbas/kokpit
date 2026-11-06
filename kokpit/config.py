@@ -114,6 +114,7 @@ chat_id = ""                  # the one chat the bot answers; every other chat i
 morning_time = "07:30"        # used by `kokpit bot poll` to send the morning line once a day; cron can use the bot-morning job instead
 poll_timeout = 25             # long poll seconds for `kokpit bot poll` (1 to 50)
 remind_hours = 24             # job bot-instagram-remind: remind about Instagram slots due within this many hours (1 to 168)
+# plain_text = "off"          # "journal" or "note": plain messages from the allowed chat are captured that way
 
 [model]                       # optional model connection, OFF. The key is read from the environment, never from this file
 enabled = false
@@ -185,6 +186,7 @@ podcast = false               # text of the two-voice Briefing podcast ([briefin
 [brain]
 vault_path = "{vault}"        # Markdown folder; a starter structure is created if it is empty
 quick_capture = true          # allow appending a note or task from the dashboard
+# journal_dir = "daily"       # bot /journal lines go to <journal_dir>/YYYY-MM-DD.md (append-only)
 meetings_write = true         # false: Brain > Meetings is read-only (saving answers 403)
 # [[brain.meetings]]          # a note whose question lists you answer on the Brain > Meetings screen
 # id = "garden-timer-review"  # [a-z0-9-], unique
@@ -208,6 +210,7 @@ class Config:
     modules: dict[str, bool] = field(default_factory=lambda: {"today": True, "brain": True, "health": True})
     vault_path: Path = Path("data/vault")
     quick_capture: bool = True
+    journal_dir: str = "daily"
     meetings_write: bool = True
     meetings: list[dict] = field(default_factory=list, repr=False)
     db_path: Path = Path("data/kokpit.db")
@@ -291,6 +294,7 @@ def load(path: str | Path) -> Config:
     brain = raw.get("brain", {})
     cfg.vault_path = Path(brain.get("vault_path", cfg.vault_path))
     cfg.quick_capture = bool(brain.get("quick_capture", True))
+    cfg.journal_dir = _rel_dir(brain.get("journal_dir"), "daily")
     cfg.meetings_write = bool(brain.get("meetings_write", True))
     cfg.meetings = _brain_meetings(brain.get("meetings", []), cfg)
     health = raw.get("health", {})
@@ -595,7 +599,21 @@ def _bot(a: dict) -> dict:
         "morning_time": f"{int(m.group(1)):02d}:{m.group(2)}" if m else "07:30",
         "poll_timeout": max(1, min(50, _int(a.get("poll_timeout"), 25))),
         "remind_hours": max(1, min(168, _int(a.get("remind_hours"), 24))),
+        "plain_text": pt if (pt := str(a.get("plain_text", "off")).strip().lower()) in PLAIN_TEXT else "off",
     }
+
+
+PLAIN_TEXT = ("off", "journal", "note")
+
+
+def _rel_dir(v, default: str) -> str:
+    """A folder relative to the vault; anything absolute, hidden or with '..' falls back to the default."""
+    v = str(v or "").strip()
+    parts = Path(v).parts
+    if not v or Path(v).is_absolute() or v.startswith(("/", "\\", "~")) or ".." in parts \
+            or any(x.startswith(".") for x in parts):
+        return default
+    return v.rstrip("/")
 
 
 def _str_list(v, default: list[str]) -> list[str]:

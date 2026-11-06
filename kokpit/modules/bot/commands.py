@@ -6,8 +6,13 @@ from datetime import datetime, timezone
 
 from ...config import Config
 
-HELP = ("Commands:\n/today  the morning line now\n/health  current warnings\n/plan  next Instagram slots\n/help  this list")
+HELP = ("Commands:\n/today  the morning line now\n/health  current warnings\n/plan  next Instagram slots\n"
+        "/note <text>  new note in the inbox\n/todo <text>  task under Open (due:YYYY-MM-DD optional)\n"
+        "/journal <text>  line in today's journal (also /j)\n/help  this list")
 UNKNOWN = "Unknown command. Send /help for the list."
+USAGE = {"/note": "Usage: /note <text>", "/todo": "Usage: /todo <text> (optional due:YYYY-MM-DD)",
+         "/journal": "Usage: /journal <text> (or /j <text>)"}
+CAPTURE = {"/note": "note", "/todo": "todo", "/journal": "journal", "/j": "journal"}
 
 
 def morning_line(cfg: Config, now: datetime | None = None) -> str:
@@ -81,8 +86,42 @@ def command(text: str) -> str:
     return cmd.split("@", 1)[0]
 
 
+def argument(text: str) -> str:
+    parts = (text or "").strip().split(maxsplit=1)
+    return parts[1].strip() if len(parts) > 1 else ""
+
+
+def capture(cfg: Config, kind: str, text: str, now: datetime | None = None) -> str:
+    """note | todo | journal through the brain capture writers (append-only). Errors come back as a short reply."""
+    from ..brain import capture as cap
+    usage = USAGE["/journal" if kind == "journal" else "/" + kind]
+    text = (text or "").strip()
+    if not text:
+        return usage
+    vault = cfg.vault
+    if not vault.is_dir():
+        return "Vault not found: set [brain] vault_path in kokpit.toml."
+    try:
+        if kind == "note":
+            p = cap.capture_note(vault, text, now)
+            return f"Saved: {p.relative_to(vault).as_posix()}"
+        if kind == "todo":
+            body, due = cap.split_due(text)
+            if not body:
+                return usage
+            return f"Added: {cap.capture_task(vault, body, due)}"
+        p, line = cap.capture_journal(vault, text, now, cfg.journal_dir)
+        return f"Journal {p.relative_to(vault).as_posix()}: {line}"
+    except ValueError as exc:
+        return f"Not saved: {exc}."
+    except OSError:
+        return "Not saved: the vault could not be written."
+
+
 def reply(cfg: Config, text: str) -> str:
     cmd = command(text)
+    if cmd in CAPTURE:
+        return capture(cfg, CAPTURE[cmd], argument(text))
     if cmd in ("/help", "/start"):
         return HELP
     if cmd == "/today":

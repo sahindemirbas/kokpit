@@ -71,6 +71,48 @@ def capture_task(vault: Path, text: str, due: str = "") -> str:
     return line
 
 
+def split_due(text: str) -> tuple[str, str]:
+    """``(text, due)`` from a line like ``call the printer due:2026-05-04``; the same ``due:`` form the reader parses."""
+    m = re.search(r"\(?\bdue:\s*(20\d\d-\d\d-\d\d)\)?", text or "", re.I)
+    if not m:
+        return " ".join((text or "").split()), ""
+    return " ".join((text[: m.start()] + " " + text[m.end():]).split()), m.group(1)
+
+
+def _inside(vault: Path, folder: str) -> Path:
+    base = Path(vault).resolve()
+    p = (base / folder).resolve()
+    if p != base and base not in p.parents:
+        raise ValueError("folder must stay inside the vault")
+    return p
+
+
+def capture_journal(vault: Path, text: str, now: datetime | None = None, folder: str = "daily") -> tuple[Path, str]:
+    """Append ``- HH:MM text`` to ``<folder>/YYYY-MM-DD.md``; the file starts with ``# YYYY-MM-DD`` when new.
+
+    Append-only: the existing bytes are kept as they are and one line is added at the end."""
+    text = " ".join((text or "").split())
+    if not text or len(text) > MAX_CHARS:
+        raise ValueError("journal line must be 1-2000 characters")
+    now = now or datetime.now()
+    d = _inside(vault, folder)
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / f"{now:%Y-%m-%d}.md"
+    line = f"- {now:%H:%M} {text}"
+    if p.exists():
+        with p.open("rb") as fh:  # only the last byte decides whether a newline goes first
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+            if size:
+                fh.seek(size - 1)
+            last = fh.read(1) if size else b"\n"
+        with p.open("a", encoding="utf-8") as fh:
+            fh.write(("" if last == b"\n" else "\n") + line + "\n")
+    else:
+        _atomic_write(p, f"# {now:%Y-%m-%d}\n\n{line}\n")
+    return p, line
+
+
 def complete_task(vault: Path, text: str) -> str:
     """Tick the first open task whose text matches (checkbox flipped in place, nothing else touched)."""
     from . import reader

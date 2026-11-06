@@ -45,7 +45,10 @@ def quick_capture(cfg: Config, kind: str, text: str, due: str = "") -> dict:
     if kind == "note":
         p = capture.capture_note(cfg.vault, text)
         return {"ok": True, "kind": "note", "path": str(p.relative_to(cfg.vault))}
-    raise ValueError("kind must be 'note' or 'task'")
+    if kind == "journal":
+        p, line = capture.capture_journal(cfg.vault, text, folder=cfg.journal_dir)
+        return {"ok": True, "kind": "journal", "path": p.relative_to(cfg.vault).as_posix(), "line": line}
+    raise ValueError("kind must be 'note', 'task' or 'journal'")
 
 
 def complete_task(cfg: Config, text: str) -> dict:

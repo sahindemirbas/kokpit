@@ -37,6 +37,10 @@ def handle_update(cfg: Config, conn, client, upd: dict) -> str:
             store.bump(conn, "foreign")
             return "foreign"
         text = str(msg.get("text") or "")
+        mode = cfg.bot.get("plain_text", "off")
+        if mode in ("journal", "note") and text.strip() and not text.lstrip().startswith("/"):
+            client.send_message(cid, commands.capture(cfg, mode, text))
+            return "handled"
         client.send_message(cid, commands.reply(cfg, text))
         if commands.command(text) == "/plan":
             instagram.send_ready_cards(cfg, conn, client, cid)
