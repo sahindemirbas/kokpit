@@ -132,13 +132,20 @@ def load_config(path: Path) -> dict:
 class Env:
     """Resolves settings into a mode (live or demo) plus vault and database paths."""
 
-    def __init__(self, get_config, data_dir: Path | None = None, llm=None):
+    def __init__(self, get_config, data_dir: Path | None = None, llm=None, set_config=None):
         self._get = get_config
         self._data_dir = data_dir
         self._durable = data_dir is not None  # False: no Hermes plugin data dir, night state goes to <vault>/.kokpit/
         self.llm = llm  # callable returning the host ctx.llm facade, or None
+        self.set_config = set_config  # host settings writer (ctx.set_config), or None on older Hermes
+        self._overrides: dict = {}  # values set by /kokpit setup in this process; they win over the config
+
+    def override(self, key: str, value) -> None:
+        self._overrides[key] = value
 
     def setting(self, key, default):
+        if key in self._overrides:
+            return self._overrides[key]
         try:
             v = self._get(key, default)
         except Exception:
@@ -257,6 +264,7 @@ class Env:
 
 
 DEMO_DATE = re.compile(r"\{\{([+-]\d+)\}\}")
+DEMO_HINT = "Demo data. Make it yours: /kokpit setup"
 DEMO_VERSION = "3"  # bump when demo/vault changes so an existing demo copy is refreshed
 
 
@@ -547,6 +555,10 @@ def parse_todo(text: str, today: date | None = None) -> list[dict]:
     return out
 
 
+# "- Next: ..." / "- Next step: ..." lines of a session card (rule card, card_model card, other agents)
+NEXT_LINE = re.compile(r"^\s*[-*]\s*Next(?: steps?)?\s*:\s*(.+?)\s*$", re.M | re.I)
+
+
 def parse_sessions(text: str, limit: int = 8) -> list[dict]:
     for h in EARLIER_HEADINGS:
         text = text.split(h, 1)[0]
@@ -556,8 +568,9 @@ def parse_sessions(text: str, limit: int = 8) -> list[dict]:
         parts = [p.strip() for p in head.split("·")]
         if len(parts) < 2:
             continue
+        nxt = [clean(m.group(1), 160) for m in NEXT_LINE.finditer(body)][:3]
         out.append({"at": parts[0], "title": clean(parts[1]), "session": parts[2] if len(parts) > 2 else "",
-                    "text": clean(body, 300)})
+                    "text": clean(body, 300), "next": nxt})
     return out[:limit]
 
 
@@ -743,7 +756,7 @@ def ambiguous(layout: dict | None, key: str) -> NotReady | None:
 def note_files(vault: Path, extra_dirs=()) -> list[Path]:
     vault = Path(vault)
     out = sorted(vault.glob("*.md"))
-    subs = [vault / "notes", vault / "inbox"] + [Path(d) for d in extra_dirs if d]
+    subs = [vault / "notes", vault / "inbox", vault / "sessions"] + [Path(d) for d in extra_dirs if d]
     seen = set()
     for sub in subs:
         try:
@@ -972,6 +985,22 @@ def write_receipt(vault: Path, event_id: str, summary: str, refs: list[str], ses
     return {"status": "succeeded", "path": rel_}
 
 
+SESSION_LINE_MAX = 400
+
+
+def append_session_log(vault: Path, line: str, now: datetime | None = None, folder: Path | None = None) -> str:
+    """One line per session in <vault>/sessions/YYYY-MM.md. Append-only: earlier lines are never rewritten."""
+    now = now or datetime.now()
+    folder = Path(folder) if folder is not None else Path(vault) / "sessions"
+    p = folder / f"{now:%Y-%m}.md"
+    line = "- " + clean(CONTROL.sub(" ", line), SESSION_LINE_MAX).lstrip("- ")
+    folder.mkdir(parents=True, exist_ok=True)
+    head = "" if p.exists() else f"# Sessions {now:%Y-%m}\n\nOne line per Hermes session, oldest first. Written by the kokpit plugin.\n\n"
+    with open(p, "a", encoding="utf-8", newline="") as f:
+        f.write(head + line + "\n")
+    return rel(vault, p)
+
+
 # ---------------------------------------------------------------- context block (mirrors brain/context.py priorities)
 
 def context_block(vault: Path, message, max_chars: int, today: date | None = None, full: bool = True,
@@ -993,6 +1022,9 @@ def context_block(vault: Path, message, max_chars: int, today: date | None = Non
     if v["sessions"]:
         s = v["sessions"][0]
         parts.append(f"## Last session\n- {s['at']} {s['title']}: {clean(s['text'], 240)}")
+        nxt = [(x["at"], n) for x in v["sessions"][:2] for n in x.get("next", [])][:4]
+        if nxt:
+            parts.append("## Next steps from recent sessions\n" + "\n".join(f"- {n} ({at})" for at, n in nxt))
     if v["upcoming"]:
         parts.append("## Upcoming\n" + "\n".join(f"- {u['date']}: {clean(u['text'], 100)} ({u['from']})"
                                                  for u in v["upcoming"][:6]))

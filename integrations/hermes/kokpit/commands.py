@@ -1,12 +1,15 @@
-"""/kokpit slash command: today, brain, health, capture (note, todo, journal) and night proposals.
+"""/kokpit slash command: setup, brief, today, brain, health, capture (note, todo, journal) and night proposals.
 
 Short plain text that reads well in the CLI and in every Hermes gateway, Telegram included."""
 from __future__ import annotations
 
 from . import contract as c
 from . import tools
+from . import vault_setup
 
 HELP = ("Kokpit commands:\n"
+        "/kokpit setup [path] - make your own vault (default ~/Kokpit) or adopt an existing one\n"
+        "/kokpit brief - morning brief: today, threads on you, night, next steps, news\n"
         "/kokpit today - calendar, tasks, weather and counts\n"
         "/kokpit brain - open threads and the last session card\n"
         "/kokpit brain <words> - search the vault\n"
@@ -170,10 +173,34 @@ USAGE = {"note": "/kokpit note <text>", "todo": "/kokpit todo <text> [due:YYYY-M
          "add": "/kokpit add <id>", "skip": "/kokpit skip <id>"}
 
 
+NO_HINT = {"setup", "help"}
+
+
+def _demo_mode(env: c.Env) -> bool:
+    try:
+        return env.state()["mode"] == "demo"
+    except Exception:
+        return False
+
+
 def run(env: c.Env, raw: str) -> str:
     parts = (raw or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else "help"
+    out = _run(env, raw)
+    if sub not in NO_HINT and sub in SUBS and c.DEMO_HINT not in out and _demo_mode(env):
+        out = out.rstrip() + "\n" + c.DEMO_HINT
+    return out
+
+
+def _run(env: c.Env, raw: str) -> str:
+    parts = (raw or "").strip().split(None, 1)
+    sub = parts[0].lower() if parts else "help"
     rest = parts[1].strip() if len(parts) > 1 else ""
+    if sub == "setup":
+        return vault_setup.text(vault_setup.run(env, rest))
+    if sub == "brief":
+        r = tools.run(env, "kokpit_today", {"brief": True})
+        return r["text"] if r["ok"] else _err(r)
     if sub in CAPTURE:
         if not rest:
             return f"Usage: {USAGE[sub]}"
@@ -210,6 +237,9 @@ def run(env: c.Env, raw: str) -> str:
     if sub == "help":
         return HELP
     return f"Unknown subcommand: {sub}\n" + HELP
+
+
+SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", *CAPTURE}
 
 
 def handler(env: c.Env):

@@ -112,6 +112,9 @@ def _latest_payload(conn, table: str, where: str = "") -> dict | None:
 
 def today(state: dict, args: dict) -> dict:
     _need(state, "today")
+    if args.get("brief") in (True, "true", "1", 1, "yes", "on"):
+        from . import brief as _brief  # brief builds on today(); imported here to keep the import graph flat
+        return {"brief": True, **_brief.build(state)}
     cfg, conn = state["cfg"], _db(state)
     out: dict[str, Any] = {"date": date.today().isoformat()}
     try:

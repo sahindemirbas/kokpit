@@ -15,7 +15,7 @@ TOOLSET = "kokpit"
 
 
 def _llm(ctx):
-    """The host LLM facade (ctx.llm) when this Hermes has one; only used when night_model is on."""
+    """The host LLM facade (ctx.llm) when this Hermes has one; only used when night_model or card_model is on."""
     def get():
         try:
             return ctx.llm
@@ -24,21 +24,42 @@ def _llm(ctx):
     return get
 
 
-def _cli_setup(parser):
+def _setter(ctx):
+    """ctx.set_config (plugins.entries.kokpit.settings.<key>, atomic, locked) when this Hermes has it."""
+    fn = getattr(ctx, "set_config", None)
+    return fn if callable(fn) else None
+
+
+def _night_setup(parser):
     parser.add_argument("action", nargs="?", default="run", choices=("run", "list"),
                         help="run: make a night pass (default); list: show open proposals")
 
 
-def _cli_handler(env: Env):
+def _setup_setup(parser):
+    parser.add_argument("path", nargs="?", default="", help="vault folder, default ~/Kokpit")
+
+
+def _no_args(parser):
+    return None
+
+
+def _cli(env: Env, raw):
     def handle(args):
-        raw = "night run" if getattr(args, "action", "run") == "run" else "night"
-        print(commands.run(env, raw))
+        print(commands.run(env, raw(args)))
         return 0
     return handle
 
 
+CLI = (("kokpit-night", "Kokpit night pass over the vault (rules only unless night_model is on)", _night_setup,
+        lambda a: "night run" if getattr(a, "action", "run") == "run" else "night"),
+       ("kokpit-setup", "Create or adopt your Kokpit vault and save it as the plugin's vault_path", _setup_setup,
+        lambda a: ("setup " + (getattr(a, "path", "") or "")).strip()),
+       ("kokpit-brief", "Print the Kokpit morning brief (plain text, for hermes cron --no-agent)", _no_args,
+        lambda a: "brief"))
+
+
 def register(ctx):
-    env = Env(lambda key, default=None: ctx.get_config(key, default=default), llm=_llm(ctx))
+    env = Env(lambda key, default=None: ctx.get_config(key, default=default), llm=_llm(ctx), set_config=_setter(ctx))
     for name, schema in schemas.ALL.items():
         ctx.register_tool(name=name, toolset=TOOLSET, schema=schema,
                           handler=tools.handler(env, name), description=schema["description"])
@@ -48,11 +69,11 @@ def register(ctx):
     ctx.register_hook("on_session_start", h.on_session_start)
     ctx.register_hook("on_session_finalize", h.on_session_finalize)
     ctx.register_hook("post_compaction", h.post_compaction)
-    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: today, brain, capture, night",
-                         args_hint="today|brain|note|todo|j|night|add|skip|health|help")
-    if hasattr(ctx, "register_cli_command"):  # `hermes kokpit-night` for cron or systemd; older Hermes: skipped
-        try:
-            ctx.register_cli_command("kokpit-night", "Kokpit night pass over the vault (rules only unless night_model is on)",
-                                     _cli_setup, _cli_handler(env))
-        except Exception:
-            pass
+    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, night",
+                         args_hint="setup|brief|today|brain|note|todo|j|night|add|skip|health|help")
+    if hasattr(ctx, "register_cli_command"):  # `hermes kokpit-night|kokpit-setup|kokpit-brief`; older Hermes: skipped
+        for name, help_, setup, raw in CLI:
+            try:
+                ctx.register_cli_command(name, help_, setup, _cli(env, raw))
+            except Exception:
+                pass

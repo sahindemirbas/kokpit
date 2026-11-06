@@ -1,8 +1,8 @@
 name: kokpit
-version: "0.3.0"
+version: "0.4.0"
 manifest_version: 2
 api_version: 1
-description: "Kokpit for Hermes: read your Kokpit day, brain vault, events, job listings, AI usage and job health (plus optional training-run and server status), capture notes, tasks and journal lines from any Hermes chat, get rule-based night proposals with quoted sources, and keep a session card."
+description: "Your own cockpit in Hermes: /kokpit setup makes a Markdown vault in one command, every session leaves a card and a log line any agent can read, capture notes and tasks from any chat, a night pass proposes next steps with quoted sources, and a morning brief. Optional Kokpit app data: calendar, jobs, events, news, AI usage, health."
 author: kokpit
 license: MIT
 requires_hermes: ">=0.22.0"
@@ -33,7 +33,7 @@ config_schema:
   vault_path:
     type: str
     default: ""
-    description: "Markdown vault. Empty: [brain] vault_path from kokpit.toml."
+    description: "Markdown vault. /kokpit setup writes this for you. Empty: [brain] vault_path from kokpit.toml."
   db_path:
     type: str
     default: ""
@@ -70,6 +70,14 @@ config_schema:
     type: bool
     default: true
     description: "Write a Last-Session card and a receipt into the vault when a session ends."
+  card_model:
+    type: bool
+    default: false
+    description: "Let the host model (ctx.llm) add up to 3 decisions and 3 next steps to the session card. Each must quote your own messages word for word or it is dropped; at most 6000 characters are sent. Off: rule card only."
+  session_log:
+    type: bool
+    default: true
+    description: "Also append one line per session to sessions/YYYY-MM.md in the vault (append-only history)."
   demo:
     type: str
     default: "auto"

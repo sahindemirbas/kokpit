@@ -1,17 +1,19 @@
-"""Hooks: brain context before a turn, a session card and a receipt when the session ends.
+"""Hooks: brain context before a turn; a session card, a receipt and a session log line when the session ends.
 
-No model calls and no network: the card is built from rules (which tools ran, which files
-were written, what the Threads file still lists as open).
+By default no model calls and no network: the card is built from rules (which tools ran, which files
+were written, what the Threads file still lists as open). With card_model on, the host ctx.llm adds
+decisions and next steps that must quote the user's own messages word for word (see card.py).
 """
 from __future__ import annotations
 
 import os
 import re
 import threading
-from collections import Counter
+from collections import Counter, deque
 from datetime import datetime
 from pathlib import Path
 
+from . import card as _card
 from . import contract as c
 from . import night as _night
 
@@ -26,6 +28,10 @@ SECRET = re.compile(r"\bs[k]-[A-Za-z0-9_-]{6,}|\bgh[p]_[A-Za-z0-9]{6,}|\bxox[abp
 def _short_path(p: str) -> str:
     home = os.path.expanduser("~")
     return "~" + p[len(home):] if home and p.startswith(home + os.sep) else p
+
+
+def _on(value) -> bool:
+    return str(value).strip().lower() not in ("false", "0", "off", "no", "")
 
 
 def _text(message) -> str:
@@ -54,7 +60,8 @@ class Hooks:
                 if len(self._s) >= MAX_SESSIONS:
                     self._s.pop(next(iter(self._s)))
                 s = self._s[sid] = {"turns": 0, "tools": Counter(), "files": [], "captured": [],
-                                    "first": "", "full_next": True, "started": datetime.now()}
+                                    "first": "", "full_next": True, "started": datetime.now(),
+                                    "msgs": deque(maxlen=_card.MSG_KEEP)}
             return s
 
     def _budget(self) -> int:
@@ -74,6 +81,8 @@ class Hooks:
                 s["turns"] += 1
                 if not s["first"] and text.strip():
                     s["first"] = text.strip()
+                if text.strip() and not SECRET.search(text):  # memory only, never on disk; key-like text never kept
+                    s["msgs"].append(text.strip()[:_card.MSG_MAX])
                 full = bool(is_first_turn) or s["full_next"]
                 s["full_next"] = False
             budget = self._budget()
@@ -99,6 +108,9 @@ class Hooks:
                 return None
             if state["mode"] == "demo":
                 block = block.replace("Kokpit brain context (read-only):", "Kokpit brain context (demo data, read-only):", 1)
+                if full:
+                    hint = "\n\n" + c.DEMO_HINT
+                    block = (block[: max(0, budget - len(hint))].rstrip() + hint) if len(hint) < budget else block
             return {"context": block}
         except c.NotReady:
             return None  # the tools explain the setup; a turn must never fail because of Kokpit
@@ -190,6 +202,29 @@ class Hooks:
         lines.append("- Written by the kokpit plugin without a model; edit it if the summary needs more.")
         return title, lines
 
+    def model_card(self, s: dict, title: str, lines: list[str]) -> tuple[list[str], dict]:
+        """card_model on: decisions and next steps quoted from the user's messages; rule card on any failure."""
+        try:
+            llm = self.env.llm() if callable(self.env.llm) else self.env.llm
+        except Exception:
+            llm = None
+        extra, info = _card.model_lines(llm, list(s.get("msgs") or ()))
+        extra = [x for x in extra if not SECRET.search(x)]
+        if not extra:
+            return lines, info
+        rule = [x for x in lines if not x.startswith("- Written by the kokpit plugin")]
+        note = (f"- Decisions and next steps by the host model, each quoted from your messages "
+                f"({info.get('rejected', 0)} unquoted lines rejected).")
+        return rule[:1] + extra + rule[1:] + [note], info
+
+    def log_line(self, s: dict, sid: str, title: str, lines: list[str], now: datetime) -> str:
+        tools = sum(s["tools"].values())
+        nxt = [m.group(1) for m in c.NEXT_LINE.finditer("\n".join(lines))][:1]
+        return (f"{now:%Y-%m-%d %H:%M} · {title} · {sid} · {s['turns']} turns, {tools} tool calls"
+                + (f", {len(s['files'])} files" if s["files"] else "")
+                + (f", captured {', '.join(s['captured'][:3])}" if s["captured"] else "")
+                + (f". Next: {nxt[0]}" if nxt else ""))
+
     def on_session_finalize(self, session_id=None, platform="", **_kw):
         sid = c.safe_session(session_id)
         if not sid:
@@ -199,8 +234,7 @@ class Hooks:
         if not s or s["turns"] == 0:
             return None
         try:
-            on = self.env.setting("session_card", True)
-            if str(on).strip().lower() in ("false", "0", "off", "no"):
+            if not _on(self.env.setting("session_card", True)):
                 return None
             state = self.env.state()
             if not state["cfg"]["modules"].get("brain", True):
@@ -214,13 +248,28 @@ class Hooks:
                                    "set plugins.entries.kokpit.settings.last_session_file."}
             card_path = layout["last_session"]["path"]
             title, lines = self.card_lines(s, Path(vault), layout)
-            card = c.write_card(vault, sid, title, lines, path=card_path)
+            info = {"model": "off"}
+            if _on(self.env.setting("card_model", False)):
+                lines, info = self.model_card(s, title, lines)
+            now = datetime.now()
+            card = c.write_card(vault, sid, title, lines, now=now, path=card_path)
             card_rel = c.rel(vault, card_path)
             rec = c.write_receipt(vault, f"hermes-session-{sid}", card, [card_rel, *s["captured"][:5]], sid,
                                   folder=layout["receipts"]["path"])
+            logged = ""
+            if _on(self.env.setting("session_log", True)):
+                try:
+                    logged = c.append_session_log(vault, self.log_line(s, sid, title, lines, now), now=now)
+                except OSError as e:
+                    logged = f"not written ({type(e).__name__})"
         except c.NotReady:
             return None
         except Exception as e:
             return {"message": f"Kokpit: session card not written ({type(e).__name__})."}
         where = "demo vault" if state["mode"] == "demo" else "vault"
-        return {"message": f"Kokpit: session card saved to {card_rel} in the {where} ({rec['path']})."}
+        msg = f"Kokpit: session card saved to {card_rel} in the {where} ({rec['path']})"
+        if logged:
+            msg += f"; session log {logged}"
+        if info.get("model") not in ("off", "on"):
+            msg += f"; card model {info['model']}, rule card used"
+        return {"message": msg + "."}

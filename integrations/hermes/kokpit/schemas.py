@@ -9,7 +9,8 @@ def _s(name, desc, props=None, required=None):
 
 _LIMIT = {"type": "integer", "description": "Maximum number of items."}
 ALL = {
-    "kokpit_today": _s("kokpit_today", "Kokpit Today: calendar, open tasks, weather, upcoming due dates, module counts and data freshness. Read-only."),
+    "kokpit_today": _s("kokpit_today", "Kokpit Today: calendar, open tasks, weather, upcoming due dates, module counts and data freshness. With brief=true: one plain-text morning brief (today, threads on you, night proposals, last session next steps, news matches), under 3500 characters. Read-only.",
+                       {"brief": {"type": "boolean", "description": "Return the morning brief as plain text instead of the structured view."}}),
     "kokpit_brain_search": _s("kokpit_brain_search", "Search the Kokpit brain vault (notes/, inbox/, top-level Markdown) by words. Returns vault-relative paths, titles, line numbers and snippets. Read-only.",
                               {"query": {"type": "string", "description": "Words to look for (case-insensitive)."},
                                "limit": {"type": "integer", "description": "Results, default 5, max 20."}}, ["query"]),
