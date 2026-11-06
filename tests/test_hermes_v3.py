@@ -359,6 +359,8 @@ class ReceiptTests(Base):
         self.assertNotIn("never shown", block)
         self.assertIn("## Latest receipt (historical agent claim, not verified)", block)
         self.assertIn("Relay ordered from the shop", block)
+        self.assertLess(block.index("## Latest receipt"), block.index("## Active threads"))  # cut last by the budget
+        self.assertNotIn("Harness", block)
         self.assertLessEqual(len(block), 1200)
         later = h.pre_llm_call(session_id="ctx", user_message="relay", is_first_turn=False)
         self.assertTrue(later is None or "Latest receipt" not in later["context"])

@@ -572,7 +572,7 @@ def parse_sessions(text: str, limit: int = 8) -> list[dict]:
             continue
         opens = [clean(m.group(1), 160) for m in OPEN_LINE.finditer(body)][:3]
         out.append({"at": parts[0], "title": clean(parts[1]), "session": parts[2] if len(parts) > 2 else "",
-                    "text": clean(body, 300), "open": opens})
+                    "text": clean(body, 300), "open": opens, "raw": body[:1200]})
     return out[:limit]
 
 
@@ -1032,6 +1032,17 @@ def context_block(vault: Path, message, max_chars: int, today: date | None = Non
         return ""
     v = read_vault(vault, today, layout) if full else {"threads": [], "sessions": [], "upcoming": []}
     parts = []
+    # the newest card and receipt come first: they are how the next session continues, so the budget cuts them last
+    if v["sessions"]:
+        s = v["sessions"][0]
+        body = re.sub(r"(?m)^\s*[-*]\s*(?:Open|Next(?: steps?)?|Harness)\b[^:\n]{0,40}:.*$", "", s.get("raw", s["text"]))
+        lines = [f"## Last session card (historical claim, not verified)\n- {s['at']} {s['title']}: {clean(body, 160)}"]
+        lines += [f"- open: {clean(o, 110)}" for o in s.get("open", [])[:3]]
+        parts.append("\n".join(lines))
+    if full:
+        r = latest_receipt(layout["receipts"]["path"] if layout else Path(vault) / "receipts")
+        if r:
+            parts.append(f"## Latest receipt (historical agent claim, not verified)\n- {r['at']}: {clean(r['line'], 160)}")
     if v["threads"]:
         lines = ["## Active threads"]
         for t in v["threads"][:6]:
@@ -1040,16 +1051,6 @@ def context_block(vault: Path, message, max_chars: int, today: date | None = Non
                 who = f"on {o['owner']}" + (f" ({o['note']})" if o.get("note") else "") + ": " if o["owner"] else ""
                 lines.append(f"  - {who}{clean(o['text'], 120)}")
         parts.append("\n".join(lines))
-    if v["sessions"]:
-        s = v["sessions"][0]
-        body = re.sub(r"(?m)^\s*[-*]\s*(?:Open|Next(?: steps?)?)\b[^:\n]{0,40}:.*$", "", s.get("raw", s["text"]))
-        lines = [f"## Last session card (historical claim, not verified)\n- {s['at']} {s['title']}: {clean(body, 200)}"]
-        lines += [f"- open: {clean(o, 140)}" for o in s.get("open", [])[:3]]
-        parts.append("\n".join(lines))
-    if full:
-        r = latest_receipt(layout["receipts"]["path"] if layout else Path(vault) / "receipts")
-        if r:
-            parts.append(f"## Latest receipt (historical agent claim, not verified)\n- {r['at']}: {clean(r['line'], 200)}")
     if v["upcoming"]:
         parts.append("## Upcoming\n" + "\n".join(f"- {u['date']}: {clean(u['text'], 100)} ({u['from']})"
                                                  for u in v["upcoming"][:6]))
