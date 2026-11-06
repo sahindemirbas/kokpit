@@ -45,12 +45,78 @@ thread threads source sources where left demo check keep decide decision days ti
 things part parts using used use good better best first second new old line lines file files page pages
 kokpit vault inbox journal daily news idea ideas project projects
 """.split())
+# Turkish and Italian function words, pronouns, conjunctions and common verb forms. Without them a shared
+# "için" or "della" looks like a common topic. WORD only matches 4+ letters, so shorter words are left out.
+STOP |= set("""
+acaba ait ama ancak arada arasında artık aslında ayrıca aynı bana bazı bazen belki bende beni benim beri
+bile birçok biri birkaç birlikte biraz bizde bize bizi bizim böyle böylece bugün buna bunda bundan bunlar
+bunları bunu bunun burada buradan çoğu çünkü daha dahil defa değil değildir diğer diye dolayı dün eğer
+elbette etmek etti eder ediyor edildi edilir fakat falan gerek gerekli gibi göre güzel hala hâlâ halde hangi
+hatta hemen hepsi herkes herşey hiçbir için içinde ilgili ilk işte kadar kendi kendini kendisi kere kez
+lazım nasıl neden nedenle nerede niye olabilir olacak olan olarak oldu olduğu olduğunu olmak olmadı olmaz
+olsa olsun olur onda ondan onlar onları onun orada oysa öyle önce önemli sadece sana sende seni senin sonra
+sonunda şekilde şimdi şöyle şunu şunun şuan şey şeyi şeyler tamam tekrar tüm yani yapılacak yapıldı yapılır
+yapmak yaptı yarın yeni yine yoksa zaten adet büyük küçük eski kötü
+abbiamo adesso agli alla alle allo allora altra altre altri altro anche ancora anni anno avere avete aveva
+avevo bambini bene cioè come cosa cose così dagli dalla dalle dallo degli della delle dello dentro dopo dove
+ecco erano essere fanno fare faccio fatto fino giorni giorno ieri domani invece loro lungo meno mentre miei
+molta molte molti molto nella nelle nello negli niente nostra nostro nulla ogni oggi oltre perché però
+piuttosto più poco poi prima proprio quale quali quando quanto quasi quella quelle quelli quello questa
+queste questi questo quindi sarà sarebbe sempre senza siamo siete sono sopra sotto stata state stati stato
+stesso sugli sulla sulle sullo suoi tanto tutta tutte tutti tutto verso viene voglio volta vuole
+""".split())
+LINK_MAX_DF = 0.30  # a word in more than this share of the notes is too generic to suggest a link
+
+# Month names (Turkish, Italian, English), keyed without diacritics: "29 Ekim", "31 Eki", "5 Şubat 2026".
+_MONTHS = {}
+for _n, _names in enumerate((
+        "ocak oca gennaio gen january jan", "subat sub febbraio feb february",
+        "mart mar marzo march", "nisan nis aprile apr april", "mayis may maggio mag",
+        "haziran haz giugno giu june jun", "temmuz tem luglio lug july jul",
+        "agustos agu agosto ago august aug", "eylul eyl settembre set september sept sep",
+        "ekim eki ottobre ott october oct", "kasim kas novembre nov november",
+        "aralik ara dicembre dic december dec"), start=1):
+    for _w in _names.split():
+        _MONTHS[_w] = _n
+_ASCII = str.maketrans("çğıöşüâîûàèéìòù", "cgiosuaiuaeeiou")
+_DATE = re.compile(r"\b(20\d\d)-(\d\d)-(\d\d)\b"
+                   r"|\b(\d{1,2})\.?\s+([A-Za-zÇĞİÖŞÜçğıöşüâîûàèéìòù]{3,9})\.?(?:\s+(20\d\d)\b)?")
 
 
 # ---------------------------------------------------------------- small helpers
 
 def words(text: str) -> set[str]:
     return {w.casefold() for w in WORD.findall(text or "") if w.casefold() not in STOP}
+
+
+def find_dates(text: str, today: date) -> list[date]:
+    """Every date in text, in order: ISO (2026-10-29) or day + month name with an optional year
+    ("29 Ekim", "(31 Eki)", "29 Ekim 2026", "5 marzo", "3 May"). Without a year the current year is used,
+    or the previous one when that would put the date in the future."""
+    out = []
+    for m in _DATE.finditer(text or ""):
+        try:
+            if m.group(1):
+                out.append(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+                continue
+            month = _MONTHS.get(m.group(5).replace("İ", "i").casefold().translate(_ASCII))
+            if month is None:
+                continue
+            day = int(m.group(4))
+            if m.group(6):
+                out.append(date(int(m.group(6)), month, day))
+                continue
+            d = date(today.year, month, day)
+            out.append(d if d <= today else date(today.year - 1, month, day))
+        except ValueError:  # 31 Şubat, 2026-13-01
+            continue
+    return out
+
+
+def parse_date(text: str, today: date) -> date | None:
+    """The first date in text (see find_dates), or None."""
+    found = find_dates(text, today)
+    return found[0] if found else None
 
 
 def _id(kind: str, key: str, sources: list[dict]) -> str:
@@ -82,8 +148,14 @@ def _prop(kind: str, text: str, reason: str, sources: list[dict], key: str = "",
 
 # ---------------------------------------------------------------- reading the vault
 
-def raw_threads(text: str) -> list[dict]:
-    """Active threads with verbatim pieces: the heading, the open items as written, a date and the source link."""
+def raw_threads(text: str, today: date | None = None) -> list[dict]:
+    """Active threads with verbatim pieces: the heading, the open items as written, a date and the source link.
+
+    Splits blocks the same way as contract.parse_threads (its markers, _cut_at, OWNER and EMPTY_VALUES), so an
+    inline "Nerede kaldık: ... Açık: Sende: ...; Bende (30 Ekim): ... Kaynak: [[...]]" line is read like the
+    one-line-per-part form. Items keep their raw text so the quote can be found in Threads.md word for word.
+    The date is the latest date in the block that is not in the future (ISO or "29 Ekim"), as an ISO string."""
+    today = today or date.today()
     body = text
     for m in c.ACTIVE_HEADINGS:
         if m in body:
@@ -95,38 +167,28 @@ def raw_threads(text: str) -> list[dict]:
     for block in re.split(r"^### ", body, flags=re.M)[1:]:
         title, _, rest = block.partition("\n")
         title = title.strip()
-        items, source = [], ""
-        open_on = False
-        for line in rest.splitlines():
-            s = line.strip()
-            if any(s.startswith(m) for m in c.SOURCE_MARKERS):
-                link = c.WIKILINK.search(s)
-                source = link.group(1).strip() if link else source
-                open_on = False
+        _before, open_part = c._cut_at(rest, c.OPEN_MARKERS)
+        open_part, _ = c._cut_at(open_part, c.SOURCE_MARKERS)
+        _, src_part = c._cut_at(rest, c.SOURCE_MARKERS)
+        link = c.WIKILINK.search(src_part)
+        source = link.group(1).strip() if link else ""
+        items = []
+        for seg in re.split(r";|\n", open_part):
+            seg = seg.strip().rstrip(".").strip()
+            if len(seg) < 3:
                 continue
-            marker = next((m for m in c.OPEN_MARKERS if s.startswith(m)), None)
-            if marker:
-                open_on, s = True, s[len(marker):]
-            elif any(s.startswith(m) for m in c.STATUS_MARKERS):
-                open_on = False
-            if not open_on:
+            who = c.OWNER.match(seg)
+            txt = seg[who.end():] if who else seg
+            if txt.strip().rstrip(".").strip().casefold() in c.EMPTY_VALUES:
                 continue
-            for seg in s.split(";"):
-                seg = seg.strip().rstrip(".").strip()
-                if len(seg) < 3:
-                    continue
-                who = c.OWNER.match(seg)
-                txt = seg[who.end():] if who else seg
-                if txt.strip().rstrip(".").strip().casefold() in c.EMPTY_VALUES:
-                    continue
-                owner = ""
-                if who:
-                    g = (who.group(1) or who.group(2) or "").strip().lower()
-                    owner = {"sende": "you", "bende": "me", "başkası": "someone"}.get(g, g)
-                items.append({"quote": seg, "text": c.clean(txt, 200), "owner": owner})
-        d = c.ISO_DATE.search(rest)
+            owner = ""
+            if who:
+                g = (who.group(1) or who.group(2) or "").strip().lower()
+                owner = {"sende": "you", "bende": "me", "başkası": "someone"}.get(g, g)
+            items.append({"quote": seg, "text": c.clean(txt, 200), "owner": owner})
+        past = [d for d in find_dates(rest, today) if d <= today]
         out.append({"title": title, "heading": "### " + title, "items": items, "source": source,
-                    "date": d.group(1) if d else ""})
+                    "date": max(past).isoformat() if past else ""})
     return out
 
 
@@ -159,22 +221,19 @@ def _norm_task(s: str) -> str:
     return " ".join(re.sub(r"[^\w\s]", " ", s.casefold()).split())
 
 
-def _date_of(p: Path, text: str) -> date | None:
-    """The date of a news or inbox item: front matter date, then a date in the file name, then the file time."""
+def _date_of(p: Path, text: str, today: date | None = None) -> date | None:
+    """The date of a news or inbox item: front matter date, then a date in the file name, then the file time.
+    Dates go through parse_date, so "2026-10-29", "29 Ekim 2026" and "29 Ekim" all work."""
+    today = today or date.today()
     fm = re.match(r"\A---\n(.*?)\n---\n", text, re.S)
     if fm:
-        m = re.search(r"^(?:date|published|captured):\s*['\"]?(20\d\d-\d\d-\d\d)", fm.group(1), re.M)
-        if m:
-            try:
-                return date.fromisoformat(m.group(1))
-            except ValueError:
-                pass
-    m = c.ISO_DATE.search(p.name)
-    if m:
-        try:
-            return date.fromisoformat(m.group(1))
-        except ValueError:
-            pass
+        m = re.search(r"^(?:date|published|captured):\s*['\"]?([^'\"\n]+)", fm.group(1), re.M)
+        d = parse_date(m.group(1), today) if m else None
+        if d is not None:
+            return d
+    d = parse_date(p.name, today)
+    if d is not None:
+        return d
     try:
         return datetime.fromtimestamp(p.stat().st_mtime).date()
     except OSError:
@@ -208,7 +267,7 @@ class Vault:
         self.news_dir = self.root / self.cfg.get("news_dir", "news")
         self.threads_text = _read(self.paths["threads"]) if self.paths["threads"] else ""
         self.todo_text = _read(self.todo_path) if self.todo_path else ""
-        self.threads = raw_threads(self.threads_text)
+        self.threads = raw_threads(self.threads_text, today)
         self.todo = _todo_lines(self.todo_text, today)
         self._cache: dict[Path, str] = {}
         if self.paths["threads"] is not None:
@@ -300,10 +359,9 @@ def pass_todo(v: Vault) -> list[dict]:
 
 def _touched(v: Vault, t: dict) -> date | None:
     if t["date"]:
-        try:
-            return date.fromisoformat(t["date"])
-        except ValueError:
-            pass
+        d = parse_date(t["date"], v.today)
+        if d is not None:
+            return d
     note = v.resolve_link(t["source"])
     if note is not None:
         try:
@@ -354,7 +412,9 @@ def pass_link(v: Vault) -> list[dict]:
     for _p, _t, w in docs:
         for x in w:
             df[x] += 1
-    limit = max(2, int(0.02 * len(docs)))
+    # Rare words carry the topic: at most 2% of the notes (2 minimum, so a pair can always share a word), and
+    # never more than LINK_MAX_DF of a larger vault, so a word every other note uses cannot make a link.
+    limit = max(2, min(int(0.02 * len(docs)), int(LINK_MAX_DF * len(docs))))
     index = defaultdict(list)
     strong = []
     for i, (_p, _t, w) in enumerate(docs):
@@ -397,7 +457,7 @@ def vault_news(v: Vault) -> list[dict]:
     items = []
     for p in sorted(v.news_dir.rglob("*.md"))[:500]:
         txt = v.text(p)
-        d = _date_of(p, txt)
+        d = _date_of(p, txt, v.today)
         if d is None or d < since:
             continue
         title, quote = _title_of(p, txt)
@@ -468,14 +528,14 @@ def recent_items(v: Vault, news: list[dict]) -> list[dict]:
     if v.inbox and Path(v.inbox).is_dir():
         for p in sorted(Path(v.inbox).rglob("*.md"))[-200:]:
             txt = v.text(p)
-            d = _date_of(p, txt)
+            d = _date_of(p, txt, v.today)
             if d is not None and d >= since:
                 title, quote = _title_of(p, txt)
                 if quote:
                     out.append({"path": v.rel(p), "title": title, "quote": quote, "text": txt})
     if v.journal_dir.is_dir():
         for p in sorted(v.journal_dir.glob("20??-??-??*.md"))[-int(v.cfg.get("news_days", 2)) - 1:]:
-            d = _date_of(p, "")
+            d = _date_of(p, "", v.today)
             if d is None or d < since:
                 continue
             for line in v.text(p).splitlines():

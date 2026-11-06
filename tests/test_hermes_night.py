@@ -552,6 +552,90 @@ class NightModel(NightBase):
         self.assertTrue(r["model"].startswith("unavailable"))
 
 
+class NightTurkish(NightBase):
+    THREADS_TR = """## Active Threads
+
+### Su pompası
+Nerede kaldık (29 Ekim): pompa sesi azaldı. Açık: Sende: yeni conta sipariş et; Bende (30 Ekim): basınç ölçümünü tekrarla; Başkası: servis teklif verecek. Kaynak: [[notes/pond-pump]].
+
+### Boş thread
+Nerede kaldık: bekliyor. Açık: Sende: yok; Bende: yok. Kaynak: [[notes/bread]].
+"""
+
+    def test_inline_acik_thread_gives_todo_items(self):
+        ts = N.raw_threads(self.THREADS_TR, date(2026, 11, 6))
+        self.assertEqual([t["title"] for t in ts], ["Su pompası", "Boş thread"])
+        items = ts[0]["items"]
+        self.assertEqual([(i["owner"], i["text"]) for i in items],
+                         [("you", "yeni conta sipariş et"), ("me", "basınç ölçümünü tekrarla"),
+                          ("someone", "servis teklif verecek")])
+        self.assertEqual(items[1]["quote"], "Bende (30 Ekim): basınç ölçümünü tekrarla")
+        self.assertIn(items[1]["quote"], self.THREADS_TR)  # verbatim
+        self.assertEqual(ts[0]["source"], "notes/pond-pump")
+        self.assertEqual(ts[0]["date"], "2026-10-30")
+        self.assertEqual(ts[1]["items"], [])
+        (self.vault / "Threads.md").write_text(self.THREADS_TR, encoding="utf-8")
+        env = self.nenv()
+        self.cmd(env, "night run")
+        texts = [p["text"] for p in self.props(env, "todo")]
+        self.assertIn("Add to To-Do: yeni conta sipariş et (Su pompası)", texts)
+        self.assertIn("Add to To-Do: basınç ölçümünü tekrarla (Su pompası)", texts)
+        self.assertFalse(any("servis" in t for t in texts))  # someone else's item
+
+    def test_turkish_dates(self):
+        today = date(2026, 11, 6)
+        self.assertEqual(N.parse_date("Nerede kaldık (29 Ekim): x", today), date(2026, 10, 29))
+        self.assertEqual(N.parse_date("29 Ekim 2025", today), date(2025, 10, 29))
+        self.assertEqual(N.parse_date("(31 Eki)", today), date(2026, 10, 31))
+        for s in ("5 Şubat", "5 subat", "5 ŞUBAT"):
+            self.assertEqual(N.parse_date(s, today), date(2026, 2, 5), s)
+        self.assertEqual(N.parse_date("3 Ağustos", today), N.parse_date("3 Agustos", today))
+        self.assertEqual(N.parse_date("12 Kasım", date(2026, 11, 20)), date(2026, 11, 12))
+        self.assertEqual(N.parse_date("1 Aralik", today), date(2025, 12, 1))  # future: previous year
+        self.assertEqual(N.parse_date("7 novembre", today), date(2025, 11, 7))
+        self.assertEqual(N.parse_date("6 November", today), date(2026, 11, 6))
+        self.assertEqual(N.parse_date("2026-10-29", today), date(2026, 10, 29))
+        self.assertIsNone(N.parse_date("31 Şubat", today))
+        self.assertIsNone(N.parse_date("12 adet", today))
+
+    def test_stale_thread_from_turkish_date(self):
+        old = D - timedelta(days=20)
+        months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim",
+                  "Kasım", "Aralık"]
+        text = (f"## Active Threads\n\n### Ekmek\nNerede kaldık ({old.day} {months[old.month - 1]}): maya canlandı. "
+                f"Açık: Bende: çavdar unuyla deneme ekmeği pişir. Kaynak: [[notes/bread]].\n")
+        (self.vault / "Threads.md").write_text(text, encoding="utf-8")
+        env = self.nenv()
+        self.cmd(env, "night run")
+        imp = self.props(env, "improve")
+        self.assertEqual(len(imp), 1)
+        self.assertIn("Ekmek has not moved for 20 days", imp[0]["text"])
+
+    def test_tr_it_stop_words_never_link_reason(self):
+        for w in ("bizim", "için", "olan", "sonra", "adet", "cosa", "della", "sono"):
+            self.assertNotIn(w, N.words(w.capitalize()), w)
+        notes = self.vault / "notes"
+        notes.joinpath("tr-a.md").write_text("# A\n\nBizim için olan sonra adet şekilde gerekli.\n", encoding="utf-8")
+        notes.joinpath("tr-b.md").write_text("# B\n\nBizim için olan sonra adet şekilde gerekli.\n", encoding="utf-8")
+        notes.joinpath("it-a.md").write_text("# C\n\nCosa della sono anche quando sempre.\n", encoding="utf-8")
+        notes.joinpath("it-b.md").write_text("# D\n\nCosa della sono anche quando sempre.\n", encoding="utf-8")
+        env = self.nenv()
+        self.cmd(env, "night run")
+        for p in self.props(env, "link"):
+            paths = {s["path"] for s in p["sources"]}
+            self.assertFalse(paths & {"notes/tr-a.md", "notes/tr-b.md", "notes/it-a.md", "notes/it-b.md"}, p)
+
+    def test_generic_word_cut_by_document_frequency(self):
+        notes = self.vault / "notes"
+        for i in range(30):
+            notes.joinpath(f"n{i}.md").write_text(f"# Note {i}\n\nfrobnik quuxal zibber topic{i}\n",
+                                                  encoding="utf-8")
+        env = self.nenv()
+        self.cmd(env, "night run")
+        for p in self.props(env, "link"):
+            self.assertFalse({"frobnik", "quuxal", "zibber"} & set(p["words"]), p)
+
+
 class DemoNight(Base):
     def test_demo_vault_produces_every_kind(self):
         env = self.env(demo="on")
