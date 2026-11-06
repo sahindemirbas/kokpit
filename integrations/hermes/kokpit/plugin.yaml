@@ -1,8 +1,8 @@
 name: kokpit
-version: "0.2.1"
+version: "0.3.0"
 manifest_version: 2
 api_version: 1
-description: "Kokpit for Hermes: read your Kokpit day, brain vault, events, job listings, AI usage and job health (plus optional training-run and server status), capture notes and tasks, and keep a session card."
+description: "Kokpit for Hermes: read your Kokpit day, brain vault, events, job listings, AI usage and job health (plus optional training-run and server status), capture notes, tasks and journal lines from any Hermes chat, get rule-based night proposals with quoted sources, and keep a session card."
 author: kokpit
 license: MIT
 requires_hermes: ">=0.22.0"
@@ -18,9 +18,11 @@ provides_tools:
   - kokpit_health
   - kokpit_training
   - kokpit_server
+  - kokpit_night
 provides_hooks:
   - pre_llm_call
   - post_tool_call
+  - on_session_start
   - on_session_finalize
   - post_compaction
 config_schema:
@@ -96,3 +98,27 @@ config_schema:
     type: list
     default: []
     description: "systemd --user units to check with systemctl --user is-active (names are validated)."
+  journal_dir:
+    type: str
+    default: "daily"
+    description: "Vault folder for journal lines (/kokpit j, kokpit_capture kind journal): one YYYY-MM-DD.md per day."
+  news_dir:
+    type: str
+    default: "news"
+    description: "Vault folder of Markdown news items the night pass matches to projects when the Kokpit database has no briefing table."
+  stale_days:
+    type: int
+    default: 7
+    description: "Days without a change before the night pass proposes a next step for a thread."
+  news_days:
+    type: int
+    default: 2
+    description: "How many days back the night pass looks at news items, inbox notes and journal lines."
+  night_auto:
+    type: bool
+    default: false
+    description: "Run the night pass in the background when a session starts, at most once every 20 hours."
+  night_model:
+    type: bool
+    default: false
+    description: "Also ask the host model (ctx.llm) for proposals. Off by default; every model proposal must quote a real vault file word for word or it is dropped."

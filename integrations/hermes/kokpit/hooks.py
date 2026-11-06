@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import contract as c
+from . import night as _night
 
 WRITE_TOOLS = {"write_file", "patch", "kokpit_capture"}
 PATH_KEYS = ("path", "file_path", "filename", "target_file")
@@ -40,6 +41,8 @@ class Hooks:
         self.env = env
         self._lock = threading.Lock()
         self._s: dict[str, dict] = {}
+        self._night_running = False
+        self.last_auto: threading.Thread | None = None
 
     # ------------------------------------------------------------ per-session state
 
@@ -79,7 +82,19 @@ class Hooks:
             state = self.env.state()
             if not state["cfg"]["modules"].get("brain", True) or state["vault"] is None:
                 return None
-            block = c.context_block(state["vault"], text, budget, full=full, layout=state.get("layout"))
+            night = ""
+            if full:
+                try:
+                    night = _night.brain_line(state.get("night_store"))
+                except Exception:
+                    night = ""
+            if night and len(night) + 2 > budget:
+                night = ""
+            room = budget - (len(night) + 2 if night else 0)
+            block = c.context_block(state["vault"], text, room, full=full, layout=state.get("layout"))
+            if night:
+                block = (block + "\n\n" + night) if block else "Kokpit brain context (read-only):\n" + night
+                block = block[:budget]
             if not block:
                 return None
             if state["mode"] == "demo":
@@ -89,6 +104,39 @@ class Hooks:
             return None  # the tools explain the setup; a turn must never fail because of Kokpit
         except Exception:
             return None
+
+    # ------------------------------------------------------------ on_session_start: optional night auto-run
+
+    def on_session_start(self, session_id=None, **_kw):
+        """With night_auto on, run the night pass in the background at most once per 20 hours."""
+        try:
+            state = self.env.state()
+            if not (state["cfg"].get("night") or {}).get("night_auto"):
+                return None
+            if not state["cfg"]["modules"].get("brain", True) or state["vault"] is None:
+                return None
+            if not _night.due_for_auto(state.get("night_store")):
+                return None
+            with self._lock:
+                if self._night_running:
+                    return None
+                self._night_running = True
+
+            def work():
+                try:
+                    _night.run(state)
+                except Exception:
+                    pass  # a failed background pass shows up as an old last run in /kokpit night
+                finally:
+                    with self._lock:
+                        self._night_running = False
+
+            t = threading.Thread(target=work, name="kokpit-night", daemon=True)
+            t.start()
+            self.last_auto = t
+        except Exception:
+            return None
+        return None
 
     # ------------------------------------------------------------ post_tool_call
 
@@ -102,7 +150,7 @@ class Hooks:
                         v = args.get(k)
                         if isinstance(v, str) and v and len(s["files"]) < 200 and v not in s["files"]:
                             s["files"].append(v)
-                if tool_name == "kokpit_capture" and isinstance(result, str) and '"ok": true' in result:
+                if tool_name in ("kokpit_capture", "kokpit_night") and isinstance(result, str) and '"ok": true' in result:
                     m = re.search(r'"written": "([^"]+)"', result)
                     if m and m.group(1) not in s["captured"]:
                         s["captured"].append(m.group(1))

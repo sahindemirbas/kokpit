@@ -2,7 +2,8 @@
 
 Shape: {"ok": true, "mode": "live"|"demo", ...} or {"ok": false, "error": ..., "fix": ...}.
 Missing data is said out loud ("never run", "unknown", "no database yet"), never filled in.
-Only kokpit_capture writes, and only inside the vault.
+Only kokpit_capture writes to the vault on its own. kokpit_night stores proposals outside the notes and,
+on an explicit accept, writes through the same append-only capture writers (To-Do line or new ideas/ file).
 """
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from . import contract as c
+from . import night as _night
 from . import server as _server
 from . import training as _training
 
@@ -203,8 +205,12 @@ def capture(state: dict, args: dict) -> dict:
                 raise err
             line = c.capture_task(vault, text, str(args.get("due") or "").strip(), path=lay["todo"]["path"])
             return {"written": c.rel(vault, lay["todo"]["path"]), "kind": "task", "line": line}
+        if kind == "journal":
+            folder = (state["cfg"].get("night") or {}).get("journal_dir", "daily")
+            p, line = c.capture_journal(vault, text, folder=folder)
+            return {"written": c.rel(vault, p), "kind": "journal", "line": line}
         if kind != "note":
-            raise ValueError("kind must be note or task")
+            raise ValueError("kind must be note, task or journal")
         p = c.capture_note(vault, text, inbox=lay["inbox"]["path"])
     except ValueError as e:
         raise c.NotReady(str(e), "shorten or fix the text and try again")
@@ -457,10 +463,28 @@ def server(state: dict, args: dict) -> dict:
     return _server.status(cfg.get("server_paths") or ["/"], cfg.get("server_units") or [])
 
 
+def night(state: dict, args: dict) -> dict:
+    """List night proposals, run the pass, or accept / dismiss one."""
+    _need(state, "brain")
+    action = str(args.get("action") or "list").strip().lower()
+    if action == "run":
+        _vault(state)
+        return {"action": "run", **_night.run(state)}
+    if action in ("accept", "dismiss"):
+        _vault(state)
+        return {"action": action, **_night.decide(state, str(args.get("id") or ""), action)}
+    if action != "list":
+        raise c.NotReady("action must be list, run, accept or dismiss", "use action=list to see open proposals")
+    kind = str(args.get("kind") or "").strip().lower()
+    if kind and kind not in _night.KINDS:
+        raise c.NotReady(f"unknown kind {c.clean(kind, 20)}", "use one of " + ", ".join(_night.KINDS))
+    return {"action": "list", **_night.listing(state, kind, _int(args.get("limit"), 10, 1, 50))}
+
+
 TOOLS = {"kokpit_today": today, "kokpit_brain_search": brain_search, "kokpit_threads": threads,
          "kokpit_capture": capture, "kokpit_events": events, "kokpit_jobs": jobs,
          "kokpit_ai_usage": ai_usage, "kokpit_health": health,
-         "kokpit_training": training, "kokpit_server": server}
+         "kokpit_training": training, "kokpit_server": server, "kokpit_night": night}
 
 
 def run(env: c.Env, name: str, args) -> dict:
@@ -490,7 +514,8 @@ def run(env: c.Env, name: str, args) -> dict:
 # The panels render exactly these tool results; nothing is computed twice.
 OVERVIEW = (("today", "kokpit_today", {}), ("threads", "kokpit_threads", {}), ("health", "kokpit_health", {}),
             ("ai_usage", "kokpit_ai_usage", {"days": 7}), ("events", "kokpit_events", {"days": 7, "limit": 5}),
-            ("jobs", "kokpit_jobs", {"limit": 5}), ("training", "kokpit_training", {}), ("server", "kokpit_server", {}))
+            ("jobs", "kokpit_jobs", {"limit": 5}), ("training", "kokpit_training", {}), ("server", "kokpit_server", {}),
+            ("night", "kokpit_night", {"limit": 3}))
 MODULE_TOOLS = {"today": "kokpit_today", "brain": "kokpit_threads", "health": "kokpit_health",
                 "events": "kokpit_events", "jobs": "kokpit_jobs", "ai_usage": "kokpit_ai_usage",
                 "training": "kokpit_training", "server": "kokpit_server"}

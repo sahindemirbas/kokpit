@@ -12,6 +12,11 @@ Where we left off ({{-2}}): finished unit 7 (passato prossimo); 12 new verbs add
 Open: on you: 20 minutes of flashcards before the lesson on {{+3}}.
 Source: [[notes/italian]]
 
+### Balcony herb garden
+Where we left off ({{-12}}): basil and mint moved to the balcony planters; the mint is spreading.
+Open: on me: repot the basil into the big terracotta pot; on you: pick a drip kit for the balcony planters.
+Source: [[notes/balcony-herbs]]
+
 ### Kokpit demo vault
 Where we left off ({{+0}}): this vault is synthetic sample data shipped for screenshots.
 Open: on you: nothing, it is only a demo.

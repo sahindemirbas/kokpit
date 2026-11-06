@@ -1,4 +1,6 @@
-"""/kokpit slash command: today | brain | health | help. Short plain text that reads well in Telegram."""
+"""/kokpit slash command: today, brain, health, capture (note, todo, journal) and night proposals.
+
+Short plain text that reads well in the CLI and in every Hermes gateway, Telegram included."""
 from __future__ import annotations
 
 from . import contract as c
@@ -8,6 +10,11 @@ HELP = ("Kokpit commands:\n"
         "/kokpit today - calendar, tasks, weather and counts\n"
         "/kokpit brain - open threads and the last session card\n"
         "/kokpit brain <words> - search the vault\n"
+        "/kokpit note <text> - new note in inbox/\n"
+        "/kokpit todo <text> [due:YYYY-MM-DD] - task in To-Do.md\n"
+        "/kokpit j <text> - journal line in today's daily note (also: journal)\n"
+        "/kokpit night - open night proposals (night run: make a new pass)\n"
+        "/kokpit add <id> - accept a proposal; /kokpit skip <id> - dismiss it\n"
         "/kokpit health - Kokpit jobs: failed, 0 records, never run\n"
         "/kokpit help - this list")
 
@@ -95,10 +102,100 @@ def health_text(r: dict) -> str:
     return "\n".join(lines)
 
 
+def capture_text(r: dict) -> str:
+    if r["kind"] == "note":
+        return f"Saved note: {r['written']}{_demo(r)}"
+    return f"Added to {r['written']}{_demo(r)}: {r['line']}"
+
+
+ICON = {"todo": "todo", "improve": "next", "link": "link", "idea": "idea", "news": "news"}
+
+
+def _counts(open_: dict) -> str:
+    parts = [f"{n} {k}" for k, n in open_.items() if n]
+    return ", ".join(parts) if parts else "nothing open"
+
+
+def night_run_text(r: dict) -> str:
+    g = r["generated"]
+    lines = [f"Night pass done{_demo(r)} in {r['seconds']} s. Notes were not changed.",
+             "Found: " + ", ".join(f"{g[k]} {k}" for k in g) + f" ({r['new']} new)"]
+    news = r.get("news") or {}
+    lines.append(f"News source: {news.get('source', 'unknown')}"
+                 + (f", {news['matched']} of {news['items']} items matched a project" if news.get("items") else ""))
+    if r.get("model") and r["model"] != "off":
+        m = r["model"]
+        if m == "on":
+            m = f"on, {r.get('model_kept', 0)} kept, {r.get('model_rejected', 0)} rejected by the checks"
+        lines.append(f"Model: {m}")
+    lines.append(f"Open now: {_counts(r['open'])}. See them with /kokpit night")
+    return "\n".join(lines)
+
+
+def _src(s: dict) -> str:
+    q = s["quote"] if len(s["quote"]) <= 90 else s["quote"][:87] + "..."
+    return f"{s.get('path') or s.get('item')}: \"{q}\""
+
+
+def night_list_text(r: dict) -> str:
+    if r["last_run"] == "never":
+        return f"No night pass yet{_demo(r)}. Run one with /kokpit night run"
+    lines = [f"Night proposals, last run {r['last_run'].replace('T', ' ')[:16]}{_demo(r)}: {_counts(r['open'])}"]
+    for p in r["proposals"]:
+        lines.append(f"[{p['short']}] {ICON.get(p['kind'], p['kind'])}: {p['text']}")
+        if p["sources"]:
+            lines.append(f"    from {_src(p['sources'][0])}")
+    if not r["proposals"]:
+        lines.append("Nothing open. Run /kokpit night run again later.")
+    else:
+        lines.append("Accept: /kokpit add <id>   Dismiss: /kokpit skip <id>")
+    app = r.get("kokpit_app") or []
+    if app:
+        lines.append(f"From the Kokpit app organiser ({len(app)} open, review them in Kokpit):")
+        lines += [f"- {a['kind']}: {a['text']}" for a in app[:3]]
+    return "\n".join(lines)
+
+
+def decide_text(r: dict) -> str:
+    if r["status"] == "dismissed":
+        return f"Dismissed [{r['id'][:6]}]: {r['text']}. It will not come back."
+    if r.get("written"):
+        return f"Accepted [{r['id'][:6]}]. Wrote {r['written']}" + (f": {r['line']}" if r.get("line") else "")
+    return f"Accepted [{r['id'][:6]}]: {r['text']}" + (f" ({r['line']})" if r.get("line") else ". Marked done.")
+
+
+CAPTURE = {"note": "note", "todo": "task", "j": "journal", "journal": "journal"}
+USAGE = {"note": "/kokpit note <text>", "todo": "/kokpit todo <text> [due:YYYY-MM-DD]",
+         "j": "/kokpit j <text>", "journal": "/kokpit journal <text>",
+         "add": "/kokpit add <id>", "skip": "/kokpit skip <id>"}
+
+
 def run(env: c.Env, raw: str) -> str:
     parts = (raw or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else "help"
     rest = parts[1].strip() if len(parts) > 1 else ""
+    if sub in CAPTURE:
+        if not rest:
+            return f"Usage: {USAGE[sub]}"
+        args = {"kind": CAPTURE[sub], "text": rest}
+        if sub == "todo":
+            args["text"], args["due"] = c.split_due(rest)
+            if not args["text"]:
+                return f"Usage: {USAGE[sub]}"
+        r = tools.run(env, "kokpit_capture", args)
+        return capture_text(r) if r["ok"] else _err(r)
+    if sub == "night":
+        if rest.lower() == "run":
+            r = tools.run(env, "kokpit_night", {"action": "run"})
+            return night_run_text(r) if r["ok"] else _err(r)
+        kind = rest.lower()
+        r = tools.run(env, "kokpit_night", {"action": "list", "limit": 5, **({"kind": kind} if kind else {})})
+        return night_list_text(r) if r["ok"] else _err(r)
+    if sub in ("add", "skip"):
+        if not rest:
+            return f"Usage: {USAGE[sub]}"
+        r = tools.run(env, "kokpit_night", {"action": "accept" if sub == "add" else "dismiss", "id": rest.split()[0]})
+        return decide_text(r) if r["ok"] else _err(r)
     if sub == "today":
         r = tools.run(env, "kokpit_today", {})
         return today_text(r) if r["ok"] else _err(r)

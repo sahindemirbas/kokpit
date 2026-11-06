@@ -6,6 +6,7 @@
 - [ ] Renew library card (due: {{+16}})
 - [ ] Sort the inbox notes
 - [ ] Order drip emitters for the north bed
+- [ ] Return the borrowed hedge trimmer (due: {{-2}})
 
 ## Done
 - [x] Replace rear brake pads

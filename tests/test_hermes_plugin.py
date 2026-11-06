@@ -148,18 +148,20 @@ class Registration(unittest.TestCase):
         tools = [l.strip()[2:] for l in manifest.split("provides_tools:")[1].split("provides_hooks:")[0].splitlines() if l.strip()]
         hooks = [l.strip()[2:] for l in manifest.split("provides_hooks:")[1].split("config_schema:")[0].splitlines() if l.strip()]
         self.assertEqual(sorted(ctx.tools), sorted(tools))
-        self.assertEqual(len(ctx.tools), 10)
+        self.assertEqual(len(ctx.tools), 11)
         self.assertEqual(sorted(ctx.hooks), sorted(hooks))
         self.assertEqual(list(ctx.commands), ["kokpit"])
         self.assertTrue(all(t["toolset"] == "kokpit" for t in ctx.tools.values()))
-        self.assertIn('version: "0.2.1"', manifest)
+        self.assertIn('version: "0.3.0"', manifest)
         for name, t in ctx.tools.items():
             self.assertEqual(t["schema"]["name"], name)
             self.assertEqual(t["schema"]["parameters"]["type"], "object")
 
     def test_only_capture_writes(self):
         writers = [n for n, s in P.schemas.ALL.items() if "append" in s["description"].lower() or "write" in s["description"].lower()]
-        self.assertEqual(writers, ["kokpit_capture"])
+        # kokpit_night writes only when the user accepts a proposal, through the capture writers
+        self.assertEqual(writers, ["kokpit_capture", "kokpit_night"])
+        self.assertIn("accept", P.schemas.ALL["kokpit_night"]["description"].lower())
 
     def test_stdlib_only_no_network(self):
         banned = ("import requests", "urllib.request", "http.client", "socket", "subprocess", "sys.modules",

@@ -35,6 +35,12 @@ FIX_CONFIG = ("set plugins.entries.kokpit.settings.kokpit_config to your kokpit.
               "or run `python -m kokpit hermes setup`, or set demo: on")
 
 
+def night_store_path(data_dir: Path, vault: Path) -> Path:
+    """One night proposal file per vault inside the Hermes plugin data dir."""
+    key = hashlib.sha256(str(Path(vault).resolve()).encode("utf-8")).hexdigest()[:16]
+    return Path(data_dir) / "night" / f"{key}.json"
+
+
 class NotReady(Exception):
     def __init__(self, error: str, fix: str):
         super().__init__(error)
@@ -126,9 +132,11 @@ def load_config(path: Path) -> dict:
 class Env:
     """Resolves settings into a mode (live or demo) plus vault and database paths."""
 
-    def __init__(self, get_config, data_dir: Path | None = None):
+    def __init__(self, get_config, data_dir: Path | None = None, llm=None):
         self._get = get_config
         self._data_dir = data_dir
+        self._durable = data_dir is not None  # False: no Hermes plugin data dir, night state goes to <vault>/.kokpit/
+        self.llm = llm  # callable returning the host ctx.llm facade, or None
 
     def setting(self, key, default):
         try:
@@ -142,9 +150,27 @@ class Env:
             try:
                 from plugins.plugin_storage import plugin_data_dir
                 self._data_dir = Path(plugin_data_dir("kokpit"))
+                self._durable = True
             except Exception:
                 self._data_dir = Path(tempfile.gettempdir()) / "kokpit-hermes-plugin"
         return self._data_dir
+
+    def night_settings(self) -> dict:
+        return {"journal_dir": rel_dir(self.setting("journal_dir", "daily"), "daily"),
+                "news_dir": rel_dir(self.setting("news_dir", "news"), "news"),
+                "stale_days": int(as_num(self.setting("stale_days", 7), 7, 1, 365)),
+                "news_days": int(as_num(self.setting("news_days", 2), 2, 1, 60)),
+                "night_auto": as_bool(self.setting("night_auto", False)),
+                "night_model": as_bool(self.setting("night_model", False))}
+
+    def night_store(self, vault: Path | None) -> Path | None:
+        """Where night proposals live: the Hermes plugin data dir (one file per vault), else <vault>/.kokpit/night.json."""
+        if vault is None:
+            return None
+        base = self.data_dir()
+        if self._durable:
+            return night_store_path(base, vault)
+        return Path(vault) / ".kokpit" / "night.json"
 
     def layout_settings(self) -> dict:
         return {k: str(self.setting(k, "") or "") for k in LAYOUT_SETTINGS}
@@ -157,6 +183,10 @@ class Env:
         v = st["vault"]
         st["layout"] = resolve_layout(v, {} if st["mode"] == "demo" else self.layout_settings()) \
             if v is not None and Path(v).is_dir() else None
+        st["cfg"]["night"] = self.night_settings()
+        st["night_store"] = self.night_store(v)
+        if self.llm is not None:
+            st["llm"] = self.llm
         return st
 
     def apply_module_settings(self, cfg: dict) -> None:
@@ -211,9 +241,11 @@ class Env:
     def demo(self) -> dict:
         root = self.data_dir() / "demo"
         vault, db = root / "vault", root / "demo.db"
-        if not vault.is_dir():
+        marker = root / ".demo-version"
+        if not vault.is_dir() or not marker.is_file() or read(marker).strip() != DEMO_VERSION:
             root.mkdir(parents=True, exist_ok=True)
             copy_demo_vault(vault)
+            marker.write_text(DEMO_VERSION + "\n", encoding="utf-8")
         if not db.is_file():
             build_demo_db(db)
         cfg = {"path": "", "modules": {k: True for k in MODULE_DEFAULTS}, "vault": vault, "quick_capture": True,
@@ -225,6 +257,7 @@ class Env:
 
 
 DEMO_DATE = re.compile(r"\{\{([+-]\d+)\}\}")
+DEMO_VERSION = "3"  # bump when demo/vault changes so an existing demo copy is refreshed
 
 
 def write_demo_training(folder: Path, now: float | None = None) -> list[Path]:
@@ -249,18 +282,21 @@ def write_demo_training(folder: Path, now: float | None = None) -> list[Path]:
 
 
 def copy_demo_vault(dest: Path, today: date | None = None) -> None:
-    """Copy demo/vault, turning {{+3}} into the date three days from today so the demo never looks stale."""
+    """Copy demo/vault, turning {{+3}} into the date three days from today so the demo never looks stale.
+    File names get the same treatment, so daily/{{+0}}.md becomes today's journal note."""
     today = today or date.today()
     src = DEMO_SRC / "vault"
+
+    def sub(s: str) -> str:
+        return DEMO_DATE.sub(lambda m: date.fromordinal(today.toordinal() + int(m.group(1))).isoformat(), s)
+
     for p in sorted(src.rglob("*")):
-        out = Path(dest) / p.relative_to(src)
+        out = Path(dest) / sub(p.relative_to(src).as_posix())
         if p.is_dir():
             out.mkdir(parents=True, exist_ok=True)
             continue
         out.parent.mkdir(parents=True, exist_ok=True)
-        text = DEMO_DATE.sub(lambda m: date.fromordinal(today.toordinal() + int(m.group(1))).isoformat(),
-                             p.read_text(encoding="utf-8"))
-        out.write_text(text, encoding="utf-8")
+        out.write_text(sub(p.read_text(encoding="utf-8")), encoding="utf-8")
 
 
 def build_demo_db(path: Path) -> None:
@@ -827,6 +863,73 @@ def capture_task(vault: Path, text: str, due: str = "", path: Path | None = None
         tail = tail.rstrip("\n") + "\n" + line + "\n"
     atomic_write(p, head + tail)
     return line
+
+
+def split_due(text: str) -> tuple[str, str]:
+    """(text, due) from a line like 'call the printer due:2026-05-04'; the due: form the To-Do reader parses."""
+    m = re.search(r"\(?\bdue:\s*(20\d\d-\d\d-\d\d)\)?", text or "", re.I)
+    if not m:
+        return " ".join((text or "").split()), ""
+    return " ".join((text[: m.start()] + " " + text[m.end():]).split()), m.group(1)
+
+
+def rel_dir(v, default: str) -> str:
+    """A folder relative to the vault; anything absolute, hidden or with '..' falls back to the default."""
+    v = str(v or "").strip()
+    parts = Path(v).parts
+    if not v or Path(v).is_absolute() or v.startswith(("/", "\\", "~")) or ".." in parts \
+            or any(x.startswith(".") for x in parts):
+        return default
+    return v.rstrip("/")
+
+
+def capture_journal(vault: Path, text: str, now: datetime | None = None, folder: str = "daily") -> tuple[Path, str]:
+    """Append '- HH:MM text' to <folder>/YYYY-MM-DD.md; a new file starts with '# YYYY-MM-DD'.
+
+    Append-only: the existing bytes stay as they are and one line is added at the end."""
+    text = " ".join(CONTROL.sub("", text or "").split())
+    if not text or len(text) > 2000:
+        raise ValueError("journal line must be 1-2000 characters")
+    now = now or datetime.now()
+    d = Path(vault) / rel_dir(folder, "daily")
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / f"{now:%Y-%m-%d}.md"
+    line = f"- {now:%H:%M} {text}"
+    if p.exists():
+        with p.open("rb") as fh:  # only the last byte decides whether a newline goes first
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+            if size:
+                fh.seek(size - 1)
+            last = fh.read(1) if size else b"\n"
+        with p.open("a", encoding="utf-8") as fh:
+            fh.write(("" if last == b"\n" else "\n") + line + "\n")
+    else:
+        atomic_write(p, f"# {now:%Y-%m-%d}\n\n{line}\n")
+    return p, line
+
+
+def capture_idea(vault: Path, title: str, body_lines: list[str], now: datetime | None = None,
+                 folder: str = "ideas") -> Path:
+    """A new file in ideas/ (created when missing). Never overwrites: a number is added on a name clash."""
+    title = " ".join(CONTROL.sub("", title or "").split())
+    if not title or len(title) > 300:
+        raise ValueError("idea must be 1-300 characters")
+    now = now or datetime.now()
+    d = Path(vault) / rel_dir(folder, "ideas")
+    d.mkdir(parents=True, exist_ok=True)
+    base = f"{now:%Y-%m-%d}-{_slug(title)}"
+    p, n = d / f"{base}.md", 1
+    while p.exists():
+        n += 1
+        p = d / f"{base}-{n}.md"
+    body = "\n".join(CONTROL.sub("", x) for x in body_lines if x is not None)
+    text = (f"---\ntype: idea\ncaptured: {now.isoformat(timespec='seconds')}\nsource: kokpit night pass\n---\n"
+            f"# {title}\n\n{body}\n")
+    fd = os.open(p, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)  # O_EXCL: fails rather than overwrite
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    return p
 
 
 def safe_session(s) -> str:

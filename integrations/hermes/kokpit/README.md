@@ -2,16 +2,21 @@
 
 Your Kokpit day inside Hermes: calendar, tasks, weather, brain notes, events,
 job listings, AI usage and job health as tools, `/kokpit today|brain|health`,
-brain context on every turn, and a session card with a receipt written to your
+capture from any Hermes chat (Telegram included) with `/kokpit note|todo|j`,
+a rule-based night pass that proposes todos, next steps, links, ideas and news
+matches with quoted sources (`/kokpit night`, `/kokpit add <id>`), brain
+context on every turn, and a session card with a receipt written to your
 Markdown vault when a session ends, so Claude Code or Codex can continue from
 the same place. The same data shows up as a Kokpit tab in `hermes dashboard`
 and as a right pane with a status chip in the desktop app. Two optional
 modules, off by default, watch training runs (`kokpit_training`) and the
 local machine (`kokpit_server`).
 
-Standard library only. No network calls and no model calls; the Kokpit
-database is opened read-only, and the only writes are quick capture and the
-session card. Vault files can live anywhere in the vault (settings or safe
+Standard library only. No network calls and no model calls (the night pass can
+ask your Hermes model only if you turn on `night_model`); the Kokpit database
+is opened read-only, and the only vault writes are quick capture, accepted
+night proposals (through the same append-only capture) and the session card.
+The night pass never edits a note; its proposals live in the plugin data dir. Vault files can live anywhere in the vault (settings or safe
 discovery by name).
 
 ## Try it in one minute
@@ -22,7 +27,7 @@ Without any Kokpit setup the plugin runs on bundled synthetic demo data
 ```
 ln -s /path/to/kokpit/integrations/hermes/kokpit ~/.hermes/plugins/kokpit
 hermes plugins enable kokpit
-hermes chat        # /kokpit today, "what is on me?", "is my training run stuck?"
+hermes chat        # /kokpit today, /kokpit night run, /kokpit night, /kokpit j <text>
 hermes dashboard   # Kokpit tab
 ```
 

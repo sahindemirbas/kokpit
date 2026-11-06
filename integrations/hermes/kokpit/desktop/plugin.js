@@ -240,6 +240,25 @@ function Ai({ r }) {
   })
 }
 
+function Night({ r }) {
+  if (!r) return null
+  if (!r.ok) return jsx(Section, { title: 'Night', children: jsx(NotOk, { r }) })
+  const open = r.open || {}
+  const kinds = Object.keys(open).filter(x => open[x])
+  const total = kinds.reduce((a, x) => a + open[x], 0)
+  const ps = r.proposals || []
+  return jsxs(Section, {
+    title: 'Night',
+    badge: r.last_run === 'never' ? 'never run' : kinds.map(x => `${open[x]} ${x}`).join(' · ') || `${total} open`,
+    children: ps.length ? ps.map((p, i) => jsx(Row, {
+      left: jsx(Tag, { t: 'accent', children: p.kind }),
+      title: ((p.sources || [])[0] || {}).quote || '',
+      right: jsx(Muted, { children: p.short }),
+      children: p.text
+    }, i)) : jsx(Muted, { children: r.last_run === 'never' ? 'no night pass yet: /kokpit night run' : 'nothing open' })
+  })
+}
+
 function Training({ r }) {
   if (!r) return null
   if (!r.ok) return jsx(Section, { title: 'Training', children: jsx(NotOk, { r }) })
@@ -357,6 +376,7 @@ function Pane({ ctx, store }) {
       jsx(Upcoming, { r: data.today }, 'up'),
       jsx(Health, { r: data.health }, 'health'),
       on.ai_usage ? jsx(Ai, { r: data.ai_usage }, 'ai') : null,
+      on.brain ? jsx(Night, { r: data.night }, 'night') : null,
       on.training ? jsx(Training, { r: data.training }, 'training') : null,
       on.server ? jsx(Server, { r: data.server }, 'server') : null,
       jsx(Capture, { ctx, store }, 'capture')

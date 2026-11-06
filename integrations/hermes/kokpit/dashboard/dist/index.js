@@ -227,6 +227,27 @@
       })) : (!r.status ? h(Empty, null, "No open listings.") : null));
   }
 
+  // Night pass proposals: counts by kind and the top three. Accept or dismiss from chat (/kokpit add|skip <id>).
+  function Night(props) {
+    var r = props.r;
+    if (!r || !r.ok) return h(Card, { title: "Night proposals" }, h(Problem, { r: r }));
+    var open = r.open || {};
+    var kinds = Object.keys(open).filter(function (k) { return open[k]; });
+    var total = kinds.reduce(function (a, k) { return a + open[k]; }, 0);
+    var ps = r.proposals || [];
+    return h(Card, { title: "Night proposals", badge: r.last_run === "never" ? "never run" : total + " open" },
+      kinds.length ? h("div", { className: "kokpit-files" }, kinds.map(function (k) {
+        return h(Pill, { key: k, tone: "muted" }, open[k] + " " + k);
+      })) : null,
+      ps.length ? h("ul", { className: "kokpit-list" }, ps.map(function (p, i) {
+        var src = (p.sources || [])[0] || {};
+        return h("li", { key: i, title: (src.path || src.item || "") + ": " + (src.quote || "") },
+          h(Pill, { tone: "accent" }, p.kind), " " + p.text,
+          h("span", { className: "kokpit-from" }, p.short));
+      })) : h(Empty, null, r.last_run === "never" ? "No night pass yet. Run /kokpit night run in a chat." : "Nothing open."),
+      ps.length ? h("div", { className: "kokpit-fix" }, "/kokpit add <id> or /kokpit skip <id> in any Hermes chat") : null);
+  }
+
   function Training(props) {
     var r = props.r;
     if (!r || !r.ok) return h(Card, { title: "Training runs" }, h(Problem, { r: r }));
@@ -344,6 +365,7 @@
       on.ai_usage ? h(AiUsage, { key: "ai", r: data.ai_usage }) : null,
       on.events ? h(Events, { key: "events", r: data.events }) : null,
       on.jobs ? h(Jobs, { key: "jobs", r: data.jobs }) : null,
+      on.brain ? h(Night, { key: "night", r: data.night }) : null,
       on.training ? h(Training, { key: "training", r: data.training }) : null,
       on.server ? h(Server, { key: "server", r: data.server }) : null,
       h(Capture, { key: "capture", demo: data.demo, onDone: load }),
