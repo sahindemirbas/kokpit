@@ -409,7 +409,7 @@ class Hooks(Base):
         self.assertTrue(first.endswith("\n") or first)
         self.assertIn("Fix the garden timer schedule · sess-42", first)
         self.assertIn("Harness: hermes", first)
-        self.assertIn("terminal x2", first)
+        self.assertNotIn("terminal", first)  # lookups are not results
         self.assertIn("/tmp/garden/cron.txt", first)
         self.assertIn("pick watering hours", first)
         self.assertIn("Garden timer: relay test · old-session", text)  # older card kept
@@ -426,6 +426,7 @@ class Hooks(Base):
     def test_card_hides_secret_looking_first_message(self):
         h = H.Hooks(self.live_env())
         h.pre_llm_call(session_id="s9", user_message="my password: abc123 please store", is_first_turn=True)
+        h.record("s9", written="inbox/note.md")
         h.on_session_finalize(session_id="s9")
         text = (self.vault / "Last-Session.md").read_text(encoding="utf-8")
         self.assertNotIn("abc123", text)
@@ -513,6 +514,7 @@ class VaultLayout(Base):
         self.assertEqual(r["vault_files"]["todo"], {"file": str(abs_todo), "found": True, "how": "setting"})
         h = H.Hooks(env)
         h.pre_llm_call(session_id="s-1", user_message="plan the garden", is_first_turn=True)
+        h.record("s-1", written="📥 Gelen/basil.md")
         msg = h.on_session_finalize(session_id="s-1")
         self.assertIn("🧭 Companion/Last-Session.md", msg["message"])
         self.assertIn("· s-1", (comp / "Last-Session.md").read_text(encoding="utf-8"))
@@ -949,9 +951,10 @@ class Privacy(unittest.TestCase):
         # built from pieces so this file itself stays clean for the commit-time grep
         words = ("sa" + "hin", "demir" + "bas", "cre" + "mona", "@" + "gmail", "/ho" + "me/", "s" + "k-", "gh" + "p_",
                  "tok" + "en=", "api" + "_key")
+        slug = ("sa" + "hin" + "demir" + "bas" + "/kokpit#").lower()  # the public install slug is allowed, nothing else
         for p in PLUGIN_DIR.rglob("*"):
             if p.is_file() and p.suffix in (".py", ".md", ".json", ".yaml", ".js", ".css"):
-                text = p.read_text(encoding="utf-8").lower()
+                text = p.read_text(encoding="utf-8").lower().replace(slug, "owner/kokpit#")
                 for w in words:
                     self.assertNotIn(w, text, f"{p.relative_to(ROOT)} contains {w}")
 

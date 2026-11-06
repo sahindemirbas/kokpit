@@ -1,12 +1,14 @@
 # Kokpit plugin for Hermes Agent
 
 `integrations/hermes/kokpit/` is a Hermes Agent plugin (name `kokpit`, version
-0.3.0). It gives Hermes nine Kokpit tools plus two optional ones, a `/kokpit`
-command that captures notes, tasks and journal lines from any Hermes chat
-(Telegram included), a rule-based night pass that proposes todos, next steps,
-links, ideas and news matches with quoted sources, the brain context on every turn, a session card plus receipt in the
-vault when a session ends, a Kokpit tab in the web dashboard and a right pane
-with a status chip in the desktop app. Claude Code, Codex and any other agent
+0.4.0). It gives Hermes nine Kokpit tools plus two optional ones, a `/kokpit`
+command that makes your own vault (`/kokpit setup`), captures notes, tasks and
+journal lines from any Hermes chat (Telegram included) and gives a morning
+brief, a rule-based night pass that proposes todos, next steps, links, ideas
+and news matches with quoted sources, the brain context on every turn, a
+session card plus a short receipt in the vault when a session produced a
+result, a Kokpit tab in the web dashboard and a right pane with a status chip
+in the desktop app. Claude Code, Codex and any other agent
 that follows [brain-protocol.md](brain-protocol.md) continue from the same vault.
 
 It replaces the older `integrations/hermes/kokpit-brain/` plugin (context only).
@@ -24,13 +26,13 @@ training run. Every answer says `"mode": "demo"` and the panels show a
 "Demo data" badge.
 
 ```
-git clone <this repository> kokpit
-ln -s "$PWD/kokpit/integrations/hermes/kokpit" ~/.hermes/plugins/kokpit
-hermes plugins validate ~/.hermes/plugins/kokpit
-hermes plugins enable kokpit
+hermes plugins install sahindemirbas/kokpit#integrations/hermes/kokpit --enable
 hermes chat      # then: /kokpit today, "what is open in my brain?", "is my training run stuck?"
 hermes dashboard # the Kokpit tab sits after Skills
 ```
+
+From a local clone: `hermes plugins install file:///path/to/kokpit#integrations/hermes/kokpit --enable`,
+or link the folder to `~/.hermes/plugins/kokpit` and run `hermes plugins enable kokpit`.
 
 In the desktop app the Kokpit pane opens on the right and a chip in the status
 bar shows job health and the items on you.
@@ -38,6 +40,24 @@ bar shows job health and the items on you.
 The demo copy lives in Hermes's plugin data folder
 (`~/.hermes/plugin-data/kokpit/demo/`). Captures in demo mode go there too.
 `demo: off` in the plugin settings turns the demo off; `demo: on` forces it.
+While the demo is on, every `/kokpit` answer and the first-turn context end with
+one line: `Demo data. Make it yours: /kokpit setup`.
+
+## Your own vault in one command
+
+```
+/kokpit setup              # ~/Kokpit
+/kokpit setup ~/Notes      # or any folder; an existing vault is adopted as it is
+```
+
+Setup creates `Welcome.md`, `Threads.md`, `To-Do.md`, `Last-Session.md` and the
+folders `inbox/`, `daily/`, `news/`, `notes/`, `receipts/`. Every file is created
+only when its name is free; nothing is overwritten. A folder that already holds
+`Threads.md`, `To-Do.md` or `Last-Session.md` is adopted without writing. Then
+the plugin stores `vault_path` through Hermes (`ctx.set_config`) and uses it at
+once. On an older Hermes without that helper it prints the one command to run
+(`hermes config set plugins.entries.kokpit.settings.vault_path <path>`). The
+same is available as `hermes kokpit-setup [path]`.
 
 ## Connect your own Kokpit
 
@@ -57,7 +77,7 @@ plugins:
       settings:
         kokpit_config: /path/to/kokpit.toml
         context_max_chars: 1200     # 0 turns the context block off
-        session_card: true          # Last-Session card + receipt at session end
+        session_card: true          # card + receipt when a session produced a result
         vault_path: ""              # empty: [brain] vault_path from kokpit.toml
         demo: auto                  # auto, on, off
 ```
@@ -77,7 +97,7 @@ One setting is also one command, for example
 | `inbox_dir` | str | `""` | Capture folder; empty: `inbox/` |
 | `context_max_chars` | int | `1200` | Brain block budget per turn, 0 is off |
 | `expected` | list | `[]` | Job names (`runs.job`) `kokpit_health` expects, e.g. `["weather", "calendar"]`; empty: `[health] expected` |
-| `session_card` | bool | `true` | Card + receipt at session end |
+| `session_card` | bool | `true` | Card + receipt at session end, only when the session produced a result |
 | `demo` | str | `auto` | `auto`, `on`, `off` |
 | `training` | bool | `false` | Turns on `kokpit_training` |
 | `training_logs` | list | `[]` | Globs of JSONL or CSV training logs |
@@ -170,10 +190,10 @@ Tools (toolset `kokpit`), each returns JSON. Success is
 
 | Tool | What it returns |
 |---|---|
-| `kokpit_today` | Calendar (today and the next days), weather, open and overdue tasks, upcoming `due:` dates, counts from the other modules, freshness per source |
+| `kokpit_today` | Calendar (today and the next days), weather, open and overdue tasks, upcoming `due:` dates, counts from the other modules, freshness per source. `brief: true` returns the morning brief text instead |
 | `kokpit_brain_search` | Vault notes matching every word, with path, line and snippet |
 | `kokpit_threads` | Active threads with open items and owners, items on you, the last session card |
-| `kokpit_capture` | Appends a note to `inbox/` (new file), a task to `To-Do.md` under `## Open`, or a journal line `- HH:MM text` to `daily/YYYY-MM-DD.md` (kind `journal`). The only tool that writes on its own |
+| `kokpit_capture` | Appends a note to `inbox/` (new file), a task to `To-Do.md` under `## Open`, or a journal line `- HH:MM text` to `daily/YYYY-MM-DD.md` (kind `journal`). Kind `receipt` closes a result of this session: it updates the session card and writes one short receipt (same as `/kokpit done`). The only tool that writes on its own |
 | `kokpit_night` | Night pass proposals: `action` `list` (default, optional `kind` and `limit`), `run`, `accept` or `dismiss` with an `id`. Accept writes only through capture: a `todo` (or `improve`) becomes a To-Do line, an `idea` a new file in `ideas/` |
 | `kokpit_events` | Stored events in the next N days; price, distance and venue say `unknown` when missing |
 | `kokpit_jobs` | Open job listings with score and reasons; no score is `unknown` |
@@ -235,32 +255,71 @@ warnings and the number of items on you. Colours come only from the app's
 
 ### Command and hooks
 
-Command: `/kokpit today | brain [words] | note <text> | todo <text> | j <text> |
-night [run|kind] | add <id> | skip <id> | health | help`. Short plain text, so it
-reads the same in the CLI and in Telegram.
+Command: `/kokpit setup [path] | brief | today | brain [words] | note <text> |
+todo <text> | j <text> | done <summary> | night [run|kind] | add <id> | skip <id> |
+health | help`. Short plain text, so it reads the same in the CLI and in Telegram.
+`/kokpit brief` is the morning brief: today (calendar and weather when the
+Kokpit app has them), threads on you, the night pass counts, the last session
+card and its open items, matched news, at most 3500 characters. Sections without
+data are dropped. Also `hermes kokpit-brief`.
 
 Hooks:
 
-- `pre_llm_call`: the brain block (active threads, last session, upcoming
-  dates, related notes), cut to `context_max_chars`. The full block goes on the
+- `pre_llm_call`: the brain block (active threads, the last session card with
+  its open items, the latest receipt line, upcoming dates, related notes), cut
+  to `context_max_chars`. Card and receipt are labelled as historical claims,
+  not verified facts. The full block goes on the
   first turn of a session; later turns get only the notes related to the
   message, or nothing. This keeps the token cost small.
 - `post_compaction`: marks the session so the next `pre_llm_call` sends the full
   block again (the summary dropped it). The hook itself returns nothing, as the
   Hermes API defines.
-- `post_tool_call`: counts tool calls and remembers the paths given to
-  `write_file`, `patch` and `kokpit_capture`. Only in memory.
+- `post_tool_call`: remembers the paths given to successful `write_file` and
+  `patch` calls, what `kokpit_capture` wrote and night proposals accepted. Only
+  in memory, at most 64 sessions. No message text is kept except the first
+  message, cut to 200 characters, for the card title.
 - `pre_llm_call` also adds one line when night proposals are open, inside the
   same budget and only with the full block: `Night: 2 todos, 1 idea, 1 news
   match. /kokpit night`.
 - `on_session_start`: with `night_auto: true`, runs the night pass in a
   background thread when it last ran 20 or more hours ago. Off by default.
-- `on_session_finalize`: writes one card at the top of `Last-Session.md` and one
-  receipt in `receipts/` (format below), then tells the user where. Built from
-  rules, no model: harness, turn count, tools used, files written, captures,
-  and up to three open items from `Threads.md`. The title is the first user
-  message, cut short, or "Hermes session" if it looks like it holds a key.
-  A session with no turns writes nothing; `session_card: false` turns it off.
+- `on_session_finalize`: only when the session produced a result (see below),
+  writes or updates one card at the top of `Last-Session.md` and one receipt in
+  `receipts/`, then tells the user where. A session with only chat and lookups
+  writes nothing and returns nothing. `session_card: false` turns it off.
+
+## Cards and receipts: how the brain grows
+
+The vault grows the same way a person keeps a work log: one short card per
+session and one receipt per result, not a transcript of everything.
+
+- A result is: a capture (`/kokpit note|todo|j`, `kokpit_capture`), a file
+  written or edited by a tool (`write_file`, `patch`), a night proposal
+  accepted, or an explicit close with `/kokpit done <summary>` or
+  `kokpit_capture` kind `receipt`.
+- The card (`## YYYY-MM-DD HH:MM · title · session-id`) says what was done,
+  where it lives and what is still open (up to three items from `Threads.md`).
+  One card per session id: a later write in the same session replaces it, other
+  cards are never touched. At most 800 characters, built from rules, no model.
+  The title is the first message, cut short, or "Hermes session" if it looks
+  like it holds a key.
+- The receipt (`receipts/<sha256 of the event id>.md`, the same format as the
+  Kokpit app's receipts) holds a JSON header (`kind`, `event_id`, `harness`,
+  `refs`, `created_at`, `session`) and one or two lines of text, at most 300
+  characters. `refs` are the notes touched in the session, vault-relative, at
+  most 8, the card file first. Details stay in those notes.
+- `/kokpit done <summary>` is the explicit close. The summary becomes the
+  card's `Done:` line and the receipt text; the same summary twice in a session
+  writes no second receipt. Key-like text is refused with a Fix line. Empty
+  text answers with the usage line. CLI, desktop and Telegram use the same code.
+- The next session (Hermes, Claude Code or Codex reading the vault) starts from
+  the newest card's open items and the newest receipt line.
+
+```
+/kokpit done Relay wired on GPIO 17, schedule set to 06:00
+Receipt saved: receipts/3f2a....md. Session card updated in Last-Session.md. Refs: Last-Session.md, notes/relay.md
+```
+
 
 ## Capture from anywhere
 
@@ -355,9 +414,11 @@ the plugin alone on a plain Markdown vault.
 
 ## Limits
 
-- The card says what happened, not why. Edit it, or let the agent write a
-  better card through the protocol; the plugin replaces only its own card
-  (same session id) and never touches other cards.
+- The card says what happened, not why; `/kokpit done <summary>` adds the why
+  in one line. The plugin replaces only its own card (same session id) and
+  never touches other cards.
+- A session that ends without a clean finalize (killed process) writes no card;
+  use `/kokpit done` for results that matter.
 - Search is word matching over Markdown, not semantic search.
 - The night pass rules are word overlap, not understanding. Proposals are tested
   on synthetic vaults (a 2000 note vault runs in a few seconds in the tests); it

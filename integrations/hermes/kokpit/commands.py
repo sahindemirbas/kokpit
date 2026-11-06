@@ -18,6 +18,7 @@ HELP = ("Kokpit commands:\n"
         "/kokpit j <text> - journal line in today's daily note (also: journal)\n"
         "/kokpit night - open night proposals (night run: make a new pass)\n"
         "/kokpit add <id> - accept a proposal; /kokpit skip <id> - dismiss it\n"
+        "/kokpit done <summary> - close a result: session card plus a short receipt\n"
         "/kokpit health - Kokpit jobs: failed, 0 records, never run\n"
         "/kokpit help - this list")
 
@@ -32,16 +33,19 @@ def _demo(r: dict) -> str:
 
 def today_text(r: dict) -> str:
     lines = [f"Today {r['date']}{_demo(r)}"]
-    cal = r["calendar"]
-    if cal.get("status") not in ("ok", "stale"):  # never run, or unknown / table calendar missing ...
+    cal, w = r["calendar"], r["weather"]
+    if not r.get("app_db", True):
+        lines.append("Calendar and weather: not connected (they come from the Kokpit app, set db_path)")
+    elif cal.get("status") not in ("ok", "stale"):  # never run, or unknown / table calendar missing ...
         lines.append(f"Calendar: {cal.get('status') or 'unknown'}")
     else:
         todays = [e for e in cal["events"] if e.get("date") == r["date"]]
         lines.append("Calendar" + (" (stale)" if cal.get("status") == "stale" else "") + ":"
                      + ("" if todays else " nothing today"))
         lines += [f"- {e.get('start') or 'all day'} {e.get('title', '')}" for e in todays[:6]]
-    w = r["weather"]
-    if w.get("status") not in ("ok", "stale"):
+    if not r.get("app_db", True):
+        pass
+    elif w.get("status") not in ("ok", "stale"):
         lines.append(f"Weather: {w.get('status') or 'unknown'}")
     else:
         d = (w.get("days") or [{}])[0]
@@ -50,7 +54,7 @@ def today_text(r: dict) -> str:
                      + (" (stale)" if w.get("status") == "stale" else ""))
     t = r["tasks"]
     if t.get("status") == "unknown":
-        lines.append("Tasks: unknown")
+        lines.append("Tasks: unknown" + (f" ({t['problem']}). Fix: {t['fix']}" if t.get("fix") else ""))
     else:
         lines.append(f"Tasks: {t['open']} open, {t['overdue']} overdue")
         lines += [f"- {x['text']}" + (f" (due {x['due']})" if x.get("due") else "") for x in t["next"][:4]]
@@ -170,7 +174,14 @@ def decide_text(r: dict) -> str:
 CAPTURE = {"note": "note", "todo": "task", "j": "journal", "journal": "journal"}
 USAGE = {"note": "/kokpit note <text>", "todo": "/kokpit todo <text> [due:YYYY-MM-DD]",
          "j": "/kokpit j <text>", "journal": "/kokpit journal <text>",
-         "add": "/kokpit add <id>", "skip": "/kokpit skip <id>"}
+         "add": "/kokpit add <id>", "skip": "/kokpit skip <id>",
+         "done": "/kokpit done <short summary of the result>"}
+
+
+def done_text(r: dict) -> str:
+    refs = ", ".join(r["refs"][:5]) + (f" (+{len(r['refs']) - 5} more)" if len(r["refs"]) > 5 else "")
+    state = "saved" if r["status"] == "succeeded" else "already saved"
+    return f"Receipt {state}{_demo(r)}: {r['receipt']}. Session card updated in {r['card']}. Refs: {refs}"
 
 
 NO_HINT = {"setup", "help"}
@@ -183,16 +194,22 @@ def _demo_mode(env: c.Env) -> bool:
         return False
 
 
-def run(env: c.Env, raw: str) -> str:
+def run(env: c.Env, raw: str, session_id: str = "") -> str:
     parts = (raw or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else "help"
-    out = _run(env, raw)
+    out = _run(env, raw, session_id)
     if sub not in NO_HINT and sub in SUBS and c.DEMO_HINT not in out and _demo_mode(env):
         out = out.rstrip() + "\n" + c.DEMO_HINT
     return out
 
 
-def _run(env: c.Env, raw: str) -> str:
+def _record(env: c.Env, session_id: str, r: dict, accepted: bool = False) -> None:
+    rec = getattr(env, "recorder", None)
+    if rec is not None and r.get("ok") and (r.get("written") or accepted):
+        rec.record(session_id, r.get("written") or "", accepted=accepted)
+
+
+def _run(env: c.Env, raw: str, session_id: str = "") -> str:
     parts = (raw or "").strip().split(None, 1)
     sub = parts[0].lower() if parts else "help"
     rest = parts[1].strip() if len(parts) > 1 else ""
@@ -201,6 +218,11 @@ def _run(env: c.Env, raw: str) -> str:
     if sub == "brief":
         r = tools.run(env, "kokpit_today", {"brief": True})
         return r["text"] if r["ok"] else _err(r)
+    if sub == "done":
+        if not rest:
+            return f"Usage: {USAGE[sub]}"
+        r = tools.run(env, "kokpit_capture", {"kind": "receipt", "text": rest}, session_id=session_id)
+        return done_text(r) if r["ok"] else _err(r)
     if sub in CAPTURE:
         if not rest:
             return f"Usage: {USAGE[sub]}"
@@ -210,6 +232,7 @@ def _run(env: c.Env, raw: str) -> str:
             if not args["text"]:
                 return f"Usage: {USAGE[sub]}"
         r = tools.run(env, "kokpit_capture", args)
+        _record(env, session_id, r)
         return capture_text(r) if r["ok"] else _err(r)
     if sub == "night":
         if rest.lower() == "run":
@@ -222,6 +245,8 @@ def _run(env: c.Env, raw: str) -> str:
         if not rest:
             return f"Usage: {USAGE[sub]}"
         r = tools.run(env, "kokpit_night", {"action": "accept" if sub == "add" else "dismiss", "id": rest.split()[0]})
+        if sub == "add" and r.get("ok") and r.get("status") == "done":
+            _record(env, session_id, r, accepted=True)
         return decide_text(r) if r["ok"] else _err(r)
     if sub == "today":
         r = tools.run(env, "kokpit_today", {})
@@ -239,13 +264,13 @@ def _run(env: c.Env, raw: str) -> str:
     return f"Unknown subcommand: {sub}\n" + HELP
 
 
-SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", *CAPTURE}
+SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", "done", *CAPTURE}
 
 
 def handler(env: c.Env):
-    def handle(raw_args: str = "", **_kw) -> str:
+    def handle(raw_args: str = "", session_id: str = "", **_kw) -> str:
         try:
-            return run(env, raw_args)
+            return run(env, raw_args, session_id=session_id if isinstance(session_id, str) else "")
         except Exception as e:  # a slash command must answer, not crash the session
             return f"Kokpit: command failed ({type(e).__name__})."
     return handle

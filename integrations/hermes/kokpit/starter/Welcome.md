@@ -10,14 +10,14 @@ What each file is for:
   where it stands, "Open:" lists who owes the next step (on you, on me).
 - To-Do.md: checkbox tasks under `## Open`. Add `(due: YYYY-MM-DD)` for a date.
 - Last-Session.md: a short card per agent session, newest first. Hermes writes
-  one when a session ends, so the next session (in any agent) knows where you
-  stopped.
+  or updates one when a session produced a result (a capture, a file written,
+  an accepted proposal, or `/kokpit done <summary>`), so the next session (in
+  any agent) knows where you stopped. Chat-only sessions write nothing.
+- receipts/: one short receipt per result, pointing at the notes it touched.
 - inbox/: quick notes from `/kokpit note <text>`, sent from any Hermes chat.
 - daily/: one file per day with journal lines from `/kokpit j <text>`.
 - news/: Markdown news items; the night pass matches them to your threads.
 - notes/: your longer notes. Link them from Threads.md with [[notes/name]].
-- sessions/: one line per Hermes session, one file per month: the history of
-  your work.
 
-Try next: `/kokpit todo <text>`, `/kokpit night run`, `/kokpit brief`.
+Try next: `/kokpit todo <text>`, `/kokpit done <summary>`, `/kokpit night run`, `/kokpit brief`.
 You can rewrite or delete this note; Kokpit never edits it.

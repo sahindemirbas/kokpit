@@ -21,6 +21,7 @@ import time
 import tomllib
 from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 DEMO_SRC = HERE / "demo"
@@ -139,6 +140,7 @@ class Env:
         self.llm = llm  # callable returning the host ctx.llm facade, or None
         self.set_config = set_config  # host settings writer (ctx.set_config), or None on older Hermes
         self._overrides: dict = {}  # values set by /kokpit setup in this process; they win over the config
+        self.recorder: Any = None  # the plugin's Hooks: /kokpit done and kokpit_capture kind receipt close results through it
 
     def override(self, key: str, value) -> None:
         self._overrides[key] = value
@@ -555,8 +557,8 @@ def parse_todo(text: str, today: date | None = None) -> list[dict]:
     return out
 
 
-# "- Next: ..." / "- Next step: ..." lines of a session card (rule card, card_model card, other agents)
-NEXT_LINE = re.compile(r"^\s*[-*]\s*Next(?: steps?)?\s*:\s*(.+?)\s*$", re.M | re.I)
+# "- Open: ...", "- Open (from Threads.md): ..." or "- Next: ..." lines of a session card (this plugin, other agents)
+OPEN_LINE = re.compile(r"^\s*[-*]\s*(?:Open|Next(?: steps?)?)\b[^:\n]{0,40}:\s*(.+?)\s*$", re.M | re.I)
 
 
 def parse_sessions(text: str, limit: int = 8) -> list[dict]:
@@ -568,9 +570,9 @@ def parse_sessions(text: str, limit: int = 8) -> list[dict]:
         parts = [p.strip() for p in head.split("·")]
         if len(parts) < 2:
             continue
-        nxt = [clean(m.group(1), 160) for m in NEXT_LINE.finditer(body)][:3]
+        opens = [clean(m.group(1), 160) for m in OPEN_LINE.finditer(body)][:3]
         out.append({"at": parts[0], "title": clean(parts[1]), "session": parts[2] if len(parts) > 2 else "",
-                    "text": clean(body, 300), "next": nxt})
+                    "text": clean(body, 300), "open": opens})
     return out[:limit]
 
 
@@ -985,20 +987,39 @@ def write_receipt(vault: Path, event_id: str, summary: str, refs: list[str], ses
     return {"status": "succeeded", "path": rel_}
 
 
-SESSION_LINE_MAX = 400
-
-
-def append_session_log(vault: Path, line: str, now: datetime | None = None, folder: Path | None = None) -> str:
-    """One line per session in <vault>/sessions/YYYY-MM.md. Append-only: earlier lines are never rewritten."""
-    now = now or datetime.now()
-    folder = Path(folder) if folder is not None else Path(vault) / "sessions"
-    p = folder / f"{now:%Y-%m}.md"
-    line = "- " + clean(CONTROL.sub(" ", line), SESSION_LINE_MAX).lstrip("- ")
-    folder.mkdir(parents=True, exist_ok=True)
-    head = "" if p.exists() else f"# Sessions {now:%Y-%m}\n\nOne line per Hermes session, oldest first. Written by the kokpit plugin.\n\n"
-    with open(p, "a", encoding="utf-8", newline="") as f:
-        f.write(head + line + "\n")
-    return rel(vault, p)
+def latest_receipt(folder: Path | None, scan_max: int = 2000) -> dict | None:
+    """Newest receipt file (by modification time) -> {at, line, path}; None when there is none.
+    Looks at most scan_max files, so a large receipts folder cannot slow a turn down."""
+    if folder is None or not Path(folder).is_dir():
+        return None
+    best = None
+    try:
+        with os.scandir(folder) as it:
+            for i, e in enumerate(it):
+                if i >= scan_max:
+                    break
+                if e.name.endswith(".md") and e.is_file():
+                    m = e.stat().st_mtime
+                    if best is None or m > best[0]:
+                        best = (m, e.path)
+    except OSError:
+        return None
+    if best is None:
+        return None
+    text = read(Path(best[1]))
+    meta, body = {}, text
+    if text.startswith("---\n"):
+        head, _, body = text[4:].partition("\n---\n")
+        try:
+            meta = json.loads(head)
+        except ValueError:
+            meta = {}
+    meta = meta if isinstance(meta, dict) else {}
+    line = next((x.strip() for x in body.splitlines() if x.strip()), "")
+    if not line:
+        return None
+    at = str(meta.get("created_at") or datetime.fromtimestamp(best[0]).isoformat())[:16].replace("T", " ")
+    return {"at": at, "line": clean(line, 300), "path": Path(best[1]).name}
 
 
 # ---------------------------------------------------------------- context block (mirrors brain/context.py priorities)
@@ -1021,10 +1042,14 @@ def context_block(vault: Path, message, max_chars: int, today: date | None = Non
         parts.append("\n".join(lines))
     if v["sessions"]:
         s = v["sessions"][0]
-        parts.append(f"## Last session\n- {s['at']} {s['title']}: {clean(s['text'], 240)}")
-        nxt = [(x["at"], n) for x in v["sessions"][:2] for n in x.get("next", [])][:4]
-        if nxt:
-            parts.append("## Next steps from recent sessions\n" + "\n".join(f"- {n} ({at})" for at, n in nxt))
+        body = re.sub(r"(?m)^\s*[-*]\s*(?:Open|Next(?: steps?)?)\b[^:\n]{0,40}:.*$", "", s.get("raw", s["text"]))
+        lines = [f"## Last session card (historical claim, not verified)\n- {s['at']} {s['title']}: {clean(body, 200)}"]
+        lines += [f"- open: {clean(o, 140)}" for o in s.get("open", [])[:3]]
+        parts.append("\n".join(lines))
+    if full:
+        r = latest_receipt(layout["receipts"]["path"] if layout else Path(vault) / "receipts")
+        if r:
+            parts.append(f"## Latest receipt (historical agent claim, not verified)\n- {r['at']}: {clean(r['line'], 200)}")
     if v["upcoming"]:
         parts.append("## Upcoming\n" + "\n".join(f"- {u['date']}: {clean(u['text'], 100)} ({u['from']})"
                                                  for u in v["upcoming"][:6]))

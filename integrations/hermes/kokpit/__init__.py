@@ -15,7 +15,7 @@ TOOLSET = "kokpit"
 
 
 def _llm(ctx):
-    """The host LLM facade (ctx.llm) when this Hermes has one; only used when night_model or card_model is on."""
+    """The host LLM facade (ctx.llm) when this Hermes has one; only used when night_model is on."""
     def get():
         try:
             return ctx.llm
@@ -64,13 +64,14 @@ def register(ctx):
         ctx.register_tool(name=name, toolset=TOOLSET, schema=schema,
                           handler=tools.handler(env, name), description=schema["description"])
     h = hooks.Hooks(env)
+    env.recorder = h  # /kokpit done and kokpit_capture kind receipt write this session's card through the hooks
     ctx.register_hook("pre_llm_call", h.pre_llm_call)
     ctx.register_hook("post_tool_call", h.post_tool_call)
     ctx.register_hook("on_session_start", h.on_session_start)
     ctx.register_hook("on_session_finalize", h.on_session_finalize)
     ctx.register_hook("post_compaction", h.post_compaction)
-    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, night",
-                         args_hint="setup|brief|today|brain|note|todo|j|night|add|skip|health|help")
+    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, done, night",
+                         args_hint="setup|brief|today|brain|note|todo|j|done|night|add|skip|health|help")
     if hasattr(ctx, "register_cli_command"):  # `hermes kokpit-night|kokpit-setup|kokpit-brief`; older Hermes: skipped
         for name, help_, setup, raw in CLI:
             try:

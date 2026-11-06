@@ -1,7 +1,7 @@
 """/kokpit setup: your own vault in one command.
 
 Creates a starter vault (Welcome.md, Threads.md, To-Do.md, Last-Session.md and the folders inbox/,
-daily/, news/, notes/, sessions/) or adopts a folder that already is a vault, then stores the
+daily/, news/, notes/, receipts/) or adopts a folder that already is a vault, then stores the
 plugin setting vault_path through the host (ctx.set_config). Existing files are never overwritten:
 every starter file is created with O_EXCL and skipped when the name is taken.
 """
@@ -15,7 +15,7 @@ from . import contract as c
 
 STARTER = c.HERE / "starter"
 MARKERS = ("Threads.md", "To-Do.md", "Last-Session.md")
-FOLDERS = ("inbox", "daily", "news", "notes", "sessions")
+FOLDERS = ("inbox", "daily", "news", "notes", "receipts")
 DEFAULT = "~/Kokpit"
 SET_CMD = "hermes config set plugins.entries.kokpit.settings.vault_path {path}"
 

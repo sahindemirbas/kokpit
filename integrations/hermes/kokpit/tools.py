@@ -8,6 +8,7 @@ on an explicit accept, writes through the same append-only capture writers (To-D
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -18,8 +19,14 @@ from . import night as _night
 from . import server as _server
 from . import training as _training
 
-NO_DB = "no database yet: run a Kokpit job first (python -m kokpit run-job <name>)"
-VAULT_FIX = "create the vault ([brain] vault_path in kokpit.toml) or run `python -m kokpit init`"
+NO_DB = ("no Kokpit app database: calendar, weather, events, jobs and job health come from the Kokpit app "
+         "(set db_path, or run a job with python -m kokpit run-job <name>)")
+VAULT_FIX = "run /kokpit setup <folder> to create it, or point vault_path at your notes folder"
+
+
+def _short(p) -> str:
+    s, home = str(p), os.path.expanduser("~")
+    return "~" + s[len(home):] if home and s.startswith(home + os.sep) else s
 
 
 def _dump(obj) -> str:
@@ -42,7 +49,8 @@ def _need(state: dict, module: str) -> None:
 def _vault(state: dict) -> Path:
     v = state["vault"]
     if v is None or not Path(v).is_dir():
-        raise c.NotReady("vault not found", (f"{v} does not exist; " if v is not None else "no vault configured; ") + VAULT_FIX)
+        raise c.NotReady("vault not found", (f"{_short(v)} does not exist; " if v is not None else "no vault configured; ")
+                         + VAULT_FIX)
     return Path(v)
 
 
@@ -116,7 +124,7 @@ def today(state: dict, args: dict) -> dict:
         from . import brief as _brief  # brief builds on today(); imported here to keep the import graph flat
         return {"brief": True, **_brief.build(state)}
     cfg, conn = state["cfg"], _db(state)
-    out: dict[str, Any] = {"date": date.today().isoformat()}
+    out: dict[str, Any] = {"date": date.today().isoformat(), "app_db": conn is not None}
     try:
         cal = _latest_payload(conn, "calendar", "WHERE ok=1")
         if cal is None or "_problem" in cal:
@@ -138,7 +146,10 @@ def today(state: dict, args: dict) -> dict:
             out["upcoming"] = v["upcoming"][:8]
             out["threads"] = len(v["threads"])
         else:
-            out["tasks"] = {"status": "unknown", "reason": "brain module off or vault not found"}
+            off = not cfg["modules"].get("brain", True)
+            out["tasks"] = {"status": "unknown", "reason": "brain module off or vault not found",
+                            "problem": "brain module off" if off else "vault not found",
+                            "fix": "enable the brain module" if off else VAULT_FIX}
             out["upcoming"] = []
         counts: dict = {}
         if cfg["modules"].get("events"):
@@ -196,11 +207,19 @@ def threads(state: dict, args: dict) -> dict:
 
 def capture(state: dict, args: dict) -> dict:
     _need(state, "brain")
+    kind = str(args.get("kind") or "note").strip().lower()
+    text = str(args.get("text") or "")
+    if kind == "receipt":  # close a result: this session's Last-Session card plus a short receipt
+        _vault(state)
+        rec = state.get("recorder")
+        if rec is None:
+            raise c.NotReady("receipts need the plugin's session hooks", "use /kokpit done <summary> in a Hermes session")
+        r = rec.done(state, state.get("session_id"), text)
+        return {"kind": "receipt", "card": r["card"], "receipt": r["receipt"], "status": r["receipt_status"],
+                "refs": r["refs"]}
     if not state["cfg"].get("quick_capture", True):
         raise c.NotReady("quick capture is off", "enable with [brain] quick_capture = true in kokpit.toml")
     vault, lay = _vault(state), _layout(state)
-    kind = str(args.get("kind") or "note").strip().lower()
-    text = str(args.get("text") or "")
     try:
         if kind == "task":
             err = c.ambiguous(lay, "todo")
@@ -213,7 +232,7 @@ def capture(state: dict, args: dict) -> dict:
             p, line = c.capture_journal(vault, text, folder=folder)
             return {"written": c.rel(vault, p), "kind": "journal", "line": line}
         if kind != "note":
-            raise ValueError("kind must be note, task or journal")
+            raise ValueError("kind must be note, task, journal or receipt")
         p = c.capture_note(vault, text, inbox=lay["inbox"]["path"])
     except ValueError as e:
         raise c.NotReady(str(e), "shorten or fix the text and try again")
@@ -490,10 +509,12 @@ TOOLS = {"kokpit_today": today, "kokpit_brain_search": brain_search, "kokpit_thr
          "kokpit_training": training, "kokpit_server": server, "kokpit_night": night}
 
 
-def run(env: c.Env, name: str, args) -> dict:
+def run(env: c.Env, name: str, args, session_id: str = "") -> dict:
     args = args if isinstance(args, dict) else {}
     try:
         state = env.state()
+        state["session_id"] = session_id
+        state["recorder"] = getattr(env, "recorder", None)
         body = TOOLS[name](state, args)
     except c.NotReady as e:
         return {"ok": False, "error": e.error, "fix": e.fix}
@@ -548,7 +569,8 @@ def overview(env: c.Env) -> dict:
 
 
 def handler(env: c.Env, name: str):
-    def handle(args, **_kw) -> str:
-        return _dump(run(env, name, args))
+    def handle(args, **kw) -> str:
+        sid = kw.get("session_id") or kw.get("task_id") or ""
+        return _dump(run(env, name, args, session_id=sid if isinstance(sid, str) else ""))
     handle.__name__ = f"handle_{name}"
     return handle

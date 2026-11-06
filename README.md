@@ -151,6 +151,8 @@ Data lives in the `kokpit-data` volume. The port is bound to loopback because Ko
 
 Run `python -m kokpit hermes setup`. It sends model calls through Hermes (no API key in Kokpit), switches on the Hermes usage reader and links the brain plugin, asking before each step. `python -m kokpit hermes status` shows what is still missing and how to fix it. Details: [docs/connections.md#hermes-off-by-default](docs/connections.md#hermes-off-by-default).
 
+Hermes without the Kokpit app: `hermes plugins install sahindemirbas/kokpit#integrations/hermes/kokpit --enable`, then `/kokpit setup` in a chat. See [the plugin page](integrations/hermes/kokpit/README.md).
+
 ### Connect Instagram
 
 Run `python -m kokpit instagram setup`, or open the Social tab. Both show the Meta app steps with links, take the token, check it with one read-only call and switch the analysis on. Details and a troubleshooting table: [docs/connections.md#instagram-analysis-off-by-default](docs/connections.md#instagram-analysis-off-by-default).

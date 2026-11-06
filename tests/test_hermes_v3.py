@@ -1,4 +1,4 @@
-"""Tests for plugin 0.4.0: /kokpit setup, the demo hint, card_model, the session log and the morning brief.
+"""Tests for plugin 0.4.0: /kokpit setup, the demo hint, card + receipt on meaningful results and the morning brief.
 
 Synthetic tmp vaults only. Run: python -m unittest tests.test_hermes_v3
 """
@@ -8,7 +8,7 @@ import os
 import sqlite3
 import sys
 import unittest
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -20,7 +20,6 @@ from tests.test_hermes_plugin import P, PLUGIN_DIR, Base, FakeCtx  # noqa: E402
 
 C, T, H, CMD = P.contract, P.tools, P.hooks, P.commands
 S = importlib.import_module(P.__name__ + ".vault_setup")
-CARD = importlib.import_module(P.__name__ + ".card")
 B = importlib.import_module(P.__name__ + ".brief")
 D = date.today()
 HINT = "Demo data. Make it yours: /kokpit setup"
@@ -34,19 +33,6 @@ class Settings(dict):
 
     def set_config(self, key, value):
         self[key] = value
-
-
-class StubLlm:
-    def __init__(self, parsed=None, boom=False):
-        self.parsed, self.boom, self.calls, self.sent = parsed, boom, 0, []
-
-    def complete_structured(self, **kw):
-        self.calls += 1
-        self.sent.append(kw["input"][0]["text"])
-        assert kw["json_schema"]["type"] == "object"
-        if self.boom:
-            raise RuntimeError("provider down: token=abc")
-        return type("Result", (), {"parsed": self.parsed})()
 
 
 class SetupTests(Base):
@@ -69,7 +55,7 @@ class SetupTests(Base):
         self.assertIn("Kokpit vault ready at ~/Kokpit", out)
         for name in ("Threads.md", "To-Do.md", "Last-Session.md", "Welcome.md"):
             self.assertTrue((dest / name).is_file(), name)
-        for name in ("inbox", "daily", "news", "notes", "sessions"):
+        for name in ("inbox", "daily", "news", "notes", "receipts"):
             self.assertTrue((dest / name).is_dir(), name)
         self.assertNotIn("{{", (dest / "To-Do.md").read_text(encoding="utf-8"))
         welcome = (dest / "Welcome.md").read_text(encoding="utf-8")
@@ -210,154 +196,191 @@ class DemoHintTests(Base):
         self.assertTrue(r["context"].endswith(HINT))
 
 
-class CardModelTests(Base):
-    MSGS = ["We decided to water at 06:00 and 19:00 from now on.",
-            "Next I will order the spare relay tomorrow morning.",
-            "ok thanks"]
+class ReceiptTests(Base):
+    """Card + receipt only on a meaningful result; chat-only sessions write nothing."""
 
-    def env_llm(self, llm, **settings):
-        s = {"vault_path": str(self.vault), "demo": "off", **settings}
-        return C.Env(lambda k, default=None: s.get(k, default), data_dir=self.tmp / "plugin-data", llm=lambda: llm)
-
-    def session(self, h, sid="cm-1", msgs=None):
-        for i, m in enumerate(msgs or self.MSGS):
-            h.pre_llm_call(session_id=sid, user_message=m, is_first_turn=i == 0)
-
-    def first_card(self):
-        text = (self.vault / "Last-Session.md").read_text(encoding="utf-8")
-        return text.split("\n## ")[1]
-
-    def test_off_by_default_no_model_call(self):
-        llm = StubLlm({"decisions": [], "next": []})
-        h = H.Hooks(self.env_llm(llm))
-        self.session(h)
-        h.on_session_finalize(session_id="cm-1")
-        self.assertEqual(llm.calls, 0)
-        self.assertIn("without a model", self.first_card())
-
-    def test_kept_and_rejected_quotes(self):
-        parsed = {"decisions": [{"text": "Water twice a day", "quote": "water at 06:00 and 19:00"},
-                                {"text": "Invented", "quote": "we will buy a new pump"},      # not in messages
-                                {"text": "Too short", "quote": "ok"}],                         # under 8 chars
-                  "next": [{"text": "Order the spare relay", "quote": "order the spare relay tomorrow"},
-                           {"text": "Bad item"}]}                                              # no quote
-        llm = StubLlm(parsed)
-        h = H.Hooks(self.env_llm(llm, card_model=True))
-        self.session(h)
-        out = h.on_session_finalize(session_id="cm-1")
-        self.assertEqual(llm.calls, 1)
-        card = self.first_card()
-        self.assertIn('- Decision: Water twice a day ("water at 06:00 and 19:00")', card)
-        self.assertIn('- Next: Order the spare relay ("order the spare relay tomorrow")', card)
-        self.assertNotIn("Invented", card)
-        self.assertNotIn("Too short", card)
-        self.assertIn("3 unquoted lines rejected", card)
-        self.assertIn("Harness: hermes", card)
-        self.assertNotIn("card model", out["message"])
-
-    def test_failure_falls_back_to_rule_card(self):
-        llm = StubLlm(boom=True)
-        h = H.Hooks(self.env_llm(llm, card_model=True))
-        self.session(h)
-        out = h.on_session_finalize(session_id="cm-1")
-        self.assertIn("card model failed (RuntimeError), rule card used", out["message"])
-        self.assertNotIn("token=abc", out["message"])
-        card = self.first_card()
-        self.assertIn("without a model", card)
-        self.assertNotIn("Decision:", card)
-
-    def test_missing_llm_falls_back(self):
-        h = H.Hooks(self.env_llm(None, card_model=True))
-        self.session(h)
-        out = h.on_session_finalize(session_id="cm-1")
-        self.assertIn("card model unavailable", out["message"])
-        self.assertIn("without a model", self.first_card())
-
-    def test_budget_and_memory_bounds(self):
-        big = [f"message {i} " + "x" * 1900 for i in range(40)]
-        llm = StubLlm({"decisions": [], "next": []})
-        h = H.Hooks(self.env_llm(llm, card_model=True))
-        self.session(h, "cm-big", big)
-        s = h._s["cm-big"]
-        self.assertLessEqual(len(s["msgs"]), CARD.MSG_KEEP)
-        self.assertTrue(all(len(m) <= CARD.MSG_MAX for m in s["msgs"]))
-        h.on_session_finalize(session_id="cm-big")
-        self.assertEqual(llm.calls, 1)
-        self.assertLessEqual(len(llm.sent[0]), CARD.SEND_MAX)
-        self.assertIn("message 39", llm.sent[0])  # the newest messages are the ones sent
-
-    def test_secret_like_messages_are_not_sent(self):
-        llm = StubLlm({"decisions": [], "next": []})
-        h = H.Hooks(self.env_llm(llm, card_model=True))
-        self.session(h, "cm-s", ["set the api_key = abcdef123456 please", "We decided to keep the relay on GPIO 17."])
-        h.on_session_finalize(session_id="cm-s")
-        self.assertNotIn("abcdef123456", llm.sent[0])
-        self.assertIn("GPIO 17", llm.sent[0])
-
-    def test_check_unit(self):
-        kept, rejected = CARD.check({"decisions": [{"text": "a", "quote": "y" * 201}], "next": "nope"}, "y" * 300)
-        self.assertEqual(kept, {"decisions": [], "next": []})
-        self.assertEqual(rejected, 1)
-        self.assertEqual(CARD.check(None, "abc")[1], 1)
-
-
-class SessionLogTests(Base):
     def env_v(self, **settings):
-        return self.env(vault_path=str(self.vault), demo="off", **settings)
+        env = self.env(vault_path=str(self.vault), demo="off", **settings)
+        env.recorder = H.Hooks(env)
+        return env
 
-    def run_session(self, env, sid, msg):
-        h = H.Hooks(env)
-        h.pre_llm_call(session_id=sid, user_message=msg, is_first_turn=True)
-        h.post_tool_call(tool_name="terminal", args={}, result="{}", session_id=sid)
-        return h.on_session_finalize(session_id=sid)
+    def receipts(self, vault=None):
+        d = (vault or self.vault) / "receipts"
+        return sorted(d.glob("*.md")) if d.is_dir() else []
 
-    def test_log_appends_one_line_per_session(self):
+    def meta(self, p):
+        return json.loads(p.read_text(encoding="utf-8").split("---\n")[1])
+
+    def test_chat_only_session_writes_nothing(self):
         env = self.env_v()
-        out = self.run_session(env, "log-1", "Fix the garden timer")
-        self.run_session(env, "log-2", "Plan the relay order")
-        p = self.vault / "sessions" / f"{datetime.now():%Y-%m}.md"
-        self.assertIn(f"session log sessions/{p.name}", out["message"])
-        text = p.read_text(encoding="utf-8")
-        lines = [x for x in text.splitlines() if x.startswith("- ")]
-        self.assertEqual(len(lines), 2)
-        self.assertIn("Fix the garden timer · log-1 · 1 turns, 1 tool calls", lines[0])
-        self.assertIn("log-2", lines[1])
-        self.assertTrue(text.startswith("# Sessions "))
+        h = env.recorder
+        before = (self.vault / "Last-Session.md").read_text(encoding="utf-8")
+        h.pre_llm_call(session_id="chat-1", user_message="what is on my list", is_first_turn=True)
+        h.post_tool_call(tool_name="kokpit_today", args={}, result='{"ok": true}', session_id="chat-1")
+        h.post_tool_call(tool_name="terminal", args={"command": "ls"}, result="{}", session_id="chat-1")
+        h.post_tool_call(tool_name="write_file", args={"path": "x.txt"}, result="{}", status="error", session_id="chat-1")
+        self.assertIsNone(h.on_session_finalize(session_id="chat-1"))
+        self.assertEqual((self.vault / "Last-Session.md").read_text(encoding="utf-8"), before)
+        self.assertEqual(self.receipts(), [])
+        self.assertIsNone(h.on_session_finalize(session_id="never-seen"))
 
-    def test_log_never_rewrites_earlier_lines(self):
-        p = self.vault / "sessions" / f"{datetime.now():%Y-%m}.md"
-        p.parent.mkdir()
-        p.write_text("# My own header\n\n- an earlier line written by hand\n", encoding="utf-8")
-        self.run_session(self.env_v(), "log-3", "hello")
-        text = p.read_text(encoding="utf-8")
-        self.assertTrue(text.startswith("# My own header\n\n- an earlier line written by hand\n- "))
+    def test_capture_session_writes_card_and_receipt(self):
+        env = self.env_v()
+        h = env.recorder
+        h.pre_llm_call(session_id="cap-1", user_message="Note the basil idea", is_first_turn=True)
+        out = T.handler(env, "kokpit_capture")({"text": "Basil likes morning sun"}, session_id="cap-1")
+        h.post_tool_call(tool_name="kokpit_capture", args={}, result=out, session_id="cap-1")
+        written = json.loads(out)["written"]
+        r = h.on_session_finalize(session_id="cap-1")
+        self.assertIn("session card saved", r["message"])
+        card = (self.vault / "Last-Session.md").read_text(encoding="utf-8").split("\n## ")[1]
+        self.assertIn("Note the basil idea · cap-1", card)
+        self.assertIn(f"captured {written}", card)
+        self.assertIn("- Open (from Threads.md):", card)
+        [rec] = self.receipts()
+        m = self.meta(rec)
+        self.assertEqual((m["kind"], m["harness"], m["session"]), ("receipt", "hermes", "cap-1"))
+        self.assertEqual(m["refs"], ["Last-Session.md", written])
+        body = rec.read_text(encoding="utf-8").split("---\n", 2)[2].strip()
+        self.assertLessEqual(len(body), H.RECEIPT_MAX)
+        self.assertIn("captured 1", body)
 
-    def test_log_off(self):
-        out = self.run_session(self.env_v(session_log=False), "log-4", "hello")
-        self.assertFalse((self.vault / "sessions").exists())
-        self.assertNotIn("session log", out["message"])
+    def test_slash_capture_and_accepted_proposal_count(self):
+        env = self.env_v()
+        h = env.recorder
+        CMD.handler(env)("note Relay arrives friday", session_id="sl-1")
+        self.assertTrue(h.meaningful(h._s["sl-1"]))
+        CMD.handler(env)("night run", session_id="sl-2")
+        self.assertFalse(h.meaningful(h._s.get("sl-2")))
+        self.assertIsNone(h.on_session_finalize(session_id="sl-2"))
+        self.assertIsNotNone(h.on_session_finalize(session_id="sl-1"))
+        self.assertEqual(len(self.receipts()), 1)
 
-    def test_log_is_searchable(self):
-        self.run_session(self.env_v(), "log-5", "Calibrate the moisture sensor")
-        r = self.call(self.env_v(), "kokpit_brain_search", {"query": "moisture sensor"})
-        self.assertTrue(any(h["path"].startswith("sessions/") for h in r["results"]))
+    def test_done_writes_receipt_with_refs(self):
+        env = self.env_v()
+        h = env.recorder
+        h.pre_llm_call(session_id="dn-1", user_message="Wire the relay", is_first_turn=True)
+        h.post_tool_call(tool_name="write_file", args={"path": str(self.vault / "notes" / "relay.md")},
+                         result="{}", session_id="dn-1")
+        h.post_tool_call(tool_name="patch", args={"path": "/elsewhere/code.py"}, result="{}", session_id="dn-1")
+        out = CMD.handler(env)("done Relay wired on GPIO 17, schedule set to 06:00", session_id="dn-1")
+        self.assertTrue(out.startswith("Receipt saved: receipts/"), out)
+        self.assertIn("Refs: Last-Session.md, notes/relay.md", out)
+        self.assertNotIn("elsewhere", out)  # files outside the vault are not notes
+        [rec] = self.receipts()
+        m = self.meta(rec)
+        self.assertEqual(m["refs"], ["Last-Session.md", "notes/relay.md"])
+        self.assertTrue(m["event_id"].startswith("hermes-done-dn-1-"))
+        self.assertIn("Relay wired on GPIO 17", rec.read_text(encoding="utf-8"))
+        card = (self.vault / "Last-Session.md").read_text(encoding="utf-8").split("\n## ")[1]
+        self.assertIn("- Done: Relay wired on GPIO 17, schedule set to 06:00", card)
+        # finalize after done, with nothing new: card kept, no second receipt
+        r = h.on_session_finalize(session_id="dn-1")
+        self.assertIn("unchanged", r["message"])
+        self.assertEqual(len(self.receipts()), 1)
 
-    def test_context_mentions_recent_next_steps(self):
+    def test_done_usage_secret_and_length(self):
+        env = self.env_v()
+        self.assertEqual(CMD.handler(env)("done", session_id="u-1"), "Usage: " + CMD.USAGE["done"])
+        self.assertEqual(CMD.handler(env)("done    ", session_id="u-1"), "Usage: " + CMD.USAGE["done"])
+        out = CMD.handler(env)("done set api_key = abcdef123456", session_id="u-1")
+        self.assertIn("Fix:", out)
+        self.assertEqual(self.receipts(), [])
+        out = CMD.handler(env)("done " + "long " * 200, session_id="u-2")
+        [rec] = self.receipts()
+        body = rec.read_text(encoding="utf-8").split("---\n", 2)[2].strip()
+        self.assertLessEqual(len(body), H.RECEIPT_MAX)
+        card = (self.vault / "Last-Session.md").read_text(encoding="utf-8").split("\n## ")[1]
+        self.assertLessEqual(len(card), C.CARD_MAX + 3)
+
+    def test_done_is_idempotent_per_session(self):
+        env = self.env_v()
+        cmd = CMD.handler(env)
+        cmd("done First result", session_id="id-1")
+        again = cmd("done First result", session_id="id-1")
+        self.assertIn("already saved", again)
+        cmd("done Second result", session_id="id-1")
+        self.assertEqual(len(self.receipts()), 2)
+        text = (self.vault / "Last-Session.md").read_text(encoding="utf-8")
+        self.assertEqual(text.count("· id-1\n"), 1)  # one card per session id
+        card = text.split("\n## ")[1]
+        self.assertIn("- Done: First result", card)
+        self.assertIn("- Done: Second result", card)
+
+    def test_capture_tool_receipt_kind(self):
+        env = self.env_v()
+        r = json.loads(T.handler(env, "kokpit_capture")({"kind": "receipt", "text": "Decided: water at 06:00"},
+                                                        session_id="tk-1"))
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["kind"], "receipt")
+        self.assertEqual(r["refs"], ["Last-Session.md"])
+        r = json.loads(T.handler(env, "kokpit_capture")({"kind": "receipt", "text": ""}, session_id="tk-1"))
+        self.assertFalse(r["ok"])
+        self.assertIn("usage", r["fix"])
+        bare = self.env(vault_path=str(self.vault), demo="off")  # no hooks registered
+        r = json.loads(T.handler(bare, "kokpit_capture")({"kind": "receipt", "text": "x"}))
+        self.assertFalse(r["ok"])
+        self.assertIn("/kokpit done", r["fix"])
+
+    def test_receipt_needs_a_vault(self):
+        env = self.env(vault_path=str(self.tmp / "missing"), demo="off")
+        env.recorder = H.Hooks(env)
+        out = CMD.handler(env)("done Something", session_id="mv-1")
+        self.assertIn("Fix:", out)
+        self.assertNotIn("Traceback", out)
+        self.assertFalse((self.tmp / "missing").exists())
+
+    def test_demo_writes_only_into_demo_copy(self):
+        env = self.env(demo="on")
+        env.recorder = H.Hooks(env)
+        before = sorted(p.relative_to(C.DEMO_SRC).as_posix() for p in C.DEMO_SRC.rglob("*"))
+        out = CMD.handler(env)("done Tried the demo", session_id="demo-1")
+        self.assertIn("demo", out)
+        demo_vault = env.state()["vault"]
+        self.assertTrue(str(demo_vault).startswith(str(self.tmp / "plugin-data")))
+        self.assertEqual(len(self.receipts(Path(demo_vault))), 1)
+        self.assertEqual(sorted(p.relative_to(C.DEMO_SRC).as_posix() for p in C.DEMO_SRC.rglob("*")), before)
+        self.assertEqual(self.receipts(), [])
+        self.assertNotIn("demo-1", (self.vault / "Last-Session.md").read_text(encoding="utf-8"))
+
+    def test_context_shows_open_items_and_latest_receipt(self):
         last = (f"# Last session\n\n## {D} 10:00 · Relay work · s-new\n- Done: wired it.\n"
-                f"- Next: order a spare relay\n\n## {D - timedelta(days=1)} 09:00 · Timer · s-old\n"
-                f"- Next step: test the 06:00 schedule\n\n## {D - timedelta(days=2)} 09:00 · Older · s-x\n"
-                f"- Next: never shown\n")
+                f"- Open: order a spare relay\n- Next: test the 06:00 schedule\n\n"
+                f"## {D - timedelta(days=1)} 09:00 · Older · s-old\n- Open: never shown\n")
         (self.vault / "Last-Session.md").write_text(last, encoding="utf-8")
-        h = H.Hooks(self.env_v())
-        r = h.pre_llm_call(session_id="ctx", user_message="hello", is_first_turn=True)
-        block = r["context"]
-        self.assertIn("## Next steps from recent sessions", block)
+        env = self.env_v()
+        CMD.handler(env)("done Relay ordered from the shop", session_id="rc-1")
+        (self.vault / "Last-Session.md").write_text(last, encoding="utf-8")  # keep the fixture card on top
+        h = H.Hooks(env)
+        block = h.pre_llm_call(session_id="ctx", user_message="hello", is_first_turn=True)["context"]
+        self.assertIn("## Last session card (historical claim, not verified)", block)
         self.assertIn("order a spare relay", block)
         self.assertIn("test the 06:00 schedule", block)
         self.assertNotIn("never shown", block)
-        small = H.Hooks(self.env_v(context_max_chars=200)).pre_llm_call(session_id="c2", user_message="hi",
-                                                                         is_first_turn=True)
-        self.assertLessEqual(len(small["context"]), 200)
+        self.assertIn("## Latest receipt (historical agent claim, not verified)", block)
+        self.assertIn("Relay ordered from the shop", block)
+        self.assertLessEqual(len(block), 1200)
+        later = h.pre_llm_call(session_id="ctx", user_message="relay", is_first_turn=False)
+        self.assertTrue(later is None or "Latest receipt" not in later["context"])
+        for budget in (120, 200, 400):
+            small = H.Hooks(self.env_v(context_max_chars=budget)).pre_llm_call(
+                session_id=f"b{budget}", user_message="hi", is_first_turn=True)
+            self.assertTrue(small is None or len(small["context"]) <= budget, budget)
+
+    def test_no_message_buffer_kept(self):
+        h = H.Hooks(self.env_v())
+        for i in range(30):
+            h.pre_llm_call(session_id="mem", user_message=f"message {i} " + "x" * 1900, is_first_turn=i == 0)
+        s = h._s["mem"]
+        self.assertNotIn("msgs", s)
+        self.assertLessEqual(len(s["first"]), 200)
+
+    def test_removed_settings_and_files(self):
+        y = (PLUGIN_DIR / "plugin.yaml").read_text(encoding="utf-8")
+        self.assertNotIn("card_model", y)
+        self.assertNotIn("session_log", y)
+        self.assertFalse((PLUGIN_DIR / "card.py").exists())
+        self.assertFalse(hasattr(C, "append_session_log"))
 
 
 class BriefTests(Base):
@@ -397,6 +420,15 @@ class BriefTests(Base):
         with mock.patch.object(B, "LIMIT", 400):
             r = B.build(st)
         self.assertLessEqual(r["chars"], 400)
+
+    def test_missing_vault_brief_and_today_have_fix(self):
+        env = self.env(vault_path=str(self.tmp / "nope"), demo="off")
+        out = CMD.run(env, "brief")
+        self.assertIn("Vault: not found. Fix: run /kokpit setup", out)
+        self.assertNotIn("Act:", out)
+        self.assertNotIn("no pass yet", out)
+        self.assertIn("Tasks: unknown (vault not found). Fix: run /kokpit setup", CMD.run(env, "today"))
+        self.assertFalse((self.tmp / "nope").exists())
 
     def test_brief_with_foreign_db(self):
         conn = sqlite3.connect(self.db)

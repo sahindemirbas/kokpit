@@ -45,23 +45,24 @@ def _today(state: dict) -> list[str]:
 
 def _brain(state: dict) -> tuple[list[str], list[str]]:
     vault = state.get("vault")
-    if vault is None or not Path(vault).is_dir() or not state["cfg"]["modules"].get("brain", True):
+    if not state["cfg"]["modules"].get("brain", True):
         return [], []
+    if vault is None or not Path(vault).is_dir():
+        return ["Vault: not found. Fix: run /kokpit setup <folder>, or point vault_path at your notes folder"], []
     v = c.read_vault(vault, layout=state.get("layout"))
     mine = [(t["title"], o["text"]) for t in v["threads"] for o in t["open"] if o["on_you"]]
     threads = ([f"On you ({len(mine)}):"] + [f"- {c.clean(title, 40)}: {c.clean(text, 100)}" for title, text in mine[:4]]
                if mine else [f"Open threads: {len(v['threads'])}, nothing marked on you"] if v["threads"] else [])
-    nxt = [(s["at"], n) for s in v["sessions"][:2] for n in s.get("next", [])][:3]
     sessions = []
     if v["sessions"]:
         s = v["sessions"][0]
         sessions.append(f"Last session: {s['at']} {c.clean(s['title'], 60)}")
-        sessions += [f"- Next: {c.clean(n, 110)}" for _at, n in nxt]
+        sessions += [f"- Open: {c.clean(n, 110)}" for n in s.get("open", [])[:3]]
     return threads, sessions
 
 
 def _night_lines(state: dict) -> tuple[list[str], list[str]]:
-    if state.get("vault") is None:
+    if state.get("vault") is None or not Path(state["vault"]).is_dir():
         return [], []
     store = _night.load(state.get("night_store"))
     if not store["last_run"]:
@@ -84,7 +85,7 @@ def build(state: dict, today: date | None = None) -> dict:
     threads, sessions = _brain(state)
     night_head, news = _night_lines(state)
     sections += [threads, night_head, sessions, news]
-    if state.get("vault") is not None and (night_head or threads):
+    if state.get("vault") is not None and Path(state["vault"]).is_dir() and (night_head or threads):
         sections.append(["Act: /kokpit night, /kokpit add <id>, /kokpit todo <text>"])
     tail = "\n\n" + c.DEMO_HINT if demo else ""
     text = "\n\n".join("\n".join(s) for s in sections if s)

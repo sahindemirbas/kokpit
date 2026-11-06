@@ -1,7 +1,7 @@
 # Last session
 
-Short cards, newest first. Hermes adds one when a session ends; other agents
-can add theirs in the same shape.
+Short cards, newest first. Hermes adds or updates one when a session produced
+a result; other agents can add theirs in the same shape.
 
 ## {{+0}} 00:00 · Starter vault created · kokpit-setup
 - Done: /kokpit setup created this vault.
