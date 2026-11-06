@@ -1018,7 +1018,10 @@ def latest_receipt(folder: Path | None, scan_max: int = 2000) -> dict | None:
     line = next((x.strip() for x in body.splitlines() if x.strip()), "")
     if not line:
         return None
-    at = str(meta.get("created_at") or datetime.fromtimestamp(best[0]).isoformat())[:16].replace("T", " ")
+    try:  # created_at is UTC; show local time like the card headings
+        at = datetime.fromisoformat(str(meta["created_at"])).astimezone().strftime("%Y-%m-%d %H:%M")
+    except (KeyError, TypeError, ValueError):
+        at = datetime.fromtimestamp(best[0]).strftime("%Y-%m-%d %H:%M")
     return {"at": at, "line": clean(line, 300), "path": Path(best[1]).name}
 
 

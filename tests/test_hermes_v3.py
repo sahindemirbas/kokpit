@@ -8,7 +8,7 @@ import os
 import sqlite3
 import sys
 import unittest
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest import mock
 
@@ -359,6 +359,8 @@ class ReceiptTests(Base):
         self.assertNotIn("never shown", block)
         self.assertIn("## Latest receipt (historical agent claim, not verified)", block)
         self.assertIn("Relay ordered from the shop", block)
+        r = C.latest_receipt(self.vault / "receipts")
+        self.assertEqual(r["at"][:13], datetime.now().strftime("%Y-%m-%d %H")[:13])  # local time, like card headings
         self.assertLess(block.index("## Latest receipt"), block.index("## Active threads"))  # cut last by the budget
         self.assertNotIn("Harness", block)
         self.assertLessEqual(len(block), 1200)
