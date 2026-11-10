@@ -110,6 +110,7 @@ One setting is also one command, for example
 | `stale_days` | int | `7` | Days without change before the night pass proposes a next step for a thread |
 | `news_days` | int | `2` | Days back the night pass reads news items, inbox notes and journal lines |
 | `night_auto` | bool | `false` | Run the night pass when a session starts, at most once every 20 hours |
+| `collect_auto` | bool | `false` | Collect every enabled collecting module in the background when a session starts and its last successful run is 20 or more hours old |
 | `night_model` | bool | `false` | Also ask the host model (`ctx.llm`) for proposals; every one is checked in code |
 
 A plugin setting wins over the same value in `kokpit.toml`. Without
@@ -287,6 +288,9 @@ Hooks:
   match. /kokpit night`.
 - `on_session_start`: with `night_auto: true`, runs the night pass in a
   background thread when it last ran 20 or more hours ago. Off by default.
+  With `collect_auto: true` it also starts a background collection of each
+  enabled collecting module that is due (see News briefing, Schedule). Off by
+  default; with both off, session start does nothing.
 - `on_session_finalize`: only when the session produced a result (see below),
   writes or updates one card at the top of `Last-Session.md` and one receipt in
   `receipts/`, then tells the user where. A session with only chat and lookups
@@ -346,8 +350,13 @@ fits, everything else falls back to the plain summary (`by_model = 1` only for
 kept answers). A Hermes without plugin model access falls back the same way and
 the result says so.
 
-Schedule (the plugin creates no job by itself). `hermes kokpit-collect` runs one
-collection and prints a short summary. A crontab line:
+Schedule. The plugin creates no cron job by itself. Which route works depends
+on where Hermes runs the plugin: `hermes plugins show kokpit` prints a
+`Runs in:` line. `Hermes process` means in process, `plugin host` means
+`plugins.isolation: host` (also visible with `hermes config get plugins.isolation`).
+
+In process: `hermes kokpit-collect` runs one collection and prints a short
+summary. A crontab line:
 
 ```
 15 6 * * * hermes kokpit-collect >/dev/null 2>&1
@@ -356,7 +365,27 @@ collection and prints a short summary. A crontab line:
 Or with Hermes cron, no model involved: put `hermes kokpit-collect` in a script
 under `~/.hermes/scripts/` (for example `kokpit-collect.sh`) and run
 `hermes cron create "15 6 * * *" --no-agent --script kokpit-collect.sh --name kokpit-collect`.
-Like `kokpit-night`, the CLI command is wired only when plugins run in process.
+
+Host isolation: Hermes skips `ctx.register_cli_command` in the plugin host, so
+`hermes kokpit-collect` (like `kokpit-night`) does not exist there and the lines
+above fail. Two routes remain:
+
+- `collect_auto: true` (`hermes config set plugins.entries.kokpit.settings.collect_auto true`).
+  At session start the plugin runs, in a background thread, every enabled
+  collecting job whose last successful run in `collector.db` is older than 20
+  hours. After a failed run it waits 6 hours before trying again. It never
+  blocks or breaks the session; a failure is a `runs` row that `kokpit_health`
+  shows, and a setup gap (for example no topics) is skipped without a row.
+  Demo mode never collects. Off by default, and then session start makes no
+  network call. It only runs when you start sessions.
+- An agent-mode Hermes cron job whose prompt calls the tool, for example
+  `hermes cron create "15 6 * * *" "Call the kokpit_briefing tool with action collect and report the result in one line." --name kokpit-collect`.
+  This costs one model run per schedule. Checked by reading the Hermes source,
+  not by running such a job: cron runs call plugin discovery and resolve the
+  `cron` platform toolsets; plugin toolsets such as `kokpit` are on there by
+  default unless `platform_toolsets.cron` was saved without them; the plugin
+  host skips only the CLI registration, not tools. Not verified end to end on
+  a host-isolation install.
 
 Where the data lives: the plugin's own SQLite file `collector.db` in the Hermes
 plugin data dir (on a Hermes without one, a temporary folder, and the tool

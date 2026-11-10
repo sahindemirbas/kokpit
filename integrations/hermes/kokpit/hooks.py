@@ -4,6 +4,8 @@ A result is a vault capture, a file written or edited by a tool, an accepted nig
 explicit close (/kokpit done, kokpit_capture kind receipt). A chat-only session with lookups writes
 nothing. No model calls and no network: the card is built from rules (what was captured or written,
 what the Threads file still lists as open). No user text is kept beyond the first message (card title).
+The one exception is opt-in: with collect_auto on, session start runs the enabled collectors in a
+background thread (network only through collector.fetch); off by default.
 """
 from __future__ import annotations
 
@@ -16,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import contract as c
+from . import collector as _collector
 from . import night as _night
 
 WRITE_TOOLS = {"write_file", "patch"}
@@ -57,6 +60,9 @@ class Hooks:
         self._s: dict[str, dict] = {}
         self._night_running = False
         self.last_auto: threading.Thread | None = None
+        self._collect_running = False
+        self.last_collect: threading.Thread | None = None
+        self.now = datetime.now  # clock for collect_auto; tests replace it
 
     # ------------------------------------------------------------ per-session state
 
@@ -145,7 +151,56 @@ class Hooks:
     # ------------------------------------------------------------ on_session_start: optional night auto-run
 
     def on_session_start(self, session_id=None, **_kw):
-        """With night_auto on, run the night pass in the background at most once per 20 hours."""
+        """With night_auto on, run the night pass in the background at most once per 20 hours.
+        With collect_auto on, collect each enabled module whose last good run is older than 20 hours."""
+        self._night_auto()
+        self._collect_auto()
+        return None
+
+    def auto_jobs(self, state: dict) -> list:
+        """(job, fn) pairs collect_auto may run: only modules that are on and have something to collect."""
+        jobs = []
+        mods = state["cfg"]["modules"]
+        if mods.get("briefing") and (state.get("briefing") or {}).get("topics"):
+            jobs.append((_collector.JOB, lambda st: _collector.collect(st)))
+        return jobs
+
+    def _collect_auto(self):
+        try:
+            if not c.as_bool(self.env.setting("collect_auto", False)):
+                return None
+            state = self.env.state()
+            if state.get("mode") == "demo":
+                return None
+            jobs = self.auto_jobs(state)
+            if not jobs:
+                return None
+            now = self.now()
+            path = (state.get("store") or {}).get("path")
+            if path is None or not any(_collector.due(path, j, now) for j, _ in jobs):
+                return None
+            with self._lock:
+                if self._collect_running:
+                    return None
+                self._collect_running = True
+
+            def work():
+                try:
+                    _collector.run_auto(state, jobs, now)
+                except Exception:
+                    pass  # run_auto records failures as runs rows; nothing reaches the session
+                finally:
+                    with self._lock:
+                        self._collect_running = False
+
+            t = threading.Thread(target=work, name="kokpit-collect", daemon=True)
+            t.start()
+            self.last_collect = t
+        except Exception:
+            return None
+        return None
+
+    def _night_auto(self):
         try:
             state = self.env.state()
             if not (state["cfg"].get("night") or {}).get("night_auto"):

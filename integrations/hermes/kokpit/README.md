@@ -63,7 +63,11 @@ or a podcast.
 Off by default. `/kokpit news on`, then `/kokpit news add <topic> <feed-url>
 [keywords...]` per topic (http and https feeds only), then `/kokpit news run`
 or schedule `hermes kokpit-collect` (crontab: `15 6 * * * hermes kokpit-collect
->/dev/null 2>&1`). `/kokpit news` and the `kokpit_briefing` tool list the day's
+>/dev/null 2>&1`). Under `plugins.isolation: host` that CLI command does not
+exist (`hermes plugins show kokpit` says `Runs in: plugin host`); turn on
+`collect_auto` instead (collects in the background at session start when the
+last run is older than 20 hours; off by default) or use an agent-mode cron job
+that calls the `kokpit_briefing` tool with `action: collect`. `/kokpit news` and the `kokpit_briefing` tool list the day's
 items with one headline per topic; `/kokpit brief` gets a short News block.
 Summaries are the feed's own first sentences unless you turn on
 `briefing_model` (one bounded host model call per collection, output checked).

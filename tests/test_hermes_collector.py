@@ -127,7 +127,12 @@ class Briefing(Base):
             h.post_tool_call(tool_name="terminal", args={"command": "ls"}, result="{}", session_id="s0")
             h.post_compaction(session_id="s0")
             h.on_session_finalize(session_id="s0", platform="cli")
+            self.assertIsNone(h.last_collect, "collect_auto is off by default")
             T.overview(env)
+            # briefing on with feeds, collect_auto left at its default: session start still makes no call
+            h2 = H.Hooks(self.benv())
+            h2.on_session_start(session_id="s1")
+            self.assertIsNone(h2.last_collect)
         self.assertFalse(self.store().exists(), "no collector store before the user collects")
 
     # 2 -------------------------------------------------------------- module off
@@ -476,6 +481,66 @@ class Briefing(Base):
         self.assertTrue(r["ok"], r)
         self.assertFalse(r["store"]["durable"])
         self.assertIn("temporary", r["store"]["note"])
+
+
+class CollectAuto(Briefing):
+    """collect_auto: background collection at session start (Part A). Injected clock, joined threads."""
+
+    def start(self, h, sid="s"):
+        h.last_collect = None
+        h.on_session_start(session_id=sid)
+        if h.last_collect is not None:
+            h.last_collect.join(30)
+            self.assertFalse(h.last_collect.is_alive())
+        return h.last_collect
+
+    def test_runs_once_then_waits_for_the_threshold(self):
+        env = self.benv(collect_auto=True)
+        h = H.Hooks(env)
+        f = fake_fetch({RSS_URL: RSS, ATOM_URL: ATOM})
+        with mock.patch.object(K, "fetch", f):
+            self.assertIsNotNone(self.start(h, "a"))
+            self.assertEqual(sorted(f.calls), sorted([RSS_URL, ATOM_URL]))
+            self.assertEqual(self.q("SELECT COUNT(*) FROM runs WHERE job='briefing' AND ok=1")[0][0], 1)
+            n = len(f.calls)
+            h.now = lambda: datetime.now() + timedelta(hours=19)
+            self.assertIsNone(self.start(h, "b"), "within 20 hours: no second collection")
+            self.assertEqual(len(f.calls), n)
+            h.now = lambda: datetime.now() + timedelta(hours=21)
+            self.assertIsNotNone(self.start(h, "c"))
+            self.assertEqual(len(f.calls), 2 * n)
+        self.assertEqual(self.q("SELECT COUNT(*) FROM runs WHERE job='briefing' AND ok=1")[0][0], 2)
+
+    def test_demo_or_module_off_never_fetches(self):
+        with mock.patch.object(K, "fetch", no_network), mock.patch.object(K, "_open", no_network):
+            for env in (self.env(demo="on", collect_auto=True, briefing=True, briefing_topics=TOPICS),
+                        self.benv(collect_auto=True, briefing=False),
+                        self.benv(collect_auto=True, briefing_topics=[])):
+                h = H.Hooks(env)
+                self.assertIsNone(self.start(h))
+        self.assertFalse(self.store().exists())
+
+    def test_failure_in_thread_is_a_failed_run_not_an_exception(self):
+        env = self.benv(collect_auto=True)
+        h = H.Hooks(env)
+        with mock.patch.object(K, "collect", side_effect=RuntimeError("boom")):
+            self.assertIsNone(h.on_session_start(session_id="x"))
+            h.last_collect.join(30)
+        rows = self.q("SELECT ok, info FROM runs WHERE job='briefing'")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], 0)
+        self.assertIn("boom", rows[0][1])
+        # a failed run is retried only after AUTO_RETRY_HOURS, so a broken feed is not hit every session
+        self.assertFalse(K.due(self.store(), "briefing", datetime.now() + timedelta(hours=1)))
+        self.assertTrue(K.due(self.store(), "briefing", datetime.now() + timedelta(hours=K.AUTO_RETRY_HOURS + 1)))
+
+    def test_one_thread_at_a_time(self):
+        env = self.benv(collect_auto=True)
+        h = H.Hooks(env)
+        h._collect_running = True
+        with mock.patch.object(K, "fetch", no_network):
+            h.on_session_start(session_id="y")
+        self.assertIsNone(h.last_collect)
 
 
 if __name__ == "__main__":

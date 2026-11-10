@@ -699,6 +699,96 @@ def run_freshness(conn, job: str = JOB) -> dict:
     return out
 
 
+# ---------------------------------------------------------------- collect_auto: background collection at session start
+
+AUTO_HOURS = 20        # a job is due when its last successful run is older than this
+AUTO_RETRY_HOURS = 6   # after a failed run the job waits this long, so a block or an outage is not hammered
+
+
+def _parse_local(value) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def due(path, job: str, now: datetime | None = None, hours: float = AUTO_HOURS) -> bool:
+    """True when job has no successful run in the plugin store within `hours` and no failed run within
+    AUTO_RETRY_HOURS. Reads only; a missing store means never run, so due."""
+    now = now or datetime.now()
+    p = Path(path) if path is not None else None
+    if p is None or not p.exists():
+        return True
+    conn = c.open_db(p)
+    if conn is None or c.table_problem(conn, "runs"):
+        if conn is not None:
+            conn.close()
+        return True
+    try:
+        good = conn.execute("SELECT finished FROM runs WHERE job=? AND ok=1 ORDER BY id DESC LIMIT 1", (job,)).fetchone()
+        last = conn.execute("SELECT ok, finished FROM runs WHERE job=? ORDER BY id DESC LIMIT 1", (job,)).fetchone()
+    finally:
+        conn.close()
+    g = _parse_local(good[0]) if good else None
+    if g is not None and (now - g).total_seconds() < hours * 3600:
+        return False
+    if last and not last[0]:
+        f = _parse_local(last[1])
+        if f is not None and (now - f).total_seconds() < AUTO_RETRY_HOURS * 3600:
+            return False
+    return True
+
+
+def _last_id(path, job: str) -> int:
+    p = Path(path)
+    if not p.exists():
+        return 0
+    conn = c.open_db(p)
+    if conn is None or c.table_problem(conn, "runs"):
+        if conn is not None:
+            conn.close()
+        return 0
+    try:
+        r = conn.execute("SELECT MAX(id) FROM runs WHERE job=?", (job,)).fetchone()
+        return int(r[0] or 0)
+    finally:
+        conn.close()
+
+
+def run_auto(state: dict, jobs, now: datetime | None = None) -> list[dict]:
+    """Run each due (job, fn) pair one after the other. Never raises: an exception becomes a failed runs row
+    (unless run_job already wrote one for that attempt)."""
+    path = (state.get("store") or {}).get("path")
+    out = []
+    if path is None or state.get("mode") == "demo":
+        return out
+    for job, fn in jobs:
+        try:
+            if not due(path, job, now):
+                continue
+        except Exception:
+            continue
+        before = _last_id(path, job) if Path(path).exists() else 0
+        try:
+            r = fn(state)
+            out.append({"job": job, "status": (r or {}).get("status", "ok")})
+        except c.NotReady:
+            out.append({"job": job, "status": "not ready"})  # a setup gap, not a run: no runs row
+        except Exception as e:
+            try:
+                if _last_id(path, job) <= before:
+                    conn = connect(path)
+                    try:
+                        record_run(conn, job, now_iso(), False, None,
+                                   {"error": f"{type(e).__name__}: {str(e)[:160]}", "auto": True})
+                    finally:
+                        conn.close()
+            except Exception:
+                pass
+            out.append({"job": job, "status": "failed"})
+    return out
+
+
 def _items(conn, day: str, topic: str, limit: int) -> list[dict]:
     if conn is None or c.table_problem(conn, "briefing_items"):
         return []

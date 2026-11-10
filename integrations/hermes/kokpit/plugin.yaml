@@ -135,6 +135,10 @@ config_schema:
     type: int
     default: 30
     description: "Most briefing items kept per day (1 to 100), spread over the topics, one headline per topic."
+  collect_auto:
+    type: bool
+    default: false
+    description: "Collect in the background when a session starts: every enabled collecting module (news briefing; job listings when jobs and jobs_linkedin are on) whose last good run is older than 20 hours. For Hermes installs where plugin CLI commands are not available. Off by default; with it off, session start makes no network call."
   briefing_model:
     type: bool
     default: false
