@@ -53,13 +53,17 @@ def write_wav(path: Path, frames: int = WAV_FRAMES, rate: int = WAV_RATE) -> Non
 class FakeDispatch:
     """Stands in for ctx.dispatch_tool("text_to_speech", ...): writes a synthetic audio file per call."""
 
-    def __init__(self, kind="wav", fail_at=None, empty_at=None):
-        self.calls, self.kind, self.fail_at, self.empty_at = [], kind, fail_at, empty_at
+    def __init__(self, kind="wav", fail_at=None, empty_at=None, times=1):
+        # fail_at / empty_at: the number of the first bad call; times: how many calls in a row from there are bad
+        self.calls, self.kind, self.fail_at, self.empty_at, self.times = [], kind, fail_at, empty_at, times
+
+    def bad(self, at, n):
+        return at is not None and at <= n < at + self.times
 
     def __call__(self, name, args, **kw):
         self.calls.append((name, dict(args)))
         n = len(self.calls)
-        if self.fail_at == n:
+        if self.bad(self.fail_at, n):
             return json.dumps({"success": False, "error": "provider said no " + SECRET_STDERR})
         out = Path(args["output_path"])
         if self.kind == "wav":
@@ -67,7 +71,7 @@ class FakeDispatch:
             write_wav(out)
         else:
             out.write_bytes(b"ID3\x03\x00" + b"\x00" * 64)
-        if self.empty_at == n:
+        if self.bad(self.empty_at, n):
             out.write_bytes(b"")
         return json.dumps({"success": True, "file_path": str(out), "file_paths": [str(out)]})
 
@@ -117,6 +121,10 @@ def no_subprocess(*a, **kw):
 class PodBase(Base):
     def setUp(self):
         super().setUp()
+        self.pauses = []
+        sleeper = mock.patch.object(PC, "sleep", self.pauses.append)  # no test really sleeps between attempts
+        sleeper.start()
+        self.addCleanup(sleeper.stop)
         self.seed(ITEMS)
 
     def seed(self, items, day=TODAY):
@@ -343,7 +351,7 @@ class TtsWav(PodBase):
         for name, args in disp.calls:
             self.assertEqual(name, "text_to_speech")
             self.assertLessEqual(len(args["text"]), 200)
-            self.assertEqual(Path(args["output_path"]).parent, self.ep())
+            self.assertEqual(Path(args["output_path"]).parent, self.ep() / PC.STAGING)
         expected = round(len(disp.calls) * WAV_FRAMES / WAV_RATE, 1)  # 0.2 s per piece
         self.assertEqual(r["status"], "made")
         self.assertEqual(r["file"], str(self.ep() / "episode.wav"))
@@ -376,7 +384,8 @@ class TtsNonWav(PodBase):
             Path(argv[-1]).write_bytes(b"ID3\x03\x00" + b"\x00" * 128)
             return 0, "", ""
         env = self.penv(dispatch=FakeDispatch("mp3"))
-        with mock.patch.object(PC, "PIECE_CHARS", 200), mock.patch.object(PC, "which", lambda n: "/opt/fake/ffmpeg"), \
+        with mock.patch.object(PC, "PIECE_CHARS", 200), \
+                mock.patch.object(PC, "which", lambda n: "/opt/fake/ffmpeg" if n == "ffmpeg" else None), \
                 mock.patch.object(PC, "run_cmd", runner):
             r = self.call(env, "kokpit_podcast", {"action": "make"})
         self.assertTrue(r["ok"], r)
@@ -430,13 +439,13 @@ class TtsFailures(PodBase):
         self.check_failed(self.penv(), "no dispatch_tool")
 
     def test_tool_reports_failure(self):
-        r = self.check_failed(self.penv(dispatch=FakeDispatch(fail_at=2)), "reported failure")
+        r = self.check_failed(self.penv(dispatch=FakeDispatch(fail_at=2, times=3)), "reported failure")
         dumped = json.dumps(r) + json.dumps(self.runs())
         for secret in ("abcSECRETcookie123", "TOKENVALUESECRET", "demo.person@example.com"):
             self.assertNotIn(secret, dumped)
 
     def test_empty_piece_file(self):
-        self.check_failed(self.penv(dispatch=FakeDispatch(empty_at=1)), "missing or empty")
+        self.check_failed(self.penv(dispatch=FakeDispatch(empty_at=1, times=3)), "missing or empty")
 
 
 # C8 / C9 / C10 ------------------------------------------------------------------------ notebooklm
@@ -470,7 +479,7 @@ class NotebookLM(PodBase):
 
     def test_switch_on_runs_confirmed_syntax(self):
         fake, disp = FakeRunner(), FakeDispatch()
-        with mock.patch.object(PC, "which", lambda n: "/opt/fake/bin/notebooklm"), \
+        with mock.patch.object(PC, "which", lambda n: "/opt/fake/bin/notebooklm" if n == "notebooklm" else None), \
                 mock.patch.object(PC, "run_cmd", fake), mock.patch.object(subprocess, "run", no_subprocess):
             r = self.call(self.nenv(cli=True, dispatch=disp), "kokpit_podcast", {"action": "make"})
         self.assertTrue(r["ok"], r)
@@ -481,7 +490,7 @@ class NotebookLM(PodBase):
             [exe, "source", "add", str(ep / "source.md"), "--notebook", "nbFAKE123456", "--type", "file",
              "--title", f"Kokpit briefing {TODAY}", "--json"],
             None,  # generate audio: checked below (timeout value depends on the clock)
-            [exe, "download", "audio", str(ep / "episode.m4a"), "--notebook", "nbFAKE123456", "--latest",
+            [exe, "download", "audio", str(ep / PC.STAGING / "episode.m4a"), "--notebook", "nbFAKE123456", "--latest",
              "--force", "--json"],
         ]
         self.assertEqual(len(fake.calls), 4)
@@ -502,7 +511,7 @@ class NotebookLM(PodBase):
         self.assertEqual(disp.calls, [])
         # the notebook is reused on the next make
         fake2 = FakeRunner()
-        with mock.patch.object(PC, "which", lambda n: exe), mock.patch.object(PC, "run_cmd", fake2):
+        with mock.patch.object(PC, "which", lambda n: exe if n == "notebooklm" else None), mock.patch.object(PC, "run_cmd", fake2):
             self.assertTrue(self.call(self.nenv(cli=True), "kokpit_podcast", {"action": "make"})["ok"])
         self.assertEqual([a[1] for a, _t in fake2.calls], ["source", "generate", "download"])
 
@@ -569,7 +578,7 @@ class NotebookLM(PodBase):
 # C11 ---------------------------------------------------------------------------------- no fallback
 class NoFallback(PodBase):
     def test_failing_tts_starts_no_subprocess(self):
-        env = self.penv(dispatch=FakeDispatch(fail_at=1))
+        env = self.penv(dispatch=FakeDispatch(fail_at=1, times=3))
         with mock.patch.object(PC, "run_cmd", no_subprocess), mock.patch.object(subprocess, "run", no_subprocess), \
                 mock.patch.object(PC, "which", lambda n: "/opt/fake/bin/" + n):
             r = self.call(env, "kokpit_podcast", {"action": "make"})
@@ -683,6 +692,279 @@ class Lock(PodBase):
         r = self.call(env, "kokpit_podcast", {"action": "make"})
         self.assertTrue(r["ok"], r)
         self.assertFalse(lk.exists())
+
+
+# D1..D5 -------------------------------------------------------------------- slow or failing text_to_speech
+OLD_MP3 = b"ID3\x03\x00OLD-EPISODE" + b"\x01" * 64
+
+
+class PieceSize(PodBase):
+    def test_default_pieces_at_most_500_and_nothing_lost(self):  # T1
+        sentences = [f"Sentence number {i} tells a little more about the day." for i in range(60)]
+        text = " ".join(sentences)
+        while len(text) < 3000:
+            text += " One more short sentence."
+        s = {"segments": [{"topic": "x", "lines": [{"who": "A", "text": text[:1500]}, {"who": "B",
+                                                                                     "text": text[1500:]}]}]}
+        self.assertEqual(PC.PIECE_CHARS, 500)
+        ps = PC.pieces(s)
+        self.assertGreater(len(ps), 5)
+        self.assertTrue(all(len(p) <= 500 for p in ps), [len(p) for p in ps])
+        self.assertEqual("".join(" ".join(ps).split()), "".join((text[:1500] + " " + text[1500:]).split()))
+
+
+class PieceRetry(PodBase):
+    def make(self, disp, **patches):
+        with mock.patch.object(PC, "PIECE_CHARS", 200), mock.patch.object(PC, "run_cmd", no_subprocess):
+            return self.call(self.penv(dispatch=disp), "kokpit_podcast", {"action": "make"})
+
+    def test_piece_fails_once_then_succeeds(self):  # T2
+        disp = FakeDispatch("wav", fail_at=2)
+        r = self.make(disp)
+        self.assertTrue(r["ok"], r)
+        outs = [a["output_path"] for _n, a in disp.calls]
+        self.assertEqual(outs[1], outs[2])  # call 2 failed, call 3 is the same piece again
+        self.assertEqual(sum(1 for o in outs if o == outs[1]), 2)
+        self.assertIn("piece 2 needed 2 attempts", r["warnings"])
+        self.assertEqual(self.pauses, [PC.PIECE_PAUSE])
+        self.assertEqual(self.audio_left(), ["episode.wav"])
+        self.assertFalse((self.ep() / PC.STAGING).exists())
+
+    def test_partial_file_of_failed_attempt_removed(self):  # T2, empty file variant
+        seen = []
+        disp = FakeDispatch("wav", empty_at=1)
+        real_pause = self.pauses.append
+
+        def pause(sec):
+            seen.append(sorted(f.name for f in (self.ep() / PC.STAGING).iterdir()))
+            real_pause(sec)
+        with mock.patch.object(PC, "sleep", pause):
+            r = self.make(disp)
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(seen, [[]])  # the empty part-001 was removed before the pause and the retry
+        self.assertIn("piece 1 needed 2 attempts", r["warnings"])
+
+    def test_piece_fails_three_times(self):  # T3
+        disp = FakeDispatch("wav", fail_at=2, times=3)
+        r = self.make(disp)
+        self.assertFalse(r["ok"])
+        self.assertIn("podcast make failed at text_to_speech piece 2 of", r["error"])
+        self.assertIn(f"gave up after {PC.PIECE_ATTEMPTS} attempts", r["error"])
+        self.assertEqual(PC.PIECE_ATTEMPTS, 3)
+        outs = [a["output_path"] for _n, a in disp.calls]
+        self.assertEqual(len(outs), 4)  # piece 1 once, piece 2 three times, piece 3 never
+        self.assertEqual(outs[1:], [outs[1]] * 3)
+        self.assertEqual(len(self.pauses), 2)
+        self.assertEqual(self.audio_left(), [])
+        self.assertFalse((self.ep() / PC.STAGING).exists())
+
+    def test_raising_and_non_json_count_as_attempts(self):
+        calls = []
+        good = FakeDispatch("wav")
+
+        def disp(name, args, **kw):
+            calls.append(args["output_path"])
+            if len(calls) == 1:
+                raise RuntimeError("boom")
+            if len(calls) == 2:
+                return "not json"
+            return good(name, args)
+        r = self.make(disp)
+        self.assertTrue(r["ok"], r)
+        self.assertIn("piece 1 needed 3 attempts", r["warnings"])
+
+
+class KeepEarlierEpisode(PodBase):
+    def old(self, name="episode.mp3", data=OLD_MP3):
+        self.ep().mkdir(parents=True, exist_ok=True)
+        (self.ep() / name).write_bytes(data)
+        return self.ep() / name
+
+    def test_failed_make_keeps_episode_bytes(self):  # T4
+        old = self.old()
+        with mock.patch.object(PC, "PIECE_CHARS", 200), mock.patch.object(PC, "run_cmd", no_subprocess):
+            r = self.call(self.penv(dispatch=FakeDispatch("wav", fail_at=2, times=3)), "kokpit_podcast",
+                          {"action": "make"})
+        self.assertFalse(r["ok"])
+        self.assertEqual(old.read_bytes(), OLD_MP3)
+        self.assertEqual(self.audio_left(), ["episode.mp3"])
+        self.assertFalse((self.ep() / PC.STAGING).exists())
+        self.assertFalse(any(f.name.startswith("part-") for f in self.ep().rglob("*")))
+        self.assertEqual(self.runs()[-1][1:3][0], 0)
+        self.assertEqual(self.runs()[-1][2]["status"], "failed")
+        self.assertIn("earlier episode of this day was kept", r["fix"])
+        self.assertIn(str(old), r["fix"])
+
+    def test_failed_make_without_earlier_says_nothing_about_it(self):
+        with mock.patch.object(PC, "PIECE_CHARS", 200), mock.patch.object(PC, "run_cmd", no_subprocess):
+            r = self.call(self.penv(dispatch=FakeDispatch("wav", fail_at=1, times=3)), "kokpit_podcast",
+                          {"action": "make"})
+        self.assertFalse(r["ok"])
+        self.assertNotIn("earlier episode", r["fix"])
+
+    def test_successful_make_replaces_episode(self):  # T5, same extension
+        self.old()
+
+        def runner(argv, timeout):
+            if "concat" in argv:
+                Path(argv[-1]).write_bytes(b"ID3\x03\x00NEW" + b"\x00" * 128)
+            return 0, "", ""
+        with mock.patch.object(PC, "PIECE_CHARS", 200), \
+                mock.patch.object(PC, "which", lambda n: "/opt/fake/" + n if n == "ffmpeg" else None), \
+                mock.patch.object(PC, "run_cmd", runner):
+            r = self.call(self.penv(dispatch=FakeDispatch("mp3")), "kokpit_podcast", {"action": "make"})
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["file"], str(self.ep() / "episode.mp3"))
+        self.assertTrue((self.ep() / "episode.mp3").read_bytes().startswith(b"ID3\x03\x00NEW"))
+        self.assertEqual(sorted(f.name for f in self.ep().glob("episode.*")), ["episode.mp3"])
+        self.assertEqual(self.audio_left(), ["episode.mp3"])
+        self.assertFalse((self.ep() / PC.STAGING).exists())
+
+    def test_old_wav_gone_after_new_mp3(self):  # T5, other extension
+        old = self.old("episode.wav", b"RIFF-old")
+
+        def runner(argv, timeout):
+            if "concat" in argv:
+                Path(argv[-1]).write_bytes(b"ID3\x03\x00NEW" + b"\x00" * 128)
+            return 0, "", ""
+        with mock.patch.object(PC, "PIECE_CHARS", 200), \
+                mock.patch.object(PC, "which", lambda n: "/opt/fake/" + n if n == "ffmpeg" else None), \
+                mock.patch.object(PC, "run_cmd", runner):
+            r = self.call(self.penv(dispatch=FakeDispatch("mp3")), "kokpit_podcast", {"action": "make"})
+        self.assertTrue(r["ok"], r)
+        self.assertFalse(old.exists())
+        self.assertEqual(self.audio_left(), ["episode.mp3"])
+
+    def test_new_playlist_replaces_old_episode(self):
+        self.old()
+        with mock.patch.object(PC, "PIECE_CHARS", 200), mock.patch.object(PC, "which", lambda n: None), \
+                mock.patch.object(PC, "run_cmd", no_subprocess):
+            r = self.call(self.penv(dispatch=FakeDispatch("mp3")), "kokpit_podcast", {"action": "make"})
+        self.assertTrue(r["ok"], r)
+        names = self.audio_left()
+        self.assertNotIn("episode.mp3", names)
+        self.assertIn("episode.m3u", names)
+        self.assertEqual(len(names), len(r["parts"]) + 1)
+        self.assertTrue(all(Path(p).parent == self.ep() and Path(p).is_file() for p in r["parts"]))
+
+    def test_notebooklm_pack_level_keeps_episode(self):  # T6
+        old = self.old()
+        for cli, which in ((False, None), (True, None)):  # automation off, and on with the CLI missing
+            with mock.patch.object(PC, "run_cmd", no_subprocess), mock.patch.object(PC, "which", lambda n: which):
+                r = self.call(self.penv(podcast_engine="notebooklm", podcast_notebooklm_cli=cli), "kokpit_podcast",
+                              {"action": "make"})
+            self.assertEqual(old.read_bytes(), OLD_MP3)
+            self.assertTrue((self.ep() / "source.md").is_file())
+            self.assertTrue((self.ep() / "focus.txt").is_file())
+            if r["ok"]:
+                self.assertEqual(r["status"], "source pack ready")
+                self.assertIn("earlier episode of this day was kept", r["note"])
+        env = self.penv(podcast_engine="notebooklm")
+        with mock.patch.object(PC, "which", lambda n: None):
+            st = self.call(env, "kokpit_podcast", {})
+            self.assertEqual(st["status"], "episode ready")
+            out = CMD.run(env, "podcast")
+        self.assertIn("Episode:", out)
+        self.assertIn("Source pack", out)
+        brief = self.call(env, "kokpit_today", {"brief": True})["text"]
+        self.assertIn("Podcast: today's episode is ready", brief)
+        self.assertNotIn("source pack ready", brief)
+
+    def test_notebooklm_download_failure_keeps_episode(self):
+        old = self.old()
+        fake = FakeRunner(empty_download=True)
+        with mock.patch.object(PC, "which", lambda n: "/opt/fake/bin/notebooklm" if n == "notebooklm" else None), \
+                mock.patch.object(PC, "run_cmd", fake):
+            r = self.call(self.penv(podcast_engine="notebooklm", podcast_notebooklm_cli=True, podcast_language="en"),
+                          "kokpit_podcast", {"action": "make"})
+        self.assertFalse(r["ok"])
+        self.assertEqual(old.read_bytes(), OLD_MP3)
+        self.assertIn("earlier episode of this day was kept", r["fix"])
+        self.assertFalse((self.ep() / PC.STAGING).exists())
+
+    def test_notebooklm_download_replaces_episode(self):
+        old = self.old()
+        with mock.patch.object(PC, "which", lambda n: "/opt/fake/bin/notebooklm" if n == "notebooklm" else None), \
+                mock.patch.object(PC, "run_cmd", FakeRunner()):
+            r = self.call(self.penv(podcast_engine="notebooklm", podcast_notebooklm_cli=True, podcast_language="en"),
+                          "kokpit_podcast", {"action": "make"})
+        self.assertTrue(r["ok"], r)
+        self.assertFalse(old.exists())
+        self.assertEqual(r["file"], str(self.ep() / "episode.m4a"))
+        self.assertEqual(self.audio_left(), ["episode.m4a"])
+
+    def test_leftover_staging_cleaned_and_never_an_episode(self):  # T7
+        st = self.ep() / PC.STAGING
+        st.mkdir(parents=True)
+        (st / "episode.mp3").write_bytes(b"ID3\x03\x00HALF" + b"\x00" * 32)
+        (st / "part-001.mp3").write_bytes(b"ID3\x03\x00" + b"\x00" * 32)
+        env = self.penv(podcast_engine="notebooklm")
+        self.assertEqual(PC.episode_files(self.ep())["episode"], None)
+        self.assertNotEqual(self.call(env, "kokpit_podcast", {})["status"], "episode ready")
+        base = self.tmp / "plugin-data" / "podcast"
+        self.assertEqual(PC.prune(base, 14), [])
+        self.assertTrue(self.call(env, "kokpit_podcast", {"action": "make"})["ok"])
+        self.assertFalse(st.exists())
+        self.assertEqual(self.audio_left(), [])
+        self.assertEqual(self.call(env, "kokpit_podcast", {})["status"], "source pack ready")
+
+
+class Duration(PodBase):
+    def probe(self, answer, which="/opt/fake/ffprobe"):
+        f = self.tmp / "x.mp3"
+        f.write_bytes(b"ID3\x03\x00" + b"\x00" * 64)
+        calls = []
+
+        def runner(argv, timeout):
+            calls.append((argv, timeout))
+            if isinstance(answer, BaseException):
+                raise answer
+            return answer
+        with mock.patch.object(PC, "which", lambda n: which if n == "ffprobe" else None), \
+                mock.patch.object(PC, "run_cmd", runner):
+            return PC.duration_of(f), calls, f
+
+    def test_ffprobe_value_rounded_to_tenths(self):  # T8
+        d, calls, f = self.probe((0, "199.296\n", ""))
+        self.assertEqual(d, 199.3)
+        self.assertEqual(calls, [(["/opt/fake/ffprobe", "-v", "error", "-show_entries", "format=duration", "-of",
+                                   "default=nw=1:nk=1", str(f)], PC.FFPROBE_TIMEOUT)])
+
+    def test_unknown_cases(self):  # T8
+        self.assertEqual(self.probe((0, "199.3", ""), which=None)[:2], (None, []))
+        for answer in ((1, "199.3", "err"), subprocess.TimeoutExpired(["ffprobe"], 1), OSError("x"),
+                       (0, "N/A\n", ""), (0, "", ""), (0, "0.000", ""), (0, "-4", ""), (0, "nan", ""),
+                       (0, "inf", "")):
+            self.assertIsNone(self.probe(answer)[0], answer)
+
+    def test_wav_unchanged_no_ffprobe(self):  # T8
+        f = self.tmp / "x.wav"
+        write_wav(f, frames=8000)
+        with mock.patch.object(PC, "run_cmd", no_subprocess):
+            self.assertEqual(PC.duration_of(f), 1.0)
+
+    def test_make_and_status_read_mp3_duration(self):
+        def runner(argv, timeout):
+            if "concat" in argv:
+                Path(argv[-1]).write_bytes(b"ID3\x03\x00" + b"\x00" * 128)
+                return 0, "", ""
+            return 0, "199.296\n", ""
+        which = {"ffmpeg": "/opt/fake/ffmpeg", "ffprobe": "/opt/fake/ffprobe"}.get
+        env = self.penv(dispatch=FakeDispatch("mp3"))
+        with mock.patch.object(PC, "PIECE_CHARS", 200), mock.patch.object(PC, "which", which), \
+                mock.patch.object(PC, "run_cmd", runner):
+            r = self.call(env, "kokpit_podcast", {"action": "make"})
+            self.assertTrue(r["ok"], r)
+            self.assertEqual(r["duration_seconds"], 199.3)
+            self.assertEqual(self.runs()[-1][2]["duration_seconds"], 199.3)
+            st = self.call(env, "kokpit_podcast", {})
+        self.assertEqual(st["episode_duration"], "3 min 19 s")
+        bad = mock.Mock(return_value=(0, "garbage", ""))
+        with mock.patch.object(PC, "which", which), mock.patch.object(PC, "run_cmd", bad):
+            st = self.call(env, "kokpit_podcast", {})
+        self.assertEqual(st["status"], "episode ready")
+        self.assertEqual(st["episode_duration"], "unknown")
+        self.assertEqual(bad.call_count, 1)  # status: one ffprobe call at most
 
 
 # commands and wiring ------------------------------------------------------------------------------

@@ -142,9 +142,12 @@ two-speaker script instead, one bounded call per topic. Pick the engine with
 
 - `tts` (default): the host's own `text_to_speech` tool with your Hermes TTS
   voice and provider; the text goes wherever that provider sends it. One voice
-  reads everything, speaker labels are not read aloud. Wav pieces are joined in
-  Python, other formats with `ffmpeg` when it is installed, otherwise you get
-  the parts plus an `episode.m3u` playlist.
+  reads everything, speaker labels are not read aloud. The text goes out in
+  pieces of at most 500 characters; a failing piece is tried up to 3 times.
+  Wav pieces are joined in Python, other formats with `ffmpeg` when it is
+  installed, otherwise you get the parts plus an `episode.m3u` playlist. The
+  duration of a non-wav episode is read with `ffprobe` when installed,
+  otherwise it is unknown.
 - `notebooklm`: always writes a source pack, `source.md` and `focus.txt`. By
   hand: open NotebookLM and create a notebook; add `source.md` as a source;
   open Audio Overview, Customize, paste `focus.txt` and generate. With
@@ -153,7 +156,12 @@ two-speaker script instead, one bounded call per topic. Pick the engine with
   those steps and download the audio. It uses your own Google session, is not
   supported by Google and can break at any time: use is at your own risk. The
   plugin does not log in for you, never reads the tool's login files and does
-  not retry around a failure.
+  not retry around a failure. A run that only writes the source pack keeps an
+  episode made earlier that day.
+
+A new episode is built in a `.staging/` subfolder and replaces the day's
+earlier episode only when it is complete; a failed make keeps the earlier
+episode.
 
 Files live in `podcast/<YYYY-MM-DD>/` in the plugin data dir, never in the
 vault; folders older than `podcast_keep_days` (default 14) are removed at the

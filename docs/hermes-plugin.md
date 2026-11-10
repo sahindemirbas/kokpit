@@ -556,15 +556,33 @@ Engine `tts`. The host's own `text_to_speech` tool, called through
 configuration: the plugin holds no key and picks no voice, and the text goes
 wherever that provider sends it. One voice: a two-speaker model script is read
 by that one voice and the speaker labels are not read aloud. The script goes
-out in pieces under 3500 characters, split at sentence ends, each with an
-`output_path` inside the episode folder; every returned file must exist and
-not be empty. Wav pieces with the same format are joined with Python's `wave`
+out in pieces of at most 500 characters, split at sentence ends (the host's
+Edge provider failed on longer pieces and allows 60 s per call), each with an
+`output_path` inside the staging folder; every returned file must exist and
+not be empty. A piece that fails (the call raises, no JSON, failure reported,
+missing or empty file) is tried again after a short pause, 3 attempts in
+total; the files of a failed attempt are removed first. A retry that worked
+adds a warning such as "piece 3 needed 2 attempts". Wav pieces with the same format are joined with Python's `wave`
 module. Other formats are joined with `ffmpeg` when it is on the PATH (fixed
 argument list, no shell, a timeout). Without ffmpeg the numbered part files
 stay with an `episode.m3u` playlist and the result warns "parts not joined:
-ffmpeg not found". Duration is measured for wav only, otherwise `unknown`. A
-host without `dispatch_tool`, a tool failure or an empty piece ends the run as
-failed: no audio is left behind, the script stays readable.
+ffmpeg not found". Duration: wav through Python's `wave` module, any other
+format through `ffprobe -v error -show_entries format=duration -of
+default=nw=1:nk=1 <file>` when ffprobe is on the PATH (one call, 15 s
+timeout, rounded to 0.1 s); without ffprobe, on an error or on output that is
+not a positive number it is `unknown`, and the make does not fail over it.
+`status` reads the duration of an existing episode the same way. A host
+without `dispatch_tool` or a piece that still fails after its last attempt
+ends the run as failed with the piece and the attempt count named.
+
+A new episode is built in the `.staging/` subfolder of the day's folder and
+replaces the earlier episode of that day only once it is complete: the new
+parts and the episode file or playlist are moved in with `os.replace`, then
+the old audio under other names (another extension, old parts) is removed, so
+the folder never holds two episodes. A failed make removes the staging
+folder and leaves the earlier episode as it was; the fix text says it was
+kept. A staging folder left by a crashed run is removed at the start of the
+next make. Staging files never count as an episode.
 
 Engine `notebooklm`. NotebookLM has no public API for personal accounts, so
 there are two levels:
@@ -573,7 +591,8 @@ there are two levels:
    briefing per topic, each item with title, summary, why it matters and its
    URL) and `focus.txt` (at most 500 characters: language, one listener
    addressed as you, which topics to weight). Status `source pack ready`, no
-   audio is claimed. By hand: open NotebookLM and create a notebook; add
+   audio is claimed. An episode of that day made earlier stays and is still
+   reported as ready. By hand: open NotebookLM and create a notebook; add
    `source.md` as a source; open Audio Overview, Customize, paste `focus.txt`
    and generate.
 2. Only with `podcast_notebooklm_cli: true` and a `notebooklm` command on the
@@ -585,8 +604,9 @@ there are two levels:
    --notebook <id> --type file --title ... --json`, `notebooklm generate audio
    --prompt-file <focus.txt> --notebook <id> --language <lang> --wait --timeout
    <s> --json [--source <source id>]` and `notebooklm download audio
-   <episode.m4a> --notebook <id> --latest --force --json`. The downloaded file
-   is checked and named after its real format.
+   <episode.m4a> --notebook <id> --latest --force --json`. The download goes
+   to the staging folder, is checked and named after its real format, and
+   replaces the earlier episode only on success.
 
 Risk, in plain words: notebooklm-py is an unofficial tool that drives your own
 Google session. It is not supported by Google and can break at any time; use

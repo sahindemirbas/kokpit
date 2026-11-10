@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -36,7 +37,12 @@ ENGINES = ("tts", "notebooklm")
 MAX_TOPICS = 8            # segments, and so model calls (plus at most one retry each)
 MAX_ITEMS_PER_TOPIC = 8
 READ_LIMIT = 64
-PIECE_CHARS = 3500        # one text_to_speech call carries at most this many characters
+PIECE_CHARS = 500         # at most this many characters per text_to_speech call; the host's Edge
+                          # provider failed on pieces of about 1450 characters and has a 60 s limit per call
+PIECE_ATTEMPTS = 3        # attempts per piece in total, so at most two retries
+PIECE_PAUSE = 3           # seconds between two attempts of one piece
+FFPROBE_TIMEOUT = 15
+STAGING = ".staging"      # subfolder of the episode folder where a new episode is built before it replaces the old
 WORDS_PER_MINUTE = 150
 MIN_SEGMENT_WORDS = 120
 MAX_LINE_SENTENCES = 4
@@ -415,13 +421,43 @@ def _is_audio_name(name: str) -> bool:
     return name.startswith(("part-", ".part-", "episode.", "parts.txt"))
 
 
-def clear_audio(ep: Path) -> None:
-    """Remove every audio file the plugin or the host tool made in the episode folder (script and pack stay)."""
+def clear_audio(ep: Path, keep=()) -> None:
+    """Remove every audio file the plugin or the host tool made in the episode folder, except the names in
+    keep (script, source pack and the staging subfolder stay)."""
     if not ep.is_dir():
         return
     for f in ep.iterdir():
-        if (f.is_file() or f.is_symlink()) and _is_audio_name(f.name):
+        if (f.is_file() or f.is_symlink()) and _is_audio_name(f.name) and f.name not in keep:
             f.unlink()
+
+
+def clear_staging(ep: Path) -> None:
+    """Remove the staging subfolder of an episode folder (a new episode under construction or a leftover)."""
+    st = ep / STAGING
+    if st.is_symlink() or st.is_file():
+        st.unlink()
+    elif st.is_dir():
+        shutil.rmtree(st)
+
+
+def promote(staging: Path, ep: Path, r: dict) -> dict:
+    """Move a complete new episode from staging into the episode folder, then drop the old audio.
+
+    Parts go first and the episode file or playlist last, each with os.replace (atomic on one file system),
+    so the old episode stays playable until the new one is in place; old audio under other names (another
+    extension, old parts) is removed only after that. A crash in between leaves an extra file, never none.
+    """
+    parts = [Path(p).name for p in r.get("parts") or []]
+    last = [Path(x).name for x in (r.get("file"), r.get("playlist")) if x]
+    for name in parts + last:
+        os.replace(staging / name, ep / name)
+    clear_audio(ep, keep=set(parts + last))
+    out = dict(r)
+    out["parts"] = [str(ep / n) for n in parts]
+    for key in ("file", "playlist"):
+        if r.get(key):
+            out[key] = str(ep / Path(r[key]).name)
+    return out
 
 
 def episode_files(ep: Path) -> dict:
@@ -461,6 +497,31 @@ def run_cmd(argv: list[str], timeout: float) -> tuple[int, str, str]:
 
 def which(name: str):
     return shutil.which(name)
+
+
+sleep = time.sleep  # the pause between two attempts of one piece; tests replace it
+
+
+def duration_of(path: Path):
+    """Seconds of an audio file rounded to 0.1, or None (unknown). Wav through the wave module; any other
+    format through ffprobe when it is on the PATH, one call with a short timeout. Never 0, never raises."""
+    try:
+        if audio_kind(path) == "wav":
+            wi = wav_info(path)
+            return (round(wi[1] / wi[2], 1) or None) if wi and wi[2] and wi[1] > 0 else None
+        exe = which("ffprobe")
+        if not exe:
+            return None
+        rc, out, _err = run_cmd([exe, "-v", "error", "-show_entries", "format=duration", "-of",
+                                 "default=nw=1:nk=1", str(path)], FFPROBE_TIMEOUT)
+        if rc != 0:
+            return None
+        value = float((out or "").strip().splitlines()[0])
+    except (subprocess.TimeoutExpired, OSError, ValueError, IndexError, TypeError):
+        return None
+    if not math.isfinite(value) or value <= 0:
+        return None
+    return round(value, 1) or None
 
 
 _SECRET = (
@@ -560,41 +621,82 @@ def _inside(path: Path, folder: Path) -> bool:
         return False
 
 
-def make_tts(state: dict, ep: Path, script: dict) -> dict:
+class _Attempt(Exception):
+    """One attempt of one piece failed; the message says why."""
+
+
+def _drop_piece(folder: Path, i: int) -> None:
+    """Remove what a failed attempt of piece i left in the build folder."""
+    stem = f"part-{i:03d}"
+    for f in folder.iterdir():
+        if (f.is_file() or f.is_symlink()) and (f.name.startswith((stem + ".", stem + "-")) or f.name == stem):
+            f.unlink()
+
+
+def _speak(dispatch, folder: Path, i: int, text: str) -> list[Path]:
+    """One host text_to_speech call for piece i; the files it made, inside folder. Raises _Attempt."""
+    try:
+        raw = dispatch("text_to_speech", {"text": text, "output_path": str(folder / f"part-{i:03d}.mp3")})
+    except Exception as e:
+        raise _Attempt(f"the host tool call raised {type(e).__name__}") from None
+    try:
+        res = json.loads(raw) if isinstance(raw, str) else raw
+    except ValueError:
+        res = None
+    if not isinstance(res, dict):
+        raise _Attempt("the host tool returned no JSON result")
+    if not res.get("success"):
+        raise _Attempt("the host tool reported failure: " + scrub(res.get("error") or "no error text"))
+    got = res.get("file_paths") if isinstance(res.get("file_paths"), list) and res.get("file_paths") \
+        else [res.get("file_path")]
+    out = []
+    for k, f in enumerate(got):
+        if not isinstance(f, str) or not f:
+            raise _Attempt("the host tool returned no file path")
+        fp = Path(f)
+        if not fp.is_file() or fp.stat().st_size <= 0:
+            raise _Attempt(f"the audio file is missing or empty ({fp.name})")
+        if not _inside(fp, folder):  # keep every piece inside the build folder, same real extension
+            dest = folder / f"part-{i:03d}-{k + 1}{fp.suffix}"
+            shutil.move(str(fp), dest)
+            fp = dest
+        out.append(fp)
+    return out
+
+
+def make_tts(state: dict, ep: Path, script: dict, pause=None) -> dict:
+    """Speak the script piece by piece into the folder ep (the staging folder when called by make) and join.
+
+    Each piece gets PIECE_ATTEMPTS attempts with a short pause between them; the files of a failed attempt
+    are removed before the next. After the last attempt the make fails and names the piece."""
     dispatch = state.get("dispatch")
     if not callable(dispatch):
         raise Failed("text_to_speech", "this Hermes gives plugins no dispatch_tool, so the host text_to_speech "
                                        "tool cannot be called")
+    pause = sleep if pause is None else pause
     parts: list[Path] = []
+    warnings: list[str] = []
     texts = pieces(script)
     for i, text in enumerate(texts, 1):
         step = f"text_to_speech piece {i} of {len(texts)}"
-        try:
-            raw = dispatch("text_to_speech", {"text": text, "output_path": str(ep / f"part-{i:03d}.mp3")})
-        except Exception as e:
-            raise Failed(step, f"the host tool call raised {type(e).__name__}") from None
-        try:
-            res = json.loads(raw) if isinstance(raw, str) else raw
-        except ValueError:
-            res = None
-        if not isinstance(res, dict):
-            raise Failed(step, "the host tool returned no JSON result")
-        if not res.get("success"):
-            raise Failed(step, "the host tool reported failure: " + scrub(res.get("error") or "no error text"))
-        got = res.get("file_paths") if isinstance(res.get("file_paths"), list) and res.get("file_paths") \
-            else [res.get("file_path")]
-        for k, f in enumerate(got):
-            if not isinstance(f, str) or not f:
-                raise Failed(step, "the host tool returned no file path")
-            fp = Path(f)
-            if not fp.is_file() or fp.stat().st_size <= 0:
-                raise Failed(step, f"the audio file is missing or empty ({fp.name})")
-            if not _inside(fp, ep):  # keep every piece inside the episode folder, same real extension
-                dest = ep / f"part-{i:03d}-{k + 1}{fp.suffix}"
-                shutil.move(str(fp), dest)
-                fp = dest
-            parts.append(fp)
-    return join(ep, parts)
+        for attempt in range(1, PIECE_ATTEMPTS + 1):
+            why = ""
+            try:
+                got = _speak(dispatch, ep, i, text)
+                break
+            except _Attempt as e:
+                why = str(e)
+                _drop_piece(ep, i)
+                if attempt < PIECE_ATTEMPTS:
+                    pause(PIECE_PAUSE)
+        else:
+            raise Failed(step, f"{why} (gave up after {PIECE_ATTEMPTS} attempts)")
+        if attempt > 1:
+            warnings.append(f"piece {i} needed {attempt} attempts")
+        parts.extend(got)
+    r = join(ep, parts)
+    r["warnings"] = warnings + list(r.get("warnings") or [])
+    return r
 
 
 def join(ep: Path, parts: list[Path]) -> dict:
@@ -628,7 +730,7 @@ def join(ep: Path, parts: list[Path]) -> dict:
         if rc == 0 and out.is_file() and out.stat().st_size > 0 and audio_kind(out) == kind:
             for p in parts:
                 p.unlink()
-            return {"file": str(out), "parts": [], "playlist": None, "duration_seconds": wav_seconds,
+            return {"file": str(out), "parts": [], "playlist": None, "duration_seconds": duration_of(out),
                     "warnings": []}
         out.unlink(missing_ok=True)
         warnings.append(f"parts not joined: ffmpeg failed ({scrub(err, 100)})")
@@ -700,7 +802,8 @@ def _json_out(text: str) -> dict:
 
 
 def make_notebooklm(state: dict, ep: Path, items: list[dict], day: str, budget: float | None = None,
-                    clock=time.monotonic) -> dict:
+                    clock=time.monotonic, staging: Path | None = None) -> dict:
+    """Source pack in ep; with the automation on, the audio is downloaded into staging (ep when None)."""
     p = state["podcast"]
     pack = write_pack(ep, items, day, p["language"])
     level1 = {"status": "source pack ready", "source_pack": pack, "steps": list(MANUAL), "file": None,
@@ -752,7 +855,8 @@ def make_notebooklm(state: dict, ep: Path, items: list[dict], day: str, budget: 
     if _NB_ID.match(sid):
         argv += ["--source", sid]
     step("notebooklm generate audio", argv, deadline - clock())
-    target = ep / "episode.m4a"  # the tool's own default audio format is audio/mp4 (.m4a)
+    target = (staging or ep) / "episode.m4a"  # the tool's own default audio format is audio/mp4 (.m4a)
+    target.parent.mkdir(parents=True, exist_ok=True)
     step("notebooklm download audio", [exe, "download", "audio", str(target), "--notebook", nb, "--latest",
                                        "--force", "--json"], NLM_DOWNLOAD_TIMEOUT)
     if not target.is_file() or target.stat().st_size <= 0:
@@ -764,9 +868,8 @@ def make_notebooklm(state: dict, ep: Path, items: list[dict], day: str, budget: 
         target = real
     elif kind is None:
         warnings.append("the downloaded file is not a format the plugin recognises; kept as episode.m4a")
-    wi = wav_info(target) if kind == "wav" else None
     return {"status": "made", "source_pack": pack, "steps": list(MANUAL), "file": str(target),
-            "duration_seconds": round(wi[1] / wi[2], 1) if wi else None,
+            "duration_seconds": duration_of(target),
             "warnings": warnings, "notebook_id": nb, "risk": RISK}
 
 
@@ -858,6 +961,8 @@ def status(state: dict, day: str) -> dict:
         out["next"] = "collect the briefing first: /kokpit news run"
     elif files["episode"] or files["playlist"]:
         out["status"] = "episode ready"
+        if files["episode"]:  # one ffprobe call at most (short timeout) for a non-wav file
+            out["episode_duration"] = duration_text(duration_of(Path(files["episode"])))
     elif files["source_md"]:
         out["status"] = "source pack ready"
     else:
@@ -897,30 +1002,48 @@ def make(state: dict, day: str, budget: float | None = None, clock=time.monotoni
     base = root(state)
     pruned = prune(base, p["keep_days"])
     ep = base / day
+    staging = ep / STAGING
     lk = lock(ep)
     started, t0 = collector.now_iso(), time.monotonic()
     info = {"engine": p["engine"], "day": day}
+    earlier = None
     try:
+        clear_staging(ep)  # a leftover of a crashed earlier make; we hold the lock
+        had = episode_files(ep)
+        earlier = had["episode"] or had["playlist"]
         s = build_script(state, day, items)
         info["script"] = s["mode"]
-        clear_audio(ep)
+        # the new audio is built in staging; the episode audio of this day is not touched until it is complete
+        staging.mkdir()
         if p["engine"] == "tts":
-            r = make_tts(state, ep, s)
+            r = make_tts(state, staging, s)
             r["status"] = "made"
             r["voice"] = TTS_VOICE
         else:
-            r = make_notebooklm(state, ep, items, day, budget=budget, clock=clock)
+            r = make_notebooklm(state, ep, items, day, budget=budget, clock=clock, staging=staging)
+        if r.get("file") or r.get("playlist"):
+            r = promote(staging, ep, r)
+        elif earlier:
+            r["note"] = "; ".join(x for x in (r.get("note"), f"the earlier episode of this day was kept: {earlier}")
+                                  if x)
+            r["kept_episode"] = earlier
+        clear_staging(ep)
     except Failed as e:
-        clear_audio(ep)
+        clear_staging(ep)
         info.update({"status": "failed", "step": e.step, "error": f"{e.step}: {e.message}"})
         record(state, started, False, info)
         other = "notebooklm" if p["engine"] == "tts" else "tts"
         keep = ("the source pack is still in " + str(ep) + " for the manual route" if p["engine"] == "notebooklm"
                 else "the script is still readable: /kokpit podcast script")
+        if earlier:
+            keep = f"the earlier episode of this day was kept ({earlier}); " + keep
         raise c.NotReady(f"podcast make failed at {e.step}: {e.message}",
                          f"{keep}; no other engine was tried (switch with /kokpit podcast engine {other})") from None
     except BaseException:
-        clear_audio(ep)
+        try:
+            clear_staging(ep)
+        except Exception:
+            pass
         info.update({"status": "failed", "error": "unexpected error"})
         try:
             record(state, started, False, info)
@@ -938,7 +1061,8 @@ def make(state: dict, day: str, budget: float | None = None, clock=time.monotoni
             "playlist": r.get("playlist"), "parts": r.get("parts", []),
             "duration_seconds": r.get("duration_seconds"), "duration": duration_text(r.get("duration_seconds")),
             "took_seconds": round(time.monotonic() - t0, 1), "warnings": warnings, "pruned": pruned,
-            "folder": str(ep), **{k: r[k] for k in ("source_pack", "steps", "note", "risk", "voice") if r.get(k)}}
+            "folder": str(ep), **{k: r[k] for k in ("source_pack", "steps", "note", "risk", "voice", "kept_episode")
+                                  if r.get(k)}}
 
 
 def brief_line(state: dict, day: str) -> list[str]:

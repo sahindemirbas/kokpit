@@ -473,7 +473,8 @@ def podcast_status_text(r: dict) -> str:
     for key, label in (("episode", "Episode"), ("playlist", "Parts playlist"), ("source_md", "Source pack"),
                        ("script", "Script")):
         if t.get(key):
-            lines.append(f"{label}: {t[key]}")
+            lines.append(f"{label}: {t[key]}" + (f" ({r['episode_duration']})"
+                                                  if key == "episode" and r.get("episode_duration") else ""))
     for x in r["last"][:2]:
         age = f"{x['age_hours']} h ago" if x["age_hours"] is not None else "age unknown"
         lines.append(f"Last {x['engine']}: {x['status']} for {x['day']}, {x['duration']}, {age}"
