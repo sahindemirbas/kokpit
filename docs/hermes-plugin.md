@@ -180,10 +180,11 @@ code were considered:
   same schema, so a schema change that breaks the plugin fails the suite.
 
 No self-update, no Hermes core patching. Network and model use are opt-in: the
-news briefing (off by default) fetches only the feed URLs you configured, and
-the host model is called only when you turn on `night_model` or
-`briefing_model`. Nothing else leaves the machine. The Kokpit app's own jobs,
-which you run, are separate.
+news briefing (off by default) fetches only the feed URLs you configured, the
+job listings (off by default, plus the `jobs_linkedin` source switch) fetch
+LinkedIn's public guest search pages for your target roles, and the host model
+is called only when you turn on `night_model` or `briefing_model`. Nothing else
+leaves the machine. The Kokpit app's own jobs, which you run, are separate.
 
 ## What it registers
 
@@ -200,7 +201,8 @@ Tools (toolset `kokpit`), each returns JSON. Success is
 | `kokpit_capture` | Appends a note to `inbox/` (new file), a task to `To-Do.md` under `## Open`, or a journal line `- HH:MM text` to `daily/YYYY-MM-DD.md` (kind `journal`). Kind `receipt` closes a result of this session: it updates the session card and writes one short receipt (same as `/kokpit done`). The only tool that writes on its own |
 | `kokpit_night` | Night pass proposals: `action` `list` (default, optional `kind` and `limit`), `run`, `accept` or `dismiss` with an `id`. Accept writes only through capture: a `todo` (or `improve`) becomes a To-Do line, an `idea` a new file in `ideas/` |
 | `kokpit_events` | Stored events in the next N days; price, distance and venue say `unknown` when missing |
-| `kokpit_jobs` | Open job listings with score and reasons; no score is `unknown` |
+| `kokpit_jobs` | Open job listings with score and reasons; no score is `unknown`. Source: the Kokpit app database when it has listings, else the plugin store (`source` says which). `action` `list` (default) or `collect` (module `jobs` plus `jobs_linkedin`) |
+| `kokpit_market` | Job market view over the same listings: totals, open per company, weekly trend, skills asked for, honest notes. Read-only |
 | `kokpit_ai_usage` | Tokens per tool and model; cost from `[ai_usage] prices_path`, an unpriced model is `unknown` and makes the total `unknown` |
 | `kokpit_health` | Last run per job, failures in a row, runs with 0 records, expected jobs that never ran, and which vault files are used |
 | `kokpit_training` | Optional. Per run: last step, last loss and metrics, steps per second, ETA, minutes since the last update, "may have stopped" warning |
@@ -262,11 +264,12 @@ warnings and the number of items on you. Colours come only from the app's
 
 Command: `/kokpit setup [path] | brief | today | brain [words] | note <text> |
 todo <text> | j <text> | done <summary> | night [run|kind] | add <id> | skip <id> |
-health | help`. Short plain text, so it reads the same in the CLI and in Telegram.
+health | news ... | jobs ... | help`. Short plain text, so it reads the same in the CLI and in Telegram.
 `/kokpit brief` is the morning brief: today (calendar and weather when the
 Kokpit app has them), threads on you, the night pass counts, the last session
-card and its open items, matched news, at most 3500 characters. Sections without
-data are dropped. Also `hermes kokpit-brief`.
+card and its open items, matched news, the news headlines and a Jobs line
+(open count and the top one or two) when those modules are on, at most 3500
+characters. Sections without data are dropped. Also `hermes kokpit-brief`.
 
 Hooks:
 
@@ -401,8 +404,96 @@ for the day, otherwise the plugin store, and reports which one it used and when
 it was last collected. Nothing collected yet reads `never run`. Demo mode shows
 a few seeded items and never fetches.
 
-Not there yet: the plugin does not collect job listings or a podcast; those
-still come only from the Kokpit app.
+## Job listings and market
+
+Off by default, and off twice: the `jobs` module (`/kokpit jobs on`, or
+`hermes config set plugins.entries.kokpit.settings.jobs true`; an explicit
+false wins over `kokpit.toml`, like `briefing`) and its only source,
+`jobs_linkedin`. Reading (`/kokpit jobs`, `kokpit_jobs`, `kokpit_market`, the
+brief) never fetches.
+
+| Setting | Type | Default | Meaning |
+|---|---|---|---|
+| `jobs` | bool | `false` | The job listings module (`kokpit_jobs`, `kokpit_market`, `/kokpit jobs`) |
+| `jobs_linkedin` | bool | `false` | Let a collection search LinkedIn's public guest job pages |
+| `jobs_close_days` | int | `3` | Days unseen before a plugin-collected listing is closed (1 to 60) |
+
+Risk statement. The source is LinkedIn's public guest job search: logged-out
+pages, no login. LinkedIn's User Agreement restricts automated access, so use
+is at your own risk; it can break or be blocked at any time, and the plugin
+does not work around a block. The plugin keeps the Kokpit app's politeness
+rules: one request per page, a 3 second pause between requests, the last 7
+days only (`f_TPR=r604800`), at most 6 searches (target role times location)
+of at most 3 pages, and the first HTTP 429 or 999 stops the whole run. That
+run is recorded with a warning naming the block, listings from earlier pages
+are kept, and nothing is retried. No proxy, no cookies, no header tricks, one
+fixed User-Agent. All requests go through the same `fetch` as the news
+briefing (http and https only, size cap). The first collection repeats this
+statement in its output.
+
+Profile. Stored as `profile.json` in the plugin data dir, not in Hermes config,
+because it is personal. Fields: `skills`, `experience_summary`,
+`experience_years`, `seniority` (any, junior, mid, senior), `languages`
+(name and level A1 to C2 or native), `target_roles`, `locations`,
+`remote_pref` (any, onsite, hybrid, remote), `must_have`, `nice_to_have`,
+`exclude`.
+
+```
+/kokpit jobs profile                                   # show it
+/kokpit jobs profile set target_roles Data Analyst, BI Developer
+/kokpit jobs profile set languages English:C1, Italian:B1
+/kokpit jobs profile set must_have sql
+/kokpit jobs profile cv ~/cv.txt                       # proposal only, nothing saved
+/kokpit jobs profile cv ~/cv.txt apply                 # add the proposed skills and languages
+```
+
+An unknown field or a value outside an enumeration is refused and the file is
+left as it was. Without target roles a collection fetches nothing and says so.
+
+CV proposal and privacy. `profile cv` reads `.txt` and `.md` files, and `.pdf`
+only when `pdftotext` is installed (otherwise it says so and reads nothing).
+It removes e-mail addresses, phone numbers and links, then proposes skills from
+a fixed term list and languages with their level, by rules and without a model.
+Nothing is written unless you add `apply`, and then only the proposed skills
+and languages are merged into the profile. The CV text itself is never stored,
+never logged, never sent to a model and never sent over the network.
+
+Scoring and lifecycle. Each listing is scored 0 to 100 against the profile with
+reasons (role fit, must-have and nice-to-have words, skills, languages,
+seniority and years, location, remote preference, exclude words). Parts the
+plugin cannot judge are left out of the maximum, and a listing with nothing to
+judge has score `unknown`, never 0. Duplicates are merged by source and id, and
+by company plus title. A listing not seen for `jobs_close_days` days is marked
+closed, but only after a run in which its source returned results; a blocked,
+failing or empty run closes nothing. A closed listing seen again is reopened.
+The app's posting-page check (one request per listing page) is not ported, to
+keep the request count small.
+
+Market view. `kokpit_market` and `/kokpit jobs market`: total and open
+listings, open listings per company, listings per week (by posting date, else
+first seen), the skills most asked for in open listings, and notes: a short
+window (under 28 days of data) means the weekly numbers show collection, not a
+market trend; undated listings from a source's first run day (the bulk load of
+already open jobs) are left out of the trend; listings without a description
+are counted from their title only. Nothing collected yet reads `never run`.
+
+Schedule. The same routes as the news briefing: `/kokpit jobs run` by hand,
+`collect_auto` (also covers the `career` job when `jobs` and `jobs_linkedin`
+are on and the profile has target roles), or an agent-mode cron job whose
+prompt asks for `kokpit_jobs` with `action: collect`. There is no separate CLI
+command for jobs.
+
+Where the data lives: the `job_listings` table in the plugin's `collector.db`,
+with the same columns as the Kokpit app, so the same read SQL works on either
+database; each collection writes one `runs` row with job name `career`, which
+`kokpit_health` shows under `plugin_jobs`. When the Kokpit app database has
+`job_listings` rows, the tools show those instead and say so. To delete
+everything, remove `collector.db` (it also holds the news items) and
+`profile.json`; to stop, `/kokpit jobs off` or `/kokpit jobs linkedin off`.
+Demo mode shows a few invented listings and never fetches.
+
+Not there yet: the plugin does not make a podcast; that still comes only from
+the Kokpit app.
 
 ## Cards and receipts: how the brain grows
 
@@ -543,8 +634,11 @@ the plugin alone on a plain Markdown vault.
 - Calendar and weather are what Kokpit's last `calendar` and `weather` runs
   stored. Older than 24 hours is marked `stale`.
 - The plugin does not run Kokpit jobs. `kokpit_health` tells you which one to run.
-  Its only collector is the opt-in news briefing; job listings and the podcast
-  are not collected by the plugin.
+  Its collectors are the opt-in news briefing and the opt-in job listings; the
+  podcast is not made by the plugin.
+- The job source parser follows the Kokpit app's parser for LinkedIn's guest
+  search markup; it is tested on synthetic pages only. When the page layout
+  changes, a run returns 0 listings and says so.
 - The news briefing reads RSS 2.0 and Atom only, with word-overlap scoring; no
   full article text is fetched.
 - `kokpit_training` understands flat JSONL or CSV rows. TensorBoard event files

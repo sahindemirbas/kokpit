@@ -30,7 +30,7 @@ DEFAULT_LOCATIONS = (Path("kokpit.toml"), Path.home() / ".config" / "kokpit" / "
 MODULE_DEFAULTS = {"today": True, "brain": True, "health": True, "events": False, "jobs": False, "ai_usage": False,
                    "training": False, "server": False, "briefing": False}
 # optional modules switched on by one plugin setting each (no kokpit.toml needed)
-PLUGIN_MODULES = ("training", "server", "briefing")
+PLUGIN_MODULES = ("training", "server", "briefing", "jobs")
 CARD_MAX = 800
 FIX_CONFIG = ("set plugins.entries.kokpit.settings.kokpit_config to your kokpit.toml "
               "(hermes config set plugins.entries.kokpit.settings.kokpit_config /path/kokpit.toml), "
@@ -186,6 +186,12 @@ class Env:
         from . import collector
         return collector.settings(self.setting)
 
+    def jobs_settings(self) -> dict:
+        """Job listing settings; the profile is a JSON file in the plugin data dir, never in Hermes config."""
+        return {"linkedin": as_bool(self.setting("jobs_linkedin", False)),
+                "close_after_days": int(as_num(self.setting("jobs_close_days", 3), 3, 1, 60)),
+                "profile_path": self.data_dir() / "profile.json"}
+
     def collector_store(self) -> dict:
         """The plugin's own writable store for collected data: <data dir>/collector.db (never the app database)."""
         base = self.data_dir()
@@ -206,6 +212,7 @@ class Env:
         st["night_store"] = self.night_store(v)
         st["briefing"] = self.briefing_settings()
         st["store"] = self.collector_store()
+        st["jobs"] = self.jobs_settings()
         if self.llm is not None:
             st["llm"] = self.llm
         return st
@@ -215,10 +222,12 @@ class Env:
         for m in PLUGIN_MODULES:
             if as_bool(self.setting(m, False)):
                 cfg["modules"][m] = True
-        # briefing: an explicit plugin setting wins both ways, so /kokpit news off really turns it off
-        flag = self.setting("briefing", None)
-        if flag not in (None, ""):
-            cfg["modules"]["briefing"] = as_bool(flag)
+        # briefing and jobs: an explicit plugin setting wins both ways, so /kokpit news off and
+        # /kokpit jobs off really turn them off
+        for m in ("briefing", "jobs"):
+            flag = self.setting(m, None)
+            if flag not in (None, ""):
+                cfg["modules"][m] = as_bool(flag)
         logs = as_list(self.setting("training_logs", []))
         cfg["training_logs"] = [os.path.expanduser(x) for x in logs] or cfg.get("training_logs") or []
         stall = self.setting("training_stall_minutes", None)
@@ -285,7 +294,7 @@ class Env:
 
 DEMO_DATE = re.compile(r"\{\{([+-]\d+)\}\}")
 DEMO_HINT = "Demo data. Make it yours: /kokpit setup"
-DEMO_VERSION = "4"  # bump when demo/vault changes so an existing demo copy is refreshed
+DEMO_VERSION = "5"  # bump when demo/vault changes so an existing demo copy is refreshed
 
 
 def write_demo_training(folder: Path, now: float | None = None) -> list[Path]:

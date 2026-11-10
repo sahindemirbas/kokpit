@@ -32,7 +32,7 @@ from pathlib import Path
 
 from . import contract as c
 
-UA = "Kokpit-Hermes-plugin/0.5 (personal news briefing; feed reader)"
+UA = "Kokpit-Hermes-plugin/0.6 (personal use: news feeds and opt-in job search)"
 MAX_BYTES = 2_000_000
 TIMEOUT = 20
 SCHEMES = ("http", "https")

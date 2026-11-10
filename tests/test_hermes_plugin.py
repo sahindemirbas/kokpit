@@ -148,11 +148,11 @@ class Registration(unittest.TestCase):
         tools = [l.strip()[2:] for l in manifest.split("provides_tools:")[1].split("provides_hooks:")[0].splitlines() if l.strip()]
         hooks = [l.strip()[2:] for l in manifest.split("provides_hooks:")[1].split("config_schema:")[0].splitlines() if l.strip()]
         self.assertEqual(sorted(ctx.tools), sorted(tools))
-        self.assertEqual(len(ctx.tools), 12)
+        self.assertEqual(len(ctx.tools), 13)
         self.assertEqual(sorted(ctx.hooks), sorted(hooks))
         self.assertEqual(list(ctx.commands), ["kokpit"])
         self.assertTrue(all(t["toolset"] == "kokpit" for t in ctx.tools.values()))
-        self.assertIn('version: "0.5.0"', manifest)
+        self.assertIn('version: "0.6.0"', manifest)
         for name, t in ctx.tools.items():
             self.assertEqual(t["schema"]["name"], name)
             self.assertEqual(t["schema"]["parameters"]["type"], "object")
@@ -167,10 +167,11 @@ class Registration(unittest.TestCase):
         banned = ("import requests", "urllib.request", "http.client", "socket", "subprocess", "sys.modules",
                   "from kokpit", "import kokpit", "httpx")
         # the reviewed exceptions: the dashboard API registers its private package name, the server
-        # module runs `systemctl --user is-active <validated name>` with a list argv, and collector.py
-        # holds the one opt-in network call (fetch) of the news briefing
+        # module runs `systemctl --user is-active <validated name>` with a list argv, collector.py
+        # holds the one opt-in network call (fetch), and jobs.py runs `pdftotext -layout <file> -` with a
+        # list argv only for a CV the user names (no network; jobs.py fetches through collector.fetch)
         allowed = {"dashboard/plugin_api.py": {"sys.modules"}, "server.py": {"subprocess"},
-                   "collector.py": {"urllib.request"}}
+                   "collector.py": {"urllib.request"}, "jobs.py": {"subprocess"}}
         for p in PLUGIN_DIR.rglob("*.py"):
             rel = p.relative_to(PLUGIN_DIR).as_posix()
             text = p.read_text(encoding="utf-8")
@@ -241,7 +242,12 @@ class Live(Base):
             r = self.call(env, name)
             self.assertFalse(r["ok"])
             self.assertEqual(r["error"], "module disabled")
-            self.assertIn(f"enable with [modules] {mod} = true", r["fix"])
+            # jobs is a plugin module since 0.6.0: its fix names the plugin setting first, kokpit.toml second
+            self.assertIn(f"[modules] {mod} = true", r["fix"])
+            if mod == "jobs":
+                self.assertIn("plugins.entries.kokpit.settings.jobs true", r["fix"])
+            else:
+                self.assertIn(f"enable with [modules] {mod} = true", r["fix"])
 
     def test_broken_config(self):
         p = self.tmp / "broken.toml"

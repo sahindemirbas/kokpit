@@ -93,6 +93,21 @@ def _headlines(state: dict, today: date) -> list[str]:
     return ["News:"] + [f"- {c.clean(i['topic'], 30)}: {c.clean(i['title'], 110)}" for i in heads]
 
 
+def _jobs_line(state: dict) -> list[str]:
+    """Open job listings and the top one or two by score (app database first, then the plugin store). Never fetches."""
+    if not state["cfg"]["modules"].get("jobs", False):
+        return []
+    try:
+        r = tools.jobs(state, {"action": "list", "limit": 2})
+    except (c.NotReady, sqlite3.Error, OSError):
+        return []
+    if not r.get("listings"):
+        return []
+    top = "; ".join(f"[{x['score']}] {c.clean(x['title'], 60)}" + (f" at {c.clean(x['company'], 40)}" if x.get("company") else "")
+                    for x in r["listings"][:2])
+    return [f"Jobs: {r['open_total']} open. Top: {top}"]
+
+
 def build(state: dict, today: date | None = None) -> dict:
     today = today or date.today()
     demo = state["mode"] == "demo"
@@ -100,7 +115,7 @@ def build(state: dict, today: date | None = None) -> dict:
     sections.append(_today(state))
     threads, sessions = _brain(state)
     night_head, news = _night_lines(state)
-    sections += [threads, night_head, sessions, news, _headlines(state, today)]
+    sections += [threads, night_head, sessions, news, _headlines(state, today), _jobs_line(state)]
     if state.get("vault") is not None and Path(state["vault"]).is_dir() and (night_head or threads):
         sections.append(["Act: /kokpit night, /kokpit add <id>, /kokpit todo <text>"])
     tail = "\n\n" + c.DEMO_HINT if demo else ""

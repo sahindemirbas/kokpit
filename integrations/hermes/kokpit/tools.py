@@ -2,9 +2,10 @@
 
 Shape: {"ok": true, "mode": "live"|"demo", ...} or {"ok": false, "error": ..., "fix": ...}.
 Missing data is said out loud ("never run", "unknown", "no database yet"), never filled in.
-Only kokpit_capture writes to the vault on its own. kokpit_briefing action collect is the one tool that goes to the
-network (only to the feed URLs the user configured, only when the briefing module is on) and it writes only the
-plugin's own store. kokpit_night stores proposals outside the notes and,
+Only kokpit_capture writes to the vault on its own. kokpit_briefing action collect and kokpit_jobs action collect are
+the tools that go to the network (only the feed URLs the user configured, or LinkedIn's public guest job search
+when jobs and jobs_linkedin are on) and they write only the plugin's own store. kokpit_night stores proposals
+outside the notes and,
 on an explicit accept, writes through the same append-only capture writers (To-Do line or new ideas/ file).
 """
 from __future__ import annotations
@@ -18,6 +19,7 @@ from typing import Any
 
 from . import collector as _collector
 from . import contract as c
+from . import jobs as _jobs
 from . import night as _night
 from . import server as _server
 from . import training as _training
@@ -267,18 +269,50 @@ def events(state: dict, args: dict) -> dict:
             conn.close()
 
 
+def _job_source(state: dict):
+    """(conn, source): the Kokpit app database when it has job_listings rows, else the plugin store
+    when it has rows, else the app database when there is one (it shows its own empty or schema state),
+    else the plugin store when the plugin ever ran career, else (None, None). Both read-only."""
+    app, own = _db(state), _store_conn(state)
+    if _jobs.has_rows(app):
+        pick = (app, "kokpit app database")
+    elif _jobs.has_rows(own):
+        pick = (own, "plugin store")
+    elif app is not None:
+        pick = (app, "kokpit app database")
+    elif own is not None and freshness(own, "career")["last_status"] != "never run":
+        pick = (own, "plugin store")
+    else:
+        pick = (None, None)
+    for x in (app, own):
+        if x is not None and x is not pick[0]:
+            x.close()
+    return pick
+
+
 def jobs(state: dict, args: dict) -> dict:
+    action = str(args.get("action") or "list").strip().lower()
+    if action not in ("list", "collect"):
+        raise c.NotReady(f"unknown action {c.clean(action, 20)}", "use action list (default) or collect")
     _need(state, "jobs")
+    if action == "collect":
+        return {"action": "collect", **_jobs.collect(state)}
     limit = _int(args.get("limit"), 10, 1, 50)
     min_score = args.get("min_score")
-    conn = _db(state)
+    conn, src = _job_source(state)
     try:
         if conn is None:
-            return {"status": "never run", "reason": NO_DB, "listings": [], "freshness": freshness(None, "career")}
+            out = {"status": "never run", "reason": NO_DB, "listings": [], "freshness": freshness(None, "career"),
+                   "source": None}
+            if state["mode"] != "demo":
+                out["next"] = ("collect now: /kokpit jobs run (or kokpit_jobs action collect)"
+                               if (state.get("jobs") or {}).get("linkedin") else
+                               "the plugin can collect listings itself: see /kokpit jobs help (opt-in, LinkedIn guest search)")
+            return out
         fr = freshness(conn, "career")
         bad = c.table_problem(conn, "job_listings")
         if bad:
-            return {"status": bad, "listings": [], "freshness": fr}
+            return {"status": bad, "listings": [], "freshness": fr, "source": src}
         sql = ("SELECT title, company, location, remote, url, posted_at, score, reasons FROM job_listings "
                "WHERE status='open'")
         params: list = []
@@ -298,8 +332,29 @@ def jobs(state: dict, args: dict) -> dict:
             if r["score"] == "unknown" and not r["reasons"]:
                 r["reasons"] = ["not enough information to score"]
             out.append(r)
-        return {"listings": out, "count": len(out), "open_total": _count(conn, "job_listings", "status='open'"),
-                "freshness": fr}
+        body = {"listings": out, "count": len(out), "open_total": _count(conn, "job_listings", "status='open'"),
+                "freshness": fr, "source": src}
+        if src == "plugin store":
+            body["store"] = _collector.store_info(state.get("store") or {})
+        return body
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def market(state: dict, args: dict) -> dict:
+    """kokpit_market: the job market view over the stored listings. Reads only; same source as kokpit_jobs."""
+    _need(state, "jobs")
+    top = _int(args.get("limit"), 15, 1, 50)
+    conn, src = _job_source(state)
+    try:
+        if conn is None:
+            return {"status": "never run", "reason": "no job listings collected yet", "source": None,
+                    "freshness": freshness(None, "career"), "companies": [], "weekly": [], "skills": []}
+        bad = c.table_problem(conn, "job_listings")
+        if bad:
+            return {"status": bad, "source": src, "freshness": freshness(conn, "career")}
+        return {**_jobs.view(conn, top), "source": src, "freshness": freshness(conn, "career")}
     finally:
         if conn is not None:
             conn.close()
@@ -590,7 +645,7 @@ TOOLS = {"kokpit_today": today, "kokpit_brain_search": brain_search, "kokpit_thr
          "kokpit_capture": capture, "kokpit_events": events, "kokpit_jobs": jobs,
          "kokpit_ai_usage": ai_usage, "kokpit_health": health,
          "kokpit_training": training, "kokpit_server": server, "kokpit_night": night,
-         "kokpit_briefing": briefing}
+         "kokpit_briefing": briefing, "kokpit_market": market}
 
 
 def run(env: c.Env, name: str, args, session_id: str = "") -> dict:

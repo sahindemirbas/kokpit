@@ -9,6 +9,7 @@ import shlex
 
 from . import collector
 from . import contract as c
+from . import jobs
 from . import tools
 from . import vault_setup
 
@@ -27,6 +28,8 @@ HELP = ("Kokpit commands:\n"
         "/kokpit health - Kokpit jobs: failed, 0 records, never run\n"
         "/kokpit news - today's news briefing (news run: collect now; off by default)\n"
         "/kokpit news add <topic> <feed-url> [keywords...] | news remove <topic> | news on | news off\n"
+        "/kokpit jobs - job listings with score (jobs run | market | on | off | profile; off by default)\n"
+        "/kokpit jobs help - profile, CV proposal and the job source\n"
         "/kokpit help - this list")
 
 
@@ -188,8 +191,17 @@ USAGE = {"note": "/kokpit note <text>", "todo": "/kokpit todo <text> [due:YYYY-M
          "j": "/kokpit j <text>", "journal": "/kokpit journal <text>",
          "add": "/kokpit add <id>", "skip": "/kokpit skip <id>",
          "done": "/kokpit done <short summary of the result>",
-         "news": "/kokpit news [run | add <topic> <feed-url> [keywords...] | remove <topic> | on | off]"}
+         "news": "/kokpit news [run | add <topic> <feed-url> [keywords...] | remove <topic> | on | off]",
+         "jobs": "/kokpit jobs [run | market | on | off | linkedin on|off | profile [set <field> <values...> | "
+                 "cv <path> [apply]] | help]"}
 SET_LINE = "hermes config set plugins.entries.kokpit.settings.{key} {value}"
+JOBS_HELP = ("Job listings (off by default):\n"
+             "/kokpit jobs - top open listings with score and the main reasons\n"
+             "/kokpit jobs run - search now; /kokpit jobs market - market view\n"
+             "/kokpit jobs on|off - the module; /kokpit jobs linkedin on|off - the only source\n"
+             "/kokpit jobs profile - show your profile; profile set <field> <values...> - edit one field\n"
+             "/kokpit jobs profile cv <path> - propose skills and languages from a .txt/.md/.pdf CV; add apply to save\n"
+             + "Fields: " + ", ".join(jobs.FIELDS) + "\n" + jobs.RISK)
 
 
 def news_text(r: dict) -> str:
@@ -299,6 +311,144 @@ def news(env: c.Env, rest: str) -> str:
     return f"Usage: {USAGE['news']}"
 
 
+# ---------------------------------------------------------------- /kokpit jobs
+
+def jobs_list_text(r: dict) -> str:
+    fr = r.get("freshness") or {}
+    if not r.get("listings"):
+        lines = [f"Jobs{_demo(r)}: {r.get('status') or 'no open listings'}"]
+        if r.get("next"):
+            lines.append("Next: " + r["next"])
+        return "\n".join(lines)
+    age = f", last collected {fr['age_hours']} h ago" if fr.get("age_hours") is not None else ""
+    lines = [f"Jobs{_demo(r)}: {r['open_total']} open, top {r['count']} from the {r.get('source') or 'unknown source'}{age}:"]
+    for it in r["listings"]:
+        where = ", ".join(x for x in (it.get("company"), it.get("location")) if x) or "company unknown"
+        lines.append(f"- [{it['score']}] {c.clean(it['title'], 80)} ({c.clean(where, 60)})"
+                     + (f" {it['url']}" if it.get("url") else ""))
+        why = [x for x in it.get("reasons") or [] if not x.startswith("unknown")][:2]
+        if why:
+            lines.append("  " + "; ".join(c.clean(x, 90) for x in why))
+    note = (r.get("store") or {}).get("note")
+    if note:
+        lines.append("Note: " + note)
+    return "\n".join(lines)
+
+
+def jobs_collect_text(r: dict) -> str:
+    lines = [f"Jobs collected: status {r['status']}, {r['fetched']} listings from {r['source']} in "
+             f"{r.get('requests', 'unknown')} requests; new {r.get('new')}, updated {r.get('updated')}, "
+             f"closed {r.get('closed')}; {r.get('open')} open of {r.get('total')} stored."]
+    if r.get("note"):
+        lines.append("Note: " + r["note"])
+    lines += [f"Warning: {w}" for w in r.get("warnings") or []][:5]
+    if r.get("notice"):
+        lines.append("About the source: " + r["notice"])
+    if (r.get("store") or {}).get("note"):
+        lines.append("Note: " + r["store"]["note"])
+    return "\n".join(lines)
+
+
+def market_text(r: dict) -> str:
+    if r.get("status") != "ok":
+        lines = [f"Job market{_demo(r)}: {r.get('status')}"]
+    else:
+        lines = [f"Job market{_demo(r)} ({r['total']} listings, {r['open']} open, {r['companies_n']} companies, "
+                 f"from the {r.get('source')}):"]
+        if r["companies"]:
+            lines.append("Companies: " + ", ".join(f"{x['company']} {x['open']}" for x in r["companies"][:8]))
+        if r["weekly"]:
+            lines.append("Weekly: " + ", ".join(f"{x['week']} {x['listings']}" for x in r["weekly"][-8:]))
+        if r["skills"]:
+            lines.append("Skills asked: " + ", ".join(f"{x['skill']} {x['open']}" for x in r["skills"][:10]))
+    lines += [f"Note: {n}" for n in r.get("notes") or [] if n != r.get("status")][:4]
+    return "\n".join(lines)
+
+
+def profile_text(prof: dict) -> str:
+    lines = ["Job profile (stored only in the plugin data dir):"]
+    for f in jobs.FIELDS:
+        v = prof.get(f)
+        if f == "languages":
+            v = ", ".join(f"{x['language']}:{x['level'] or 'level not set'}" for x in v or [])
+        elif isinstance(v, list):
+            v = ", ".join(v)
+        lines.append(f"- {f}: {v if v not in (None, '') else 'not set'}")
+    return "\n".join(lines)
+
+
+def _profile_path(env: c.Env):
+    return env.jobs_settings()["profile_path"]
+
+
+def jobs_profile(env: c.Env, rest: str) -> str:
+    path = _profile_path(env)
+    try:
+        words = shlex.split(rest)
+    except ValueError:
+        words = rest.split()
+    verb = words[0].lower() if words else ""
+    if verb in ("", "show"):
+        return profile_text(jobs.load_profile(path))
+    if verb == "set":
+        if len(words) < 2:
+            return f"Usage: /kokpit jobs profile set <field> <values...>. Fields: {', '.join(jobs.FIELDS)}"
+        try:
+            prof = jobs.save_profile(path, jobs.set_field(jobs.load_profile(path), words[1], " ".join(words[2:])))
+        except ValueError as e:
+            return f"Kokpit: profile not changed: {e}"
+        return f"Saved {words[1].lower()}.\n" + profile_text(prof)
+    if verb == "cv":
+        if len(words) < 2:
+            return "Usage: /kokpit jobs profile cv <path> [apply]"
+        apply = len(words) > 2 and words[-1].lower() == "apply"
+        target = " ".join(words[1:-1] if apply else words[1:])
+        try:
+            proposal = jobs.propose(jobs.extract_text(target))
+        except jobs.CVError as e:
+            return f"Kokpit: CV not read: {e}"
+        langs = ", ".join(f"{x['language']}:{x['level'] or 'level not found'}" for x in proposal["languages"]) or "none found"
+        lines = [f"Proposed from the CV (rules only, no model; the CV text is not stored or sent anywhere):",
+                 f"- skills: {', '.join(proposal['skills']) or 'none found'}", f"- languages: {langs}"]
+        if not apply:
+            lines.append(f"Nothing saved. To add these to your profile: /kokpit jobs profile cv {shlex.quote(target)} apply")
+            return "\n".join(lines)
+        jobs.save_profile(path, jobs.merge_proposal(jobs.load_profile(path), proposal))
+        lines.append("Added to your profile (existing entries kept). Check it: /kokpit jobs profile")
+        return "\n".join(lines)
+    return "Usage: " + USAGE["jobs"]
+
+
+def jobs_cmd(env: c.Env, rest: str) -> str:
+    words = rest.split()
+    verb = words[0].lower() if words else ""
+    if verb in ("", "list"):
+        r = tools.run(env, "kokpit_jobs", {"action": "list", "limit": 8})
+        return jobs_list_text(r) if r["ok"] else _err(r)
+    if verb == "run":
+        r = tools.run(env, "kokpit_jobs", {"action": "collect"})
+        return jobs_collect_text(r) if r["ok"] else _err(r)
+    if verb == "market":
+        r = tools.run(env, "kokpit_market", {})
+        return market_text(r) if r["ok"] else _err(r)
+    if verb in ("on", "off"):
+        saved = _save(env, "jobs", verb == "on")
+        extra = (" Nothing is fetched until you set target roles, turn the source on (/kokpit jobs linkedin on) "
+                 "and run /kokpit jobs run." if verb == "on" else " No job source is searched while it is off.")
+        return f"Job listings {verb}.{extra} {saved}"
+    if verb == "linkedin":
+        sw = words[1].lower() if len(words) > 1 else ""
+        if sw not in ("on", "off"):
+            return "Usage: /kokpit jobs linkedin on|off\n" + jobs.RISK
+        saved = _save(env, "jobs_linkedin", sw == "on")
+        return (f"LinkedIn guest search {sw}. " + (jobs.RISK + " " if sw == "on" else "") + saved)
+    if verb == "profile":
+        return jobs_profile(env, rest[len(words[0]):].strip())
+    if verb == "help":
+        return JOBS_HELP
+    return "Usage: " + USAGE["jobs"]
+
+
 def done_text(r: dict) -> str:
     refs = ", ".join(r["refs"][:5]) + (f" (+{len(r['refs']) - 5} more)" if len(r["refs"]) > 5 else "")
     state = "saved" if r["status"] == "succeeded" else "already saved"
@@ -382,12 +532,14 @@ def _run(env: c.Env, raw: str, session_id: str = "") -> str:
         return health_text(r) if r["ok"] else _err(r)
     if sub == "news":
         return news(env, rest)
+    if sub == "jobs":
+        return jobs_cmd(env, rest)
     if sub == "help":
         return HELP
     return f"Unknown subcommand: {sub}\n" + HELP
 
 
-SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", "done", "news", *CAPTURE}
+SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", "done", "news", "jobs", *CAPTURE}
 
 
 def handler(env: c.Env):

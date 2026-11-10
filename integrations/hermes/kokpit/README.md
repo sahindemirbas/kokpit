@@ -19,8 +19,8 @@ Why this one:
 - Capture from any Hermes gateway, Telegram included: `/kokpit note`, `todo`,
   `j` append to your vault from your phone. No extra bot.
 - Local first: standard library only. By default no network and no model.
-  Opt-in news briefing fetches only the feeds you list. The vault is only
-  appended to, never edited.
+  Opt-in news briefing fetches only the feeds you list; opt-in job listings
+  search one source you switch on. The vault is only appended to, never edited.
 
 ## Install
 
@@ -51,12 +51,12 @@ points at the notes touched.
 
 ## What needs the full Kokpit app
 
-The vault features above work with the plugin alone, and so does the opt-in
-news briefing. Calendar and weather, job listings, events, the podcast, AI
-usage and the app's job health come from the [Kokpit app](../../../README.md)
-database; the plugin reads it read-only when you point `db_path` at it, and
-says so plainly when it is not there. The plugin does not collect job listings
-or a podcast.
+The vault features above work with the plugin alone, and so do the opt-in
+news briefing and the opt-in job listings. Calendar and weather, events, the
+podcast, AI usage and the app's job health come from the
+[Kokpit app](../../../README.md) database; the plugin reads it read-only when
+you point `db_path` at it, and says so plainly when it is not there. The
+plugin does not make a podcast.
 
 ## News briefing
 
@@ -76,13 +76,57 @@ days; delete that file to remove them. When the Kokpit app database has items
 for the day, those are shown instead. Details:
 [docs/hermes-plugin.md](../../../docs/hermes-plugin.md#news-briefing).
 
+## Job listings and market
+
+Off by default, and off twice: the `jobs` module and its only source,
+`jobs_linkedin`.
+
+```
+/kokpit jobs on
+/kokpit jobs profile set target_roles Data Analyst, BI Developer
+/kokpit jobs profile set locations Example City
+/kokpit jobs profile set languages English:C1, Italian:B1
+/kokpit jobs linkedin on            # read the risk statement below first
+/kokpit jobs run                    # search now; /kokpit jobs to see the top listings
+/kokpit jobs market                 # companies, weekly trend, skills asked for
+```
+
+The source is LinkedIn's public guest job search: logged-out pages, no login.
+LinkedIn's User Agreement restricts automated access, so use is at your own
+risk; it can break or be blocked at any time, and the plugin does not work
+around a block. It keeps the app's politeness rules: one request per page, a
+pause between requests, the last 7 days only, at most 6 searches of 3 pages,
+and the first HTTP 429 or 999 stops the whole run with a warning. No retries,
+no proxy, no cookies. Without target roles nothing is fetched.
+
+Profile: a JSON file `profile.json` in the plugin data dir, not in Hermes
+config. `/kokpit jobs profile` shows it, `profile set <field> <values...>`
+edits one field. `/kokpit jobs profile cv <path>` reads a `.txt` or `.md` CV
+(`.pdf` only when `pdftotext` is installed) and proposes skills and languages
+with rules, no model; it saves them only when you repeat the command with
+`apply`. The CV text is never stored, logged, sent to a model or sent over the
+network, and e-mail addresses, phone numbers and links are removed before
+anything is shown.
+
+Listings are scored against the profile with reasons; a listing that cannot be
+judged shows `unknown`, never 0. A listing not seen for `jobs_close_days`
+(default 3) is marked closed, but only after a run in which the source returned
+results. They live in `collector.db` next to the news items; delete that file
+(and `profile.json`) to remove everything, `/kokpit jobs off` to stop. When the
+Kokpit app database has job listings, those are shown instead. Schedule: the
+same as the news briefing (`collect_auto`, or an agent-mode cron job calling
+`kokpit_jobs` with `action: collect`). Details:
+[docs/hermes-plugin.md](../../../docs/hermes-plugin.md#job-listings-and-market).
+
 ## Privacy
 
 By default nothing leaves your machine: no network calls and no model calls.
-Two opt-ins change that, and only as far as you set them: the news briefing
-fetches only the feed URLs you configured, and `night_model` or
-`briefing_model` call the host model you already use in Hermes. It opens the
-Kokpit database read-only and keeps collected news in its own `collector.db`.
+Three opt-ins change that, and only as far as you set them: the news briefing
+fetches only the feed URLs you configured, the job search (`jobs` plus
+`jobs_linkedin`) fetches LinkedIn's public guest search pages for your target
+roles, and `night_model` or `briefing_model` call the host model you already
+use in Hermes. It opens the Kokpit database read-only and keeps collected news
+and job listings in its own `collector.db`.
 It writes to the vault only through capture, `/kokpit setup` (new files only),
 accepted night proposals, the session card and receipts. It never edits, moves
 or deletes your notes, and refuses receipt text that looks like a key.

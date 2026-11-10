@@ -19,6 +19,7 @@ from pathlib import Path
 
 from . import contract as c
 from . import collector as _collector
+from . import jobs as _jobs
 from . import night as _night
 
 WRITE_TOOLS = {"write_file", "patch"}
@@ -163,6 +164,9 @@ class Hooks:
         mods = state["cfg"]["modules"]
         if mods.get("briefing") and (state.get("briefing") or {}).get("topics"):
             jobs.append((_collector.JOB, lambda st: _collector.collect(st)))
+        js = state.get("jobs") or {}
+        if mods.get("jobs") and js.get("linkedin") and _jobs.load_profile(js.get("profile_path"))["target_roles"]:
+            jobs.append((_jobs.JOB, lambda st: _jobs.collect(st)))
         return jobs
 
     def _collect_auto(self):

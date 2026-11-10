@@ -3,8 +3,8 @@
 Self-contained and stdlib-only. It talks to Kokpit through Kokpit's files
 (kokpit.toml, the SQLite database opened read-only, the Markdown vault), never
 through Python imports, so it works when Hermes installs only this folder.
-The only network access is the opt-in news briefing (collector.py): off by
-default, and then only to the feed URLs the user configured.
+The only network access is the opt-in news briefing (collector.py) and the opt-in job search (jobs.py, LinkedIn
+guest pages): both off by default, and both go through collector.fetch only.
 See docs/hermes-plugin.md in the Kokpit repository.
 """
 from __future__ import annotations
@@ -74,8 +74,8 @@ def register(ctx):
     ctx.register_hook("on_session_start", h.on_session_start)
     ctx.register_hook("on_session_finalize", h.on_session_finalize)
     ctx.register_hook("post_compaction", h.post_compaction)
-    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, done, night, news",
-                         args_hint="setup|brief|today|brain|note|todo|j|done|night|add|skip|health|news|help")
+    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, done, night, news, jobs",
+                         args_hint="setup|brief|today|brain|note|todo|j|done|night|add|skip|health|news|jobs|help")
     if hasattr(ctx, "register_cli_command"):  # `hermes kokpit-night|kokpit-setup|kokpit-brief|kokpit-collect`; older Hermes: skipped
         for name, help_, setup, raw in CLI:
             try:

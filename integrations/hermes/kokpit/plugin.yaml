@@ -1,8 +1,8 @@
 name: kokpit
-version: "0.5.0"
+version: "0.6.0"
 manifest_version: 2
 api_version: 1
-description: "Your own cockpit in Hermes: /kokpit setup makes a plain Markdown vault, capture from any chat, a session card and receipt when a session produced a result, so Claude Code, Codex and Hermes continue from the same place. Night pass, morning brief, opt-in news briefing. Nothing leaves the machine unless you turn on the briefing (your feeds only) or a model option."
+description: "Your own cockpit in Hermes: /kokpit setup makes a plain Markdown vault, capture from any chat, a session card and receipt when a session produced a result, so Claude Code, Codex and Hermes continue from the same place. Night pass, morning brief, opt-in news briefing and job listings. Nothing leaves the machine unless you turn on the briefing (your feeds only), the job search (LinkedIn guest pages) or a model option."
 author: kokpit
 license: MIT
 requires_hermes: ">=0.22.0"
@@ -20,6 +20,7 @@ provides_tools:
   - kokpit_server
   - kokpit_night
   - kokpit_briefing
+  - kokpit_market
 provides_hooks:
   - pre_llm_call
   - post_tool_call
@@ -143,3 +144,15 @@ config_schema:
     type: bool
     default: false
     description: "Summarise briefing items with the host model (ctx.llm) in one bounded call per collection. Off by default: summaries are then the first sentences of the feed's own text."
+  jobs:
+    type: bool
+    default: false
+    description: "Turn on the optional job listings module (kokpit_jobs, kokpit_market). Off by default. An explicit false turns it off even when kokpit.toml enables it. Reading never fetches; collecting also needs jobs_linkedin."
+  jobs_linkedin:
+    type: bool
+    default: false
+    description: "Let kokpit_jobs collect and /kokpit jobs run search LinkedIn's public guest job pages (logged out, no login) for the target roles in your profile. LinkedIn's User Agreement restricts automated access: use is at your own risk, it can break or be blocked at any time, and the plugin does not work around a block (the first HTTP 429 or 999 stops the run). Off by default."
+  jobs_close_days:
+    type: int
+    default: 3
+    description: "A plugin-collected listing not seen for this many days is marked closed, but only after a run in which its source returned results (1 to 60)."
