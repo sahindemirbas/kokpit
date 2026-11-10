@@ -4,7 +4,9 @@ Self-contained and stdlib-only. It talks to Kokpit through Kokpit's files
 (kokpit.toml, the SQLite database opened read-only, the Markdown vault), never
 through Python imports, so it works when Hermes installs only this folder.
 The only network access is the opt-in news briefing (collector.py) and the opt-in job search (jobs.py, LinkedIn
-guest pages): both off by default, and both go through collector.fetch only.
+guest pages): both off by default, and both go through collector.fetch only. The opt-in podcast (podcast.py)
+makes no network call itself; on an explicit make it calls the host's text_to_speech tool or the user's own
+notebooklm command, whichever engine the user picked.
 See docs/hermes-plugin.md in the Kokpit repository.
 """
 from __future__ import annotations
@@ -29,6 +31,15 @@ def _llm(ctx):
 def _setter(ctx):
     """ctx.set_config (plugins.entries.kokpit.settings.<key>, atomic, locked) when this Hermes has it."""
     fn = getattr(ctx, "set_config", None)
+    return fn if callable(fn) else None
+
+
+def _dispatcher(ctx):
+    """ctx.dispatch_tool when this Hermes has it; only the podcast tts engine (opt-in, on make) calls it."""
+    try:
+        fn = getattr(ctx, "dispatch_tool", None)
+    except Exception:
+        return None
     return fn if callable(fn) else None
 
 
@@ -63,7 +74,8 @@ CLI = (("kokpit-night", "Kokpit night pass over the vault (rules only unless nig
 
 
 def register(ctx):
-    env = Env(lambda key, default=None: ctx.get_config(key, default=default), llm=_llm(ctx), set_config=_setter(ctx))
+    env = Env(lambda key, default=None: ctx.get_config(key, default=default), llm=_llm(ctx), set_config=_setter(ctx),
+              dispatch=_dispatcher(ctx))
     for name, schema in schemas.ALL.items():
         ctx.register_tool(name=name, toolset=TOOLSET, schema=schema,
                           handler=tools.handler(env, name), description=schema["description"])
@@ -74,8 +86,8 @@ def register(ctx):
     ctx.register_hook("on_session_start", h.on_session_start)
     ctx.register_hook("on_session_finalize", h.on_session_finalize)
     ctx.register_hook("post_compaction", h.post_compaction)
-    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, done, night, news, jobs",
-                         args_hint="setup|brief|today|brain|note|todo|j|done|night|add|skip|health|news|jobs|help")
+    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, done, night, news, jobs, podcast",
+                         args_hint="setup|brief|today|brain|note|todo|j|done|night|add|skip|health|news|jobs|podcast|help")
     if hasattr(ctx, "register_cli_command"):  # `hermes kokpit-night|kokpit-setup|kokpit-brief|kokpit-collect`; older Hermes: skipped
         for name, help_, setup, raw in CLI:
             try:

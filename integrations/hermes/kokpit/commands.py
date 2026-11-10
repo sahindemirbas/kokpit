@@ -10,6 +10,7 @@ import shlex
 from . import collector
 from . import contract as c
 from . import jobs
+from . import podcast
 from . import tools
 from . import vault_setup
 
@@ -30,6 +31,8 @@ HELP = ("Kokpit commands:\n"
         "/kokpit news add <topic> <feed-url> [keywords...] | news remove <topic> | news on | news off\n"
         "/kokpit jobs - job listings with score (jobs run | market | on | off | profile; off by default)\n"
         "/kokpit jobs help - profile, CV proposal and the job source\n"
+        "/kokpit podcast - podcast of today's briefing: status (podcast make | script | engine tts|notebooklm | "
+        "on | off; off by default)\n"
         "/kokpit help - this list")
 
 
@@ -193,7 +196,8 @@ USAGE = {"note": "/kokpit note <text>", "todo": "/kokpit todo <text> [due:YYYY-M
          "done": "/kokpit done <short summary of the result>",
          "news": "/kokpit news [run | add <topic> <feed-url> [keywords...] | remove <topic> | on | off]",
          "jobs": "/kokpit jobs [run | market | on | off | linkedin on|off | profile [set <field> <values...> | "
-                 "cv <path> [apply]] | help]"}
+                 "cv <path> [apply]] | help]",
+         "podcast": "/kokpit podcast [make | script | engine tts|notebooklm | on | off]"}
 SET_LINE = "hermes config set plugins.entries.kokpit.settings.{key} {value}"
 JOBS_HELP = ("Job listings (off by default):\n"
              "/kokpit jobs - top open listings with score and the main reasons\n"
@@ -459,6 +463,90 @@ def jobs_cmd(env: c.Env, rest: str) -> str:
     return "Usage: " + USAGE["jobs"]
 
 
+SCRIPT_SHOWN = 6000
+
+
+def podcast_status_text(r: dict) -> str:
+    lines = [f"Podcast {r['day']}{_demo(r)}: {r['status']}. Engine: {r['engine']}"
+             + ("" if r["engine_ok"] else " (not valid)") + f", script by {r['script_mode']}, {r['items']} briefing items."]
+    t = r["today"]
+    for key, label in (("episode", "Episode"), ("playlist", "Parts playlist"), ("source_md", "Source pack"),
+                       ("script", "Script")):
+        if t.get(key):
+            lines.append(f"{label}: {t[key]}")
+    for x in r["last"][:2]:
+        age = f"{x['age_hours']} h ago" if x["age_hours"] is not None else "age unknown"
+        lines.append(f"Last {x['engine']}: {x['status']} for {x['day']}, {x['duration']}, {age}"
+                     + ("" if x["exists"] else " (file no longer there)"))
+    lines += [f"Missing: {m}" for m in r["missing"]]
+    if r.get("note"):
+        lines.append("Note: " + r["note"])
+    if r.get("next"):
+        lines.append("Next: " + r["next"])
+    if r.get("risk"):
+        lines.append(r["risk"])
+    return "\n".join(lines)
+
+
+def podcast_script_text(r: dict) -> str:
+    if not r.get("text"):
+        return f"Podcast script {r['day']}{_demo(r)}: {r['status']}." + (f" Next: {r['next']}" if r.get("next") else "")
+    head = (f"Podcast script {r['day']}{_demo(r)} ({r['mode']}, about {r['words']} words, "
+            f"{r['estimated_minutes']} min" + (f"; {r['note']}" if r.get("note") else "") + "):")
+    text = r["text"]
+    if len(text) > SCRIPT_SHOWN:
+        text = text[:SCRIPT_SHOWN].rstrip() + "\n..." + (f"\nFull script: {r['path']}" if r.get("path") else "")
+    return head + "\n\n" + text
+
+
+def podcast_make_text(r: dict) -> str:
+    lines = [f"Podcast {r['day']} ({r['engine']}, script by {r['script']}): {r['status']} in {r['took_seconds']} s."]
+    if r.get("file"):
+        lines.append(f"Episode: {r['file']} ({r['duration']})")
+    if r.get("playlist"):
+        lines.append(f"Parts playlist: {r['playlist']} ({len(r['parts'])} parts, {r['duration']})")
+    pack = r.get("source_pack")
+    if pack and r["status"] == "source pack ready":
+        lines += [f"Source pack: {pack['source_md']} and {pack['focus_txt']}"] + list(r.get("steps") or [])
+    if r.get("script_note"):
+        lines.append("Script: " + r["script_note"])
+    for key in ("note", "voice", "risk"):
+        if r.get(key):
+            lines.append(r[key])
+    lines += [f"Warning: {w}" for w in r.get("warnings", [])[:5]]
+    return "\n".join(lines)
+
+
+def podcast_cmd(env: c.Env, rest: str) -> str:
+    words = rest.split()
+    verb = words[0].lower() if words else ""
+    if verb in ("", "status"):
+        r = tools.run(env, "kokpit_podcast", {"action": "status"})
+        return podcast_status_text(r) if r["ok"] else _err(r)
+    if verb == "script":
+        r = tools.run(env, "kokpit_podcast", {"action": "script"})
+        return podcast_script_text(r) if r["ok"] else _err(r)
+    if verb == "make":
+        r = tools.run(env, "kokpit_podcast", {"action": "make"})
+        return podcast_make_text(r) if r["ok"] else _err(r)
+    if verb == "engine":
+        name = words[1].lower() if len(words) > 1 else ""
+        if name not in podcast.ENGINES:
+            return (f"Unknown engine {c.clean(name, 30)!r}: use tts or notebooklm. Nothing saved." if name else
+                    "Usage: /kokpit podcast engine tts|notebooklm")
+        saved = _save(env, "podcast_engine", name)
+        extra = podcast.TTS_VOICE if name == "tts" else (
+            "Make writes a source pack for NotebookLM; the notebooklm command runs only with "
+            "podcast_notebooklm_cli on. " + podcast.RISK)
+        return f"Podcast engine {name}. {extra} {saved}"
+    if verb in ("on", "off"):
+        saved = _save(env, "podcast", verb == "on")
+        extra = (" Nothing is made until you run /kokpit podcast make; collect_auto never makes a podcast."
+                 if verb == "on" else " No podcast is made while it is off.")
+        return f"Podcast {verb}.{extra} {saved}"
+    return "Usage: " + USAGE["podcast"]
+
+
 def done_text(r: dict) -> str:
     refs = ", ".join(r["refs"][:5]) + (f" (+{len(r['refs']) - 5} more)" if len(r["refs"]) > 5 else "")
     state = "saved" if r["status"] == "succeeded" else "already saved"
@@ -544,12 +632,15 @@ def _run(env: c.Env, raw: str, session_id: str = "") -> str:
         return news(env, rest)
     if sub == "jobs":
         return jobs_cmd(env, rest)
+    if sub == "podcast":
+        return podcast_cmd(env, rest)
     if sub == "help":
         return HELP
     return f"Unknown subcommand: {sub}\n" + HELP
 
 
-SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", "done", "news", "jobs", *CAPTURE}
+SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", "done", "news", "jobs",
+        "podcast", *CAPTURE}
 
 
 def handler(env: c.Env):

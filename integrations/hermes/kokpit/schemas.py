@@ -42,4 +42,7 @@ ALL = {
                            "day": {"type": "string", "description": "Day to list, YYYY-MM-DD, default today."},
                            "topic": {"type": "string", "description": "Only this topic, for list."},
                            "limit": {"type": "integer", "description": "Items to list, default 20, max 100."}}),
+    "kokpit_podcast": _s("kokpit_podcast", "Optional module (off by default). Podcast of the day's news briefing. action=status (default) only reads: the selected engine (podcast_engine tts or notebooklm) and what it still needs, today's files, the last episode per engine with path, duration (or unknown) and age. action=script returns the day's script as text; by rule it makes no network call, with podcast_model on it asks the host model once per topic. action=make builds the episode and can take minutes (tts: the host's text_to_speech tool, one configured voice; notebooklm: a source pack for NotebookLM, plus the user's own notebooklm command when podcast_notebooklm_cli is on, up to 40 minutes). Files stay in the plugin data dir. No fallback between engines.",
+                         {"action": {"type": "string", "enum": ["status", "script", "make"], "description": "status (default), script or make."},
+                          "day": {"type": "string", "description": "Briefing day, YYYY-MM-DD, default today."}}),
 }

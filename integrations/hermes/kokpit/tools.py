@@ -7,6 +7,8 @@ the tools that go to the network (only the feed URLs the user configured, or Lin
 when jobs and jobs_linkedin are on) and they write only the plugin's own store. kokpit_night stores proposals
 outside the notes and,
 on an explicit accept, writes through the same append-only capture writers (To-Do line or new ideas/ file).
+kokpit_podcast action make (module podcast, off by default) writes only into the plugin data dir and reaches out
+only through the engine the user picked: the host's text_to_speech tool or the user's own notebooklm command.
 """
 from __future__ import annotations
 
@@ -21,6 +23,7 @@ from . import collector as _collector
 from . import contract as c
 from . import jobs as _jobs
 from . import night as _night
+from . import podcast as _podcast
 from . import server as _server
 from . import training as _training
 
@@ -643,11 +646,25 @@ def briefing(state: dict, args: dict) -> dict:
     return out
 
 
+def podcast(state: dict, args: dict) -> dict:
+    """Podcast of the day's briefing: status (default, read-only), script (rules: no network) or make."""
+    action = str(args.get("action") or "status").strip().lower()
+    if action not in ("status", "script", "make"):
+        raise c.NotReady(f"unknown action {c.clean(action, 20)}", "use action status (default), script or make")
+    _need(state, "podcast")
+    day = _podcast._day(args.get("day"))
+    if action == "script":
+        return {"action": "script", **_podcast.script(state, day)}
+    if action == "make":
+        return {"action": "make", **_podcast.make(state, day)}
+    return {"action": "status", **_podcast.status(state, day)}
+
+
 TOOLS = {"kokpit_today": today, "kokpit_brain_search": brain_search, "kokpit_threads": threads,
          "kokpit_capture": capture, "kokpit_events": events, "kokpit_jobs": jobs,
          "kokpit_ai_usage": ai_usage, "kokpit_health": health,
          "kokpit_training": training, "kokpit_server": server, "kokpit_night": night,
-         "kokpit_briefing": briefing, "kokpit_market": market}
+         "kokpit_briefing": briefing, "kokpit_market": market, "kokpit_podcast": podcast}
 
 
 def run(env: c.Env, name: str, args, session_id: str = "") -> dict:
@@ -683,7 +700,8 @@ OVERVIEW = (("today", "kokpit_today", {}), ("threads", "kokpit_threads", {}), ("
             ("night", "kokpit_night", {"limit": 3}), ("briefing", "kokpit_briefing", {"limit": 5}))
 MODULE_TOOLS = {"today": "kokpit_today", "brain": "kokpit_threads", "health": "kokpit_health",
                 "events": "kokpit_events", "jobs": "kokpit_jobs", "ai_usage": "kokpit_ai_usage",
-                "training": "kokpit_training", "server": "kokpit_server", "briefing": "kokpit_briefing"}
+                "training": "kokpit_training", "server": "kokpit_server", "briefing": "kokpit_briefing",
+                "podcast": "kokpit_podcast"}
 
 
 def modules(state: dict) -> list[dict]:

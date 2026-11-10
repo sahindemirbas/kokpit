@@ -208,6 +208,7 @@ Tools (toolset `kokpit`), each returns JSON. Success is
 | `kokpit_training` | Optional. Per run: last step, last loss and metrics, steps per second, ETA, minutes since the last update, "may have stopped" warning |
 | `kokpit_server` | Optional. Disk usage for set paths, CPU temperature, load, memory, uptime, state of the listed `systemd --user` units |
 | `kokpit_briefing` | Optional. The day's news items per topic (title, url, summary, headline), the source used (Kokpit app database or plugin store) and its freshness. `action` `list` (default, optional `day`, `topic`, `limit`) or `collect`, which fetches your configured feeds now. See [News briefing](#news-briefing) |
+| `kokpit_podcast` | Optional. Podcast of the day's briefing. `action` `status` (default, read-only: engine, what is missing, last episode per engine with path, duration or unknown, age), `script` (the script as text) or `make` (build the episode with the selected engine), optional `day`. See [Podcast](#podcast) |
 
 A module that is off in `[modules]` answers
 `module disabled, enable with [modules] <name> = true in kokpit.toml`.
@@ -264,11 +265,12 @@ warnings and the number of items on you. Colours come only from the app's
 
 Command: `/kokpit setup [path] | brief | today | brain [words] | note <text> |
 todo <text> | j <text> | done <summary> | night [run|kind] | add <id> | skip <id> |
-health | news ... | jobs ... | help`. Short plain text, so it reads the same in the CLI and in Telegram.
+health | news ... | jobs ... | podcast ... | help`. Short plain text, so it reads the same in the CLI and in Telegram.
 `/kokpit brief` is the morning brief: today (calendar and weather when the
 Kokpit app has them), threads on you, the night pass counts, the last session
-card and its open items, matched news, the news headlines and a Jobs line
-(open count and the top one or two) when those modules are on, at most 3500
+card and its open items, matched news, the news headlines, a Jobs line
+(open count and the top one or two) and a Podcast line (today's episode or
+source pack exists) when those modules are on, at most 3500
 characters. Sections without data are dropped. Also `hermes kokpit-brief`.
 
 Hooks:
@@ -514,8 +516,106 @@ everything, remove `collector.db` (it also holds the news items) and
 `profile.json`; to stop, `/kokpit jobs off` or `/kokpit jobs linkedin off`.
 Demo mode shows a few invented listings and never fetches.
 
-Not there yet: the plugin does not make a podcast; that still comes only from
-the Kokpit app.
+## Podcast
+
+Off by default. The podcast turns one day's briefing (the items
+`kokpit_briefing` lists) into audio. It needs briefing items for the day; with
+none it says so and makes nothing. A podcast is made only on an explicit
+`make`: `collect_auto`, the hooks and `/kokpit brief` never make one.
+
+```
+/kokpit podcast on              # or: hermes config set plugins.entries.kokpit.settings.podcast true
+/kokpit podcast engine tts      # or notebooklm
+/kokpit podcast script          # read the script as text (by rule: no network)
+/kokpit podcast make            # build the episode; can take minutes
+/kokpit podcast                 # status: engine, what is missing, last episode per engine
+```
+
+Settings: `podcast` (module), `podcast_engine` (`tts` default, or
+`notebooklm`; any other value is refused, not replaced), `podcast_model`
+(two-speaker script by the host model, off by default), `podcast_minutes`
+(target length of the model script, 2 to 30, default 8), `podcast_language`
+(`en` default; language of the model script and of the NotebookLM focus
+text), `podcast_notebooklm_cli` (off by default, see below) and
+`podcast_keep_days` (1 to 90, default 14).
+
+The script. By rule (default): one narrator, a short opening, per topic a
+transition and each item's stored title and summary made speakable (no links,
+markdown or emoji; "209M" becomes "209 million", "%30" becomes "30 percent"),
+a short closing line. It invents nothing and is the same for the same input.
+With `podcast_model` on and a host that gives plugins `ctx.llm`: two speakers
+A and B, one bounded call per topic (at most 8 topics), the feed text passed
+as untrusted data. A crowd greeting or a self introduction gets one retry. Any
+model failure gives the rules script for the whole episode and the result says
+so; an episode is never half model, half rules. The script is cached in
+`script.json` with a fingerprint (items, mode, language, minutes); the same
+fingerprint makes no new model call.
+
+Engine `tts`. The host's own `text_to_speech` tool, called through
+`ctx.dispatch_tool`. The voice and the speech provider are your Hermes TTS
+configuration: the plugin holds no key and picks no voice, and the text goes
+wherever that provider sends it. One voice: a two-speaker model script is read
+by that one voice and the speaker labels are not read aloud. The script goes
+out in pieces under 3500 characters, split at sentence ends, each with an
+`output_path` inside the episode folder; every returned file must exist and
+not be empty. Wav pieces with the same format are joined with Python's `wave`
+module. Other formats are joined with `ffmpeg` when it is on the PATH (fixed
+argument list, no shell, a timeout). Without ffmpeg the numbered part files
+stay with an `episode.m3u` playlist and the result warns "parts not joined:
+ffmpeg not found". Duration is measured for wav only, otherwise `unknown`. A
+host without `dispatch_tool`, a tool failure or an empty piece ends the run as
+failed: no audio is left behind, the script stays readable.
+
+Engine `notebooklm`. NotebookLM has no public API for personal accounts, so
+there are two levels:
+
+1. Always, no network: a source pack in the episode folder, `source.md` (the
+   briefing per topic, each item with title, summary, why it matters and its
+   URL) and `focus.txt` (at most 500 characters: language, one listener
+   addressed as you, which topics to weight). Status `source pack ready`, no
+   audio is claimed. By hand: open NotebookLM and create a notebook; add
+   `source.md` as a source; open Audio Overview, Customize, paste `focus.txt`
+   and generate.
+2. Only with `podcast_notebooklm_cli: true` and a `notebooklm` command on the
+   PATH: the plugin runs your own `notebooklm` command (the unofficial
+   notebooklm-py project, which you install and log in to yourself) with a
+   fixed argument list, a timeout per step and an overall budget of 40
+   minutes: `notebooklm create "Kokpit briefing" --json` once (the notebook id
+   is kept in `podcast/notebooklm.json`), `notebooklm source add <source.md>
+   --notebook <id> --type file --title ... --json`, `notebooklm generate audio
+   --prompt-file <focus.txt> --notebook <id> --language <lang> --wait --timeout
+   <s> --json [--source <source id>]` and `notebooklm download audio
+   <episode.m4a> --notebook <id> --latest --force --json`. The downloaded file
+   is checked and named after its real format.
+
+Risk, in plain words: notebooklm-py is an unofficial tool that drives your own
+Google session. It is not supported by Google and can break at any time; use
+is at your own risk. The plugin does not log in for you, never reads, copies or
+prints the tool's login files and does not retry around a failure. A non-zero
+exit, a timeout or a missing download ends the run as failed with the step
+named; the error line is cut short and scrubbed of anything that looks like a
+cookie, token or e-mail. The source pack stays, so the manual route still
+works. With the switch on but no `notebooklm` command, the result is the
+source pack plus one line saying the command was not found.
+
+No fallback between engines: a failing `notebooklm` run never calls the TTS
+tool and a failing `tts` run never starts a command. The result names the
+other engine and how to switch.
+
+Where the files live: `<plugin data dir>/podcast/<YYYY-MM-DD>/` (`script.json`,
+`source.md`, `focus.txt`, `episode.<real extension>` or the parts and
+`episode.m3u`), never in the vault and never in the Kokpit app database. Each
+make writes one `runs` row with job name `podcast` (engine, script mode,
+duration or unknown, file path), which `kokpit_health` shows under
+`plugin_jobs`; a failed make writes a failed row. At the start of a make,
+dated folders older than `podcast_keep_days` are removed from that folder; no
+other file or folder is touched. To delete everything, remove the `podcast/`
+folder of the plugin data dir; to stop, `/kokpit podcast off`. A second make
+for the same day while one runs is refused; a lock older than 50 minutes is
+taken over. `make` blocks until it is done (the tool and command return one
+answer), so the tts engine takes as long as your speech provider and the
+notebooklm automation up to 40 minutes. Demo mode shows status and a rules
+script for the seeded items and makes no audio.
 
 ## Cards and receipts: how the brain grows
 
@@ -657,7 +757,9 @@ the plugin alone on a plain Markdown vault.
   stored. Older than 24 hours is marked `stale`.
 - The plugin does not run Kokpit jobs. `kokpit_health` tells you which one to run.
   Its collectors are the opt-in news briefing and the opt-in job listings; the
-  podcast is not made by the plugin.
+  opt-in podcast is made only on an explicit `make`. Neither podcast engine has
+  been run against a live speech service or NotebookLM yet; both are tested
+  with fakes only.
 - The job source parser follows the Kokpit app's parser for LinkedIn's guest
   search markup; it is tested on synthetic pages only. When the page layout
   changes, a run returns 0 listings and says so.

@@ -19,7 +19,7 @@ hermes plugins enable kokpit
 | Hermes -> Kokpit | Hermes writes to the same Markdown vault (threads, to-do, session logs); Kokpit renders it | Brain |
 | Hermes -> Kokpit | A session card and a receipt at session end, written by the `kokpit` plugin without a model | Brain |
 | Hermes -> Kokpit | Kokpit reads `state.db` usage rows (tool, model, tokens per session) | AI usage |
-| Kokpit -> Hermes | The `kokpit` plugin: tools for today, brain, events, jobs, AI usage and job health, quick capture, `/kokpit`, brain context on every turn | all |
+| Kokpit -> Hermes | The `kokpit` plugin: tools for today, brain, events, jobs, AI usage and job health, quick capture, `/kokpit`, brain context on every turn, opt-in news briefing and its podcast | all |
 | Kokpit -> Hermes | Model calls via `hermes chat --oneshot` when `[model] provider = "hermes"`; Hermes's connected accounts answer, no API key in Kokpit | all model uses |
 
 ## What exists today
@@ -69,6 +69,6 @@ Hermes-only.
 ## Boundaries
 
 - Kokpit opens `state.db` read-only and never modifies Hermes configuration.
-- The plugin never writes the Kokpit database. By default it makes no network or model calls; the opt-in news briefing fetches only the feed URLs you configured, the opt-in job listings (`jobs` plus `jobs_linkedin`) fetch LinkedIn's public guest search pages, and the host model is called only with `night_model` or `briefing_model` on.
+- The plugin never writes the Kokpit database. By default it makes no network or model calls; the opt-in news briefing fetches only the feed URLs you configured, the opt-in job listings (`jobs` plus `jobs_linkedin`) fetch LinkedIn's public guest search pages, and the host model is called only with `night_model`, `briefing_model` or `podcast_model` on. The opt-in podcast makes no network call itself; an explicit podcast make hands the script to the host's `text_to_speech` tool (engine `tts`) or, only with `podcast_notebooklm_cli` on, to the user's own `notebooklm` command (engine `notebooklm`, an unofficial tool, at the user's own risk).
 - The vault conventions are a contract, not a dependency: a vault maintained by hand or by another tool renders the same.
 - If Hermes is not installed, the integration is simply absent from the Connections screen.

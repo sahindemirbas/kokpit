@@ -28,9 +28,9 @@ HERE = Path(__file__).resolve().parent
 DEMO_SRC = HERE / "demo"
 DEFAULT_LOCATIONS = (Path("kokpit.toml"), Path.home() / ".config" / "kokpit" / "kokpit.toml")
 MODULE_DEFAULTS = {"today": True, "brain": True, "health": True, "events": False, "jobs": False, "ai_usage": False,
-                   "training": False, "server": False, "briefing": False}
+                   "training": False, "server": False, "briefing": False, "podcast": False}
 # optional modules switched on by one plugin setting each (no kokpit.toml needed)
-PLUGIN_MODULES = ("training", "server", "briefing", "jobs")
+PLUGIN_MODULES = ("training", "server", "briefing", "jobs", "podcast")
 CARD_MAX = 800
 FIX_CONFIG = ("set plugins.entries.kokpit.settings.kokpit_config to your kokpit.toml "
               "(hermes config set plugins.entries.kokpit.settings.kokpit_config /path/kokpit.toml), "
@@ -134,8 +134,9 @@ def load_config(path: Path) -> dict:
 class Env:
     """Resolves settings into a mode (live or demo) plus vault and database paths."""
 
-    def __init__(self, get_config, data_dir: Path | None = None, llm=None, set_config=None):
+    def __init__(self, get_config, data_dir: Path | None = None, llm=None, set_config=None, dispatch=None):
         self._get = get_config
+        self.dispatch = dispatch  # host tool dispatcher (ctx.dispatch_tool) or None; only the podcast tts engine uses it
         self._data_dir = data_dir
         self._durable = data_dir is not None  # False: no Hermes plugin data dir, night state goes to <vault>/.kokpit/
         self.llm = llm  # callable returning the host ctx.llm facade, or None
@@ -192,6 +193,13 @@ class Env:
                 "close_after_days": int(as_num(self.setting("jobs_close_days", 3), 3, 1, 60)),
                 "profile_path": self.data_dir() / "profile.json"}
 
+    def podcast_settings(self, demo: bool = False) -> dict:
+        """Podcast settings plus its folder: <data dir>/podcast (demo: <data dir>/demo/podcast, never written)."""
+        from . import podcast
+        p = podcast.settings(self.setting)
+        p["root"] = self.data_dir() / "demo" / "podcast" if demo else self.data_dir() / "podcast"
+        return p
+
     def collector_store(self) -> dict:
         """The plugin's own writable store for collected data: <data dir>/collector.db (never the app database)."""
         base = self.data_dir()
@@ -213,6 +221,9 @@ class Env:
         st["briefing"] = self.briefing_settings()
         st["store"] = self.collector_store()
         st["jobs"] = self.jobs_settings()
+        st["podcast"] = self.podcast_settings(st["mode"] == "demo")
+        if self.dispatch is not None:
+            st["dispatch"] = self.dispatch
         if self.llm is not None:
             st["llm"] = self.llm
         return st
@@ -222,9 +233,9 @@ class Env:
         for m in PLUGIN_MODULES:
             if as_bool(self.setting(m, False)):
                 cfg["modules"][m] = True
-        # briefing and jobs: an explicit plugin setting wins both ways, so /kokpit news off and
-        # /kokpit jobs off really turn them off
-        for m in ("briefing", "jobs"):
+        # briefing, jobs and podcast: an explicit plugin setting wins both ways, so /kokpit news off,
+        # /kokpit jobs off and /kokpit podcast off really turn them off
+        for m in ("briefing", "jobs", "podcast"):
             flag = self.setting(m, None)
             if flag not in (None, ""):
                 cfg["modules"][m] = as_bool(flag)

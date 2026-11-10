@@ -1,8 +1,8 @@
 name: kokpit
-version: "0.6.0"
+version: "0.7.0"
 manifest_version: 2
 api_version: 1
-description: "Your own cockpit in Hermes: /kokpit setup makes a plain Markdown vault, capture from any chat, a session card and receipt when a session produced a result, so Claude Code, Codex and Hermes continue from the same place. Night pass, morning brief, opt-in news briefing and job listings. Nothing leaves the machine unless you turn on the briefing (your feeds only), the job search (LinkedIn guest pages) or a model option."
+description: "Your own cockpit in Hermes: /kokpit setup makes a plain Markdown vault, capture from any chat, a session card and receipt when a session produced a result, so Claude Code, Codex and Hermes continue from the same place. Night pass, morning brief, opt-in news briefing, job listings and a podcast of the briefing. Nothing leaves the machine unless you turn on the briefing (your feeds only), the job search (LinkedIn guest pages), a model option, or make a podcast (the host's text_to_speech tool, or your own notebooklm command)."
 author: kokpit
 license: MIT
 requires_hermes: ">=0.22.0"
@@ -21,6 +21,7 @@ provides_tools:
   - kokpit_night
   - kokpit_briefing
   - kokpit_market
+  - kokpit_podcast
 provides_hooks:
   - pre_llm_call
   - post_tool_call
@@ -156,3 +157,31 @@ config_schema:
     type: int
     default: 3
     description: "A plugin-collected listing not seen for this many days is marked closed, but only after a run in which its source returned results (1 to 60)."
+  podcast:
+    type: bool
+    default: false
+    description: "Turn on the optional podcast of the day's briefing (kokpit_podcast, /kokpit podcast). Off by default. An explicit false turns it off even when kokpit.toml enables it. Needs briefing items for the day; a podcast is made only on an explicit make, never by collect_auto."
+  podcast_engine:
+    type: str
+    default: "tts"
+    description: "tts or notebooklm; any other value is refused. tts: the host's own text_to_speech tool with your Hermes TTS voice and provider (the text goes wherever that provider sends it). notebooklm: a source pack (source.md, focus.txt) to add to NotebookLM by hand, automated only with podcast_notebooklm_cli. No fallback between them."
+  podcast_model:
+    type: bool
+    default: false
+    description: "Write a two-speaker script with the host model (ctx.llm), one bounded call per topic (at most 8). Off by default: a single-narrator script is built by rule from the stored titles and summaries. Any model failure gives the rules script for the whole episode. The tts engine reads both speakers with its one configured voice; speaker labels are not read aloud."
+  podcast_minutes:
+    type: int
+    default: 8
+    description: "Target length in minutes for the model-written script (2 to 30). The rules script reads every item and is as long as it is."
+  podcast_language:
+    type: str
+    default: "en"
+    description: "Language the model-written script is written in and the language named in the NotebookLM focus text and passed to the notebooklm command (a code such as en or it). The rules script is English."
+  podcast_notebooklm_cli:
+    type: bool
+    default: false
+    description: "Let the plugin run your own notebooklm command (the unofficial notebooklm-py project, which you install and log in to yourself) to create a notebook, add source.md, generate the audio overview and download it. It uses your own Google session, is not supported by Google and can break at any time: use is at your own risk. The plugin does not log in for you, never reads the tool's login files and does not retry around a failure. Off by default."
+  podcast_keep_days:
+    type: int
+    default: 14
+    description: "Episode folders older than this many days (1 to 90) are removed from <plugin data dir>/podcast/ at the start of a make; only folders named YYYY-MM-DD there are touched."

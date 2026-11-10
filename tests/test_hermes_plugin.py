@@ -148,11 +148,11 @@ class Registration(unittest.TestCase):
         tools = [l.strip()[2:] for l in manifest.split("provides_tools:")[1].split("provides_hooks:")[0].splitlines() if l.strip()]
         hooks = [l.strip()[2:] for l in manifest.split("provides_hooks:")[1].split("config_schema:")[0].splitlines() if l.strip()]
         self.assertEqual(sorted(ctx.tools), sorted(tools))
-        self.assertEqual(len(ctx.tools), 13)
+        self.assertEqual(len(ctx.tools), 14)
         self.assertEqual(sorted(ctx.hooks), sorted(hooks))
         self.assertEqual(list(ctx.commands), ["kokpit"])
         self.assertTrue(all(t["toolset"] == "kokpit" for t in ctx.tools.values()))
-        self.assertIn('version: "0.6.0"', manifest)
+        self.assertIn('version: "0.7.0"', manifest)
         for name, t in ctx.tools.items():
             self.assertEqual(t["schema"]["name"], name)
             self.assertEqual(t["schema"]["parameters"]["type"], "object")
@@ -169,9 +169,10 @@ class Registration(unittest.TestCase):
         # the reviewed exceptions: the dashboard API registers its private package name, the server
         # module runs `systemctl --user is-active <validated name>` with a list argv, collector.py
         # holds the one opt-in network call (fetch), and jobs.py runs `pdftotext -layout <file> -` with a
-        # list argv only for a CV the user names (no network; jobs.py fetches through collector.fetch)
+        # list argv only for a CV the user names (no network; jobs.py fetches through collector.fetch), and
+        # podcast.py runs ffmpeg or the user's own notebooklm command with a list argv through one runner
         allowed = {"dashboard/plugin_api.py": {"sys.modules"}, "server.py": {"subprocess"},
-                   "collector.py": {"urllib.request"}, "jobs.py": {"subprocess"}}
+                   "collector.py": {"urllib.request"}, "jobs.py": {"subprocess"}, "podcast.py": {"subprocess"}}
         for p in PLUGIN_DIR.rglob("*.py"):
             rel = p.relative_to(PLUGIN_DIR).as_posix()
             text = p.read_text(encoding="utf-8")
@@ -767,7 +768,7 @@ class Dashboard(Base):
         o = T.overview(self.live_env(modules={"events": False, "ai_usage": False}))
         self.assertTrue(o["ok"])
         off = {m["module"]: m for m in o["modules"] if not m["enabled"]}
-        self.assertEqual(set(off), {"events", "ai_usage", "training", "server", "briefing"})
+        self.assertEqual(set(off), {"events", "ai_usage", "training", "server", "briefing", "podcast"})
         self.assertIn("[modules] events = true", off["events"]["enable"])
         self.assertIn("module disabled", o["events"]["error"])
         o = T.overview(self.env(demo="off"))

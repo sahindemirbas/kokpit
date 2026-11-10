@@ -2,7 +2,8 @@
 
 Today (calendar, tasks, weather when the database has them), open threads on you, night proposals
 (counts and the top 2), the last sessions' next steps, news matches and, when the briefing module is on,
-the day's news headlines. Fits one Telegram message.
+the day's news headlines, and with the podcast module on a Podcast line when today's episode or source pack
+exists. Fits one Telegram message.
 Every section is optional: a missing database or vault only drops that section.
 """
 from __future__ import annotations
@@ -14,6 +15,7 @@ from pathlib import Path
 from . import collector as _collector
 from . import contract as c
 from . import night as _night
+from . import podcast
 from . import tools
 
 LIMIT = 3500
@@ -108,6 +110,14 @@ def _jobs_line(state: dict) -> list[str]:
     return [f"Jobs: {r['open_total']} open. Top: {top}"]
 
 
+def _podcast_line(state: dict, today: date) -> list[str]:
+    """One Podcast line when the module is on and today's episode or source pack exists. Reads files only."""
+    try:
+        return podcast.brief_line(state, today.isoformat())
+    except (OSError, KeyError, TypeError):
+        return []
+
+
 def build(state: dict, today: date | None = None) -> dict:
     today = today or date.today()
     demo = state["mode"] == "demo"
@@ -115,7 +125,8 @@ def build(state: dict, today: date | None = None) -> dict:
     sections.append(_today(state))
     threads, sessions = _brain(state)
     night_head, news = _night_lines(state)
-    sections += [threads, night_head, sessions, news, _headlines(state, today), _jobs_line(state)]
+    sections += [threads, night_head, sessions, news, _headlines(state, today), _jobs_line(state),
+                 _podcast_line(state, today)]
     if state.get("vault") is not None and Path(state["vault"]).is_dir() and (night_head or threads):
         sections.append(["Act: /kokpit night, /kokpit add <id>, /kokpit todo <text>"])
     tail = "\n\n" + c.DEMO_HINT if demo else ""

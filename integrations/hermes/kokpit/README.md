@@ -52,11 +52,10 @@ points at the notes touched.
 ## What needs the full Kokpit app
 
 The vault features above work with the plugin alone, and so do the opt-in
-news briefing and the opt-in job listings. Calendar and weather, events, the
-podcast, AI usage and the app's job health come from the
+news briefing, the opt-in job listings and the opt-in podcast of the briefing.
+Calendar and weather, events, AI usage and the app's job health come from the
 [Kokpit app](../../../README.md) database; the plugin reads it read-only when
-you point `db_path` at it, and says so plainly when it is not there. The
-plugin does not make a podcast.
+you point `db_path` at it, and says so plainly when it is not there.
 
 ## News briefing
 
@@ -131,15 +130,48 @@ same as the news briefing (`collect_auto`, or an agent-mode cron job calling
 `kokpit_jobs` with `action: collect`). Details:
 [docs/hermes-plugin.md](../../../docs/hermes-plugin.md#job-listings-and-market).
 
+## Podcast
+
+Off by default. It turns the day's briefing items into audio, only when you
+ask: `/kokpit podcast on`, then `/kokpit podcast make` (`collect_auto` never
+makes one). `/kokpit podcast script` shows the script as text, `/kokpit
+podcast` the status. The script is built by rule from the stored titles and
+summaries (no model, no network); `podcast_model` lets the host model write a
+two-speaker script instead, one bounded call per topic. Pick the engine with
+`/kokpit podcast engine tts|notebooklm`; there is no fallback between them.
+
+- `tts` (default): the host's own `text_to_speech` tool with your Hermes TTS
+  voice and provider; the text goes wherever that provider sends it. One voice
+  reads everything, speaker labels are not read aloud. Wav pieces are joined in
+  Python, other formats with `ffmpeg` when it is installed, otherwise you get
+  the parts plus an `episode.m3u` playlist.
+- `notebooklm`: always writes a source pack, `source.md` and `focus.txt`. By
+  hand: open NotebookLM and create a notebook; add `source.md` as a source;
+  open Audio Overview, Customize, paste `focus.txt` and generate. With
+  `podcast_notebooklm_cli` on, the plugin runs your own `notebooklm` command
+  (the unofficial notebooklm-py project, installed and logged in by you) to do
+  those steps and download the audio. It uses your own Google session, is not
+  supported by Google and can break at any time: use is at your own risk. The
+  plugin does not log in for you, never reads the tool's login files and does
+  not retry around a failure.
+
+Files live in `podcast/<YYYY-MM-DD>/` in the plugin data dir, never in the
+vault; folders older than `podcast_keep_days` (default 14) are removed at the
+next make. Delete the `podcast/` folder to remove everything. Details:
+[docs/hermes-plugin.md](../../../docs/hermes-plugin.md#podcast).
+
 ## Privacy
 
 By default nothing leaves your machine: no network calls and no model calls.
-Three opt-ins change that, and only as far as you set them: the news briefing
+Four opt-ins change that, and only as far as you set them: the news briefing
 fetches only the feed URLs you configured, the job search (`jobs` plus
 `jobs_linkedin`) fetches LinkedIn's public guest search pages for your target
-roles, and `night_model` or `briefing_model` call the host model you already
-use in Hermes. It opens the Kokpit database read-only and keeps collected news
-and job listings in its own `collector.db`.
+roles, `night_model`, `briefing_model` or `podcast_model` call the host model
+you already use in Hermes, and a podcast `make` hands the script to the host's
+`text_to_speech` tool (engine `tts`) or to your own `notebooklm` command
+(engine `notebooklm` with `podcast_notebooklm_cli` on). It opens the Kokpit
+database read-only and keeps collected news, job listings and podcast runs in
+its own `collector.db`.
 It writes to the vault only through capture, `/kokpit setup` (new files only),
 accepted night proposals, the session card and receipts. It never edits, moves
 or deletes your notes, and refuses receipt text that looks like a key.
