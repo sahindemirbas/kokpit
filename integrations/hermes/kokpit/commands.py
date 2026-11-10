@@ -200,6 +200,8 @@ JOBS_HELP = ("Job listings (off by default):\n"
              "/kokpit jobs run - search now; /kokpit jobs market - market view\n"
              "/kokpit jobs on|off - the module; /kokpit jobs linkedin on|off - the only source\n"
              "/kokpit jobs profile - show your profile; profile set <field> <values...> - edit one field\n"
+             "  lists are comma separated; locations use ';' so a comma stays inside one: "
+             "profile set locations Milan, Italy; Turin\n"
              "/kokpit jobs profile cv <path> - propose skills and languages from a .txt/.md/.pdf CV; add apply to save\n"
              + "Fields: " + ", ".join(jobs.FIELDS) + "\n" + jobs.RISK)
 
@@ -324,7 +326,10 @@ def jobs_list_text(r: dict) -> str:
     lines = [f"Jobs{_demo(r)}: {r['open_total']} open, top {r['count']} from the {r.get('source') or 'unknown source'}{age}:"]
     for it in r["listings"]:
         where = ", ".join(x for x in (it.get("company"), it.get("location")) if x) or "company unknown"
-        lines.append(f"- [{it['score']}] {c.clean(it['title'], 80)} ({c.clean(where, 60)})"
+        mk = it.get("max_known")
+        judged = (f", judged {mk}/{jobs.FULL_SCALE}" if isinstance(mk, int) and isinstance(it.get("score"), int)
+                  and mk < jobs.COVERAGE_MIN else "")
+        lines.append(f"- [{it['score']}{judged}] {c.clean(it['title'], 80)} ({c.clean(where, 60)})"
                      + (f" {it['url']}" if it.get("url") else ""))
         why = [x for x in it.get("reasons") or [] if not x.startswith("unknown")][:2]
         if why:
@@ -371,9 +376,13 @@ def profile_text(prof: dict) -> str:
         v = prof.get(f)
         if f == "languages":
             v = ", ".join(f"{x['language']}:{x['level'] or 'level not set'}" for x in v or [])
+        elif f == "locations":
+            v = "; ".join(v or [])
         elif isinstance(v, list):
             v = ", ".join(v)
         lines.append(f"- {f}: {v if v not in (None, '') else 'not set'}")
+    lines.append("Lists are comma separated; locations are separated by ';' "
+                 "(set locations Milan, Italy; Turin).")
     return "\n".join(lines)
 
 
@@ -392,7 +401,8 @@ def jobs_profile(env: c.Env, rest: str) -> str:
         return profile_text(jobs.load_profile(path))
     if verb == "set":
         if len(words) < 2:
-            return f"Usage: /kokpit jobs profile set <field> <values...>. Fields: {', '.join(jobs.FIELDS)}"
+            return (f"Usage: /kokpit jobs profile set <field> <values...> (lists comma separated, locations "
+                    f"separated by ';', e.g. set locations Milan, Italy; Turin). Fields: {', '.join(jobs.FIELDS)}")
         try:
             prof = jobs.save_profile(path, jobs.set_field(jobs.load_profile(path), words[1], " ".join(words[2:])))
         except ValueError as e:

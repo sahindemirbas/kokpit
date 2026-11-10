@@ -84,12 +84,16 @@ Off by default, and off twice: the `jobs` module and its only source,
 ```
 /kokpit jobs on
 /kokpit jobs profile set target_roles Data Analyst, BI Developer
-/kokpit jobs profile set locations Example City
+/kokpit jobs profile set locations Example City, Example Country; Other City
 /kokpit jobs profile set languages English:C1, Italian:B1
 /kokpit jobs linkedin on            # read the risk statement below first
 /kokpit jobs run                    # search now; /kokpit jobs to see the top listings
 /kokpit jobs market                 # companies, weekly trend, skills asked for
 ```
+
+List fields are comma separated, but `locations` is separated by `;` (or a
+new line) so that a comma stays inside one location: `Milan, Italy; Turin` is
+two locations.
 
 The source is LinkedIn's public guest job search: logged-out pages, no login.
 LinkedIn's User Agreement restricts automated access, so use is at your own
@@ -109,7 +113,13 @@ network, and e-mail addresses, phone numbers and links are removed before
 anything is shown.
 
 Listings are scored against the profile with reasons; a listing that cannot be
-judged shows `unknown`, never 0. A listing not seen for `jobs_close_days`
+judged shows `unknown`, never 0. Parts that cannot be judged are left out of the
+maximum, and when fewer than 50 of the 100 points could be judged the score is
+capped at 60 (shown as `[60, judged 36/100]`). Guest search listings have no
+description, so most scores stay capped until a description source exists.
+A profile location matches when its city (the part before the first comma) is
+found in the listing location; same-named cities in different countries are
+not told apart. A listing not seen for `jobs_close_days`
 (default 3) is marked closed, but only after a run in which the source returned
 results. They live in `collector.db` next to the news items; delete that file
 (and `profile.json`) to remove everything, `/kokpit jobs off` to stop. When the

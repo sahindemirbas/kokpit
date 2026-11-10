@@ -329,6 +329,8 @@ def jobs(state: dict, args: dict) -> dict:
             r["reasons"] = [f"{x.get('effect', '')} {x.get('kind', '')}: {x.get('text', '')}".strip()
                             for x in rs.get("reasons") or [] if isinstance(x, dict)]
             r["unknowns"] = rs.get("unknowns") or []
+            mk = rs.get("max_known")
+            r["max_known"] = mk if isinstance(mk, int) and not isinstance(mk, bool) else None
             if r["score"] == "unknown" and not r["reasons"]:
                 r["reasons"] = ["not enough information to score"]
             out.append(r)

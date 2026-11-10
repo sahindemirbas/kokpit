@@ -182,9 +182,19 @@ def empty() -> dict:
             "must_have": [], "nice_to_have": [], "exclude": []}
 
 
-def _clean_list(v) -> list[str]:
+LIST_SEPARATORS = ",\n"
+LOCATION_SEPARATORS = ";\n"
+
+
+def _seps(field: str) -> str:
+    return LOCATION_SEPARATORS if field == "locations" else LIST_SEPARATORS
+
+
+def _clean_list(v, seps: str = LIST_SEPARATORS) -> list[str]:
+    """A cleaned, de-duplicated list. A string is split on any character in seps; a list is kept entry by
+    entry (never re-split). Locations use LOCATION_SEPARATORS, so 'Milan, Italy' stays one entry."""
     if isinstance(v, str):
-        v = v.replace("\n", ",").split(",")
+        v = re.split("[" + re.escape(seps) + "]", v)
     seen, out = set(), []
     for x in v or []:
         s = " ".join(str(x).split())
@@ -218,7 +228,7 @@ def normalise(data: dict) -> dict:
     data = data if isinstance(data, dict) else {}
     out = empty()
     for f in LIST_FIELDS:
-        out[f] = _clean_list(data.get(f))
+        out[f] = _clean_list(data.get(f), _seps(f))
     out["languages"] = _clean_languages(data.get("languages"))
     out["experience_summary"] = scrub(str(data.get("experience_summary") or ""))[:2000]
     yrs = data.get("experience_years")
@@ -266,8 +276,9 @@ def is_empty(prof: dict) -> bool:
 
 
 def set_field(prof: dict, field: str, value: str) -> dict:
-    """The profile with one field replaced. value: comma separated for lists, 'English:C1, Italian:B1' for
-    languages, empty to clear. Raises ValueError for an unknown field or a value outside an enumeration."""
+    """The profile with one field replaced. value: comma separated for lists, semicolon separated for locations
+    ('Milan, Italy; Turin'), 'English:C1, Italian:B1' for languages, empty to clear. Raises ValueError for an
+    unknown field or a value outside an enumeration."""
     field = (field or "").strip().lower()
     if field not in FIELDS:
         raise ValueError(f"unknown field {c.clean(field, 30)}; fields: {', '.join(FIELDS)}")
@@ -280,7 +291,7 @@ def set_field(prof: dict, field: str, value: str) -> dict:
                 raise ValueError(f"language level must be one of {', '.join(LEVELS)} (for example English:C1)")
         out[field] = _clean_languages(value)
     elif field in LIST_FIELDS:
-        out[field] = _clean_list(value)
+        out[field] = _clean_list(value, _seps(field))
     elif field == "experience_years":
         out[field] = value or None
     elif field in ("seniority", "remote_pref"):
@@ -398,6 +409,9 @@ def search(profile: dict, get=None, sleep=None, delay: float = DELAY_S, pages: i
 # ---------------------------------------------------------------- scoring (port of scoring.py)
 
 EXCLUDE_CAP = 15
+FULL_SCALE = 100  # 30 role, 25 must-have, 8 nice-to-have, 7 skills, 10 language, 8 seniority, 6 location, 6 remote
+COVERAGE_MIN = 50
+LOW_COVERAGE_CAP = 60
 LEVEL_RANK = {"": 0, "A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6, "native": 6}
 LEVEL_WORDS = {"native": 6, "mother tongue": 6, "mothertongue": 6, "bilingual": 6, "fluent": 5, "fluency": 5,
                "proficient": 5, "advanced": 5, "excellent": 5, "professional": 4, "upper intermediate": 4, "good": 4,
@@ -479,7 +493,14 @@ def _name(rank: int) -> str:
 
 def score(profile: dict, listing: dict) -> dict:
     """-> {score: int|None, reasons: [{kind, effect, text}], max_known, unknowns}. Unknown is never zero:
-    components without input are left out of the maximum; nothing judgeable gives score None."""
+    components without input are left out of the maximum; nothing judgeable gives score None.
+
+    Coverage cap: when fewer than COVERAGE_MIN of the FULL_SCALE points could be judged, the score is capped at
+    LOW_COVERAGE_CAP and a 'coverage' reason says so. The exclude cap still wins.
+
+    Location rule: a profile location matches when its first comma part (the city, or the whole string when
+    there is no comma) is found in the listing location as a whole word, so 'Milan, Italy' matches
+    'Milan, Lombardy, Italy'. Limit: same-named cities in different countries are not told apart."""
     title = str(listing.get("title") or "")
     desc = str(listing.get("description") or "")
     text = f"{title}\n{desc}"
@@ -598,7 +619,7 @@ def score(profile: dict, listing: dict) -> dict:
             add("location", "plus", "remote role: location is not a constraint")
         elif not place:
             add("location", "unknown", "listing has no location")
-        elif any(_has(loc, place.lower()) for loc in locs):
+        elif any(_has(loc.split(",")[0], place.lower()) for loc in locs):
             comp(6, 6)
             add("location", "plus", f"location '{place}' is in your list")
         else:
@@ -630,6 +651,10 @@ def score(profile: dict, listing: dict) -> dict:
     value = round(100 * earned / known)
     if hits:
         value = min(value, EXCLUDE_CAP)
+    elif known < COVERAGE_MIN and value > LOW_COVERAGE_CAP:
+        value = LOW_COVERAGE_CAP
+        add("coverage", "neutral",
+            f"capped at {LOW_COVERAGE_CAP}: only {int(known)} of {FULL_SCALE} points could be judged")
     return {"score": int(value), "reasons": reasons, "max_known": int(known), "unknowns": unknowns}
 
 

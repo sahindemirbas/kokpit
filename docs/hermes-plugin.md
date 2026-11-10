@@ -442,10 +442,17 @@ because it is personal. Fields: `skills`, `experience_summary`,
 /kokpit jobs profile                                   # show it
 /kokpit jobs profile set target_roles Data Analyst, BI Developer
 /kokpit jobs profile set languages English:C1, Italian:B1
+/kokpit jobs profile set locations Milan, Italy; Turin   # two locations
 /kokpit jobs profile set must_have sql
 /kokpit jobs profile cv ~/cv.txt                       # proposal only, nothing saved
 /kokpit jobs profile cv ~/cv.txt apply                 # add the proposed skills and languages
 ```
+
+List fields are comma separated. `locations` is the exception: entries are
+separated by `;` or a new line, so a comma stays part of a location
+(`Milan, Italy; Turin` gives `Milan, Italy` and `Turin`), and the search sends
+the full location string. `/kokpit jobs profile` prints locations joined by
+`; ` so the line can be pasted back.
 
 An unknown field or a value outside an enumeration is refused and the file is
 left as it was. Without target roles a collection fetches nothing and says so.
@@ -462,7 +469,19 @@ Scoring and lifecycle. Each listing is scored 0 to 100 against the profile with
 reasons (role fit, must-have and nice-to-have words, skills, languages,
 seniority and years, location, remote preference, exclude words). Parts the
 plugin cannot judge are left out of the maximum, and a listing with nothing to
-judge has score `unknown`, never 0. Duplicates are merged by source and id, and
+judge has score `unknown`, never 0. The full scale is 100 points (30 role,
+25 must-have, 8 nice-to-have, 7 skills, 10 language, 8 seniority, 6 location,
+6 remote); the score is the share of the judged points that were earned. When
+fewer than 50 points could be judged, the score is capped at 60 with a
+`coverage` reason, and `/kokpit jobs` shows the judged share, for example
+`[60, judged 36/100]`; `kokpit_jobs` carries `max_known` per listing. Guest
+search listings have no description, so skills, language and seniority are
+unknown and most scores will be capped until a description source exists. An
+exclude word still caps the score at 15. A profile location matches when its
+first comma part (the city, or the whole entry without a comma) is found as a
+word in the listing location, so `Milan, Italy` matches `Milan, Lombardy, Italy`;
+same-named cities in different countries are not told apart. Duplicates are
+merged by source and id, and
 by company plus title. A listing not seen for `jobs_close_days` days is marked
 closed, but only after a run in which its source returned results; a blocked,
 failing or empty run closes nothing. A closed listing seen again is reopened.

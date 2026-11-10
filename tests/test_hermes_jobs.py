@@ -496,6 +496,107 @@ class Jobs(Base):
         self.assertIn("/kokpit jobs", CMD.run(env, "help"))
         self.assertIn("Usage: /kokpit jobs", CMD.run(env, "jobs nonsense"))
 
+    # F1 ------------------------------------------------------------ a comma stays inside one location
+    def test_f1_locations_split_on_semicolons_only(self):
+        p = J.set_field(J.empty(), "locations", "Milan, Italy; Turin")
+        self.assertEqual(p["locations"], ["Milan, Italy", "Turin"])
+        self.assertEqual(J.set_field(J.empty(), "locations", "Milan, Italy")["locations"], ["Milan, Italy"])
+        self.assertEqual(J.set_field(J.empty(), "locations", "Milan")["locations"], ["Milan"])
+        self.assertEqual(J.set_field(J.empty(), "locations", "Milan, Italy\nTurin")["locations"],
+                         ["Milan, Italy", "Turin"])
+        self.assertEqual(J.set_field(J.empty(), "skills", "sql, python")["skills"], ["sql", "python"])
+        # a stored JSON list is kept entry by entry; a legacy string splits on ';' only
+        path = self.profile_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"locations": ["Milan, Italy", "Turin"], "skills": ["sql", "python"]}),
+                        encoding="utf-8")
+        self.assertEqual(J.load_profile(path)["locations"], ["Milan, Italy", "Turin"])
+        self.assertEqual(J.normalise({"locations": ["Milan, Italy"]})["locations"], ["Milan, Italy"])
+        self.assertEqual(J.normalise({"locations": "Milan, Italy; Turin"})["locations"], ["Milan, Italy", "Turin"])
+        self.assertEqual(J.normalise({"skills": "sql, python"})["skills"], ["sql", "python"])
+
+    def test_f1_profile_command_round_trips_locations(self):
+        env = self.jenv()
+        CMD.run(env, "jobs profile set locations Milan, Italy; Turin")
+        shown = CMD.run(env, "jobs profile")
+        self.assertIn("locations: Milan, Italy; Turin", shown)
+        self.assertIn("separated by ';'", shown)
+        saved = json.loads(self.profile_path().read_text(encoding="utf-8"))
+        self.assertEqual(saved["locations"], ["Milan, Italy", "Turin"])
+        # pasting the shown value back gives the same list
+        CMD.run(env, "jobs profile set locations " + shown.split("locations: ")[1].splitlines()[0])
+        saved = json.loads(self.profile_path().read_text(encoding="utf-8"))
+        self.assertEqual(saved["locations"], ["Milan, Italy", "Turin"])
+        self.assertIn("locations use ';'", CMD.run(env, "jobs help"))
+        self.assertIn("locations separated by ';'", CMD.run(env, "jobs profile set"))
+
+    # F2 ------------------------------------------------------------ one query sends the full location
+    def test_f2_one_location_with_a_comma_makes_one_query(self):
+        prof = J.set_field(J.set_field(J.empty(), "target_roles", "Data Analyst"), "locations", "Milan, Italy")
+        self.assertEqual(J.queries(prof), [("Data Analyst", "Milan, Italy")])
+        get = FakeGet({0: PAGE2})  # a short page: one request per query
+        records, _warnings, meta = J.search(prof, get=get, sleep=lambda s: None)
+        self.assertEqual(meta["requests"], 1)
+        self.assertEqual(len(get.calls), 1)
+        self.assertIn("location=Milan%2C+Italy", get.calls[0])
+        self.assertEqual(len(records), 3)
+
+    # F3 ------------------------------------------------------------ location match on the city part
+    def test_f3_location_matches_on_the_first_comma_part(self):
+        def loc_effect(profile_loc, listing_loc):
+            prof = J.normalise({"target_roles": ["Data Analyst"], "locations": [profile_loc]})
+            res = J.score(prof, {"title": "Data Analyst", "location": listing_loc})
+            return [r["effect"] for r in res["reasons"] if r["kind"] == "location"]
+
+        self.assertEqual(loc_effect("Milan, Italy", "Milan, Lombardy, Italy"), ["plus"])
+        self.assertEqual(loc_effect("Milan, Italy", "Greater Milan Metropolitan Area"), ["plus"])
+        self.assertEqual(loc_effect("Milan, Italy", "Rome, Latium, Italy"), ["minus"])
+        self.assertEqual(loc_effect("Italy", "Milan, Lombardy, Italy"), ["plus"])
+        self.assertEqual(loc_effect("Milan", "Milan, Lombardy, Italy"), ["plus"])
+
+    # F4 ------------------------------------------------------------ coverage cap
+    def test_f4_low_coverage_caps_the_score(self):
+        base = {"target_roles": ["Data Analyst"], "locations": ["Milan, Italy"]}
+        listing = {"title": "Data Analyst", "location": "Milan, Lombardy, Italy"}
+        res = J.score(J.normalise(base), listing)
+        self.assertEqual((res["score"], res["max_known"]), (J.LOW_COVERAGE_CAP, 36))
+        cov = [r for r in res["reasons"] if r["kind"] == "coverage"]
+        self.assertEqual(cov, [{"kind": "coverage", "effect": "neutral",
+                                "text": "capped at 60: only 36 of 100 points could be judged"}])
+        self.assertEqual((J.COVERAGE_MIN, J.LOW_COVERAGE_CAP, J.FULL_SCALE), (50, 60, 100))
+        # enough judged: not capped, no coverage reason
+        full = J.normalise({**base, "must_have": ["sql"], "skills": ["python"]})
+        res = J.score(full, {**listing, "description": "SQL and Python for a food company."})
+        self.assertGreaterEqual(res["max_known"], J.COVERAGE_MIN)
+        self.assertGreater(res["score"], J.LOW_COVERAGE_CAP)
+        self.assertFalse([r for r in res["reasons"] if r["kind"] == "coverage"])
+        # low coverage but already below the cap: unchanged, no coverage reason
+        low = J.score(J.normalise(base), {"title": "Warehouse Operator", "location": "Rome, Latium, Italy"})
+        self.assertLess(low["score"], J.LOW_COVERAGE_CAP)
+        self.assertFalse([r for r in low["reasons"] if r["kind"] == "coverage"])
+        # the exclude cap still wins
+        ex = J.score(J.normalise({**base, "exclude": ["unpaid"]}), {**listing, "title": "Unpaid Data Analyst"})
+        self.assertLessEqual(ex["score"], J.EXCLUDE_CAP)
+        self.assertFalse([r for r in ex["reasons"] if r["kind"] == "coverage"])
+        # nothing judgeable still gives None
+        self.assertIsNone(J.score(J.empty(), listing)["score"])
+
+    # F5 ------------------------------------------------------------ the list shows the judged share
+    def test_f5_jobs_list_shows_judged_share_when_capped(self):
+        self.save_profile({"target_roles": ["Data Analyst"], "locations": ["Milan, Italy"]})
+        env = self.jenv()
+        r = self.collect(env, FakeGet({0: card(1, "Data Analyst", loc="Milan, Lombardy, Italy")}))
+        self.assertTrue(r["ok"], r)
+        lst = self.call(env, "kokpit_jobs", {})
+        self.assertEqual([(x["score"], x["max_known"]) for x in lst["listings"]], [(60, 36)])
+        self.assertIn("[60, judged 36/100]", CMD.run(env, "jobs"))
+        # a well covered listing shows the plain score
+        self.save_profile({"target_roles": ["Data Analyst"], "locations": ["Milan, Italy"], "must_have": ["data"],
+                           "nice_to_have": ["analyst"], "remote_pref": "onsite"})
+        self.collect(env, FakeGet({0: card(1, "Data Analyst", loc="Milan, Lombardy, Italy")}))
+        out = CMD.run(env, "jobs")
+        self.assertNotIn("judged", out)
+
 
 class Parser(unittest.TestCase):
     def test_parse_cards_reads_the_app_markup(self):
