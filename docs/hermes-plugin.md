@@ -178,8 +178,11 @@ code were considered:
   this protocol). `tests/test_hermes_plugin.py` builds the database from the
   same schema, so a schema change that breaks the plugin fails the suite.
 
-No network calls, no model calls, no self-update, no Hermes core patching. Only
-Kokpit's own jobs, which the user runs, go to the network.
+No self-update, no Hermes core patching. Network and model use are opt-in: the
+news briefing (off by default) fetches only the feed URLs you configured, and
+the host model is called only when you turn on `night_model` or
+`briefing_model`. Nothing else leaves the machine. The Kokpit app's own jobs,
+which you run, are separate.
 
 ## What it registers
 
@@ -201,6 +204,7 @@ Tools (toolset `kokpit`), each returns JSON. Success is
 | `kokpit_health` | Last run per job, failures in a row, runs with 0 records, expected jobs that never ran, and which vault files are used |
 | `kokpit_training` | Optional. Per run: last step, last loss and metrics, steps per second, ETA, minutes since the last update, "may have stopped" warning |
 | `kokpit_server` | Optional. Disk usage for set paths, CPU temperature, load, memory, uptime, state of the listed `systemd --user` units |
+| `kokpit_briefing` | Optional. The day's news items per topic (title, url, summary, headline), the source used (Kokpit app database or plugin store) and its freshness. `action` `list` (default, optional `day`, `topic`, `limit`) or `collect`, which fetches your configured feeds now. See [News briefing](#news-briefing) |
 
 A module that is off in `[modules]` answers
 `module disabled, enable with [modules] <name> = true in kokpit.toml`.
@@ -287,6 +291,89 @@ Hooks:
   writes or updates one card at the top of `Last-Session.md` and one receipt in
   `receipts/`, then tells the user where. A session with only chat and lookups
   writes nothing and returns nothing. `session_card: false` turns it off.
+
+## News briefing
+
+Off by default. When you turn it on, the plugin collects a personal news
+briefing itself, with no Kokpit app needed: it fetches only the RSS 2.0 or Atom
+feed URLs you list, per topic, and nothing else leaves your machine. No model
+is called unless you also turn on `briefing_model`.
+
+Enable and add topics:
+
+```
+/kokpit news on
+/kokpit news add AI https://hnrss.org/frontpage llm agents
+/kokpit news add Food https://example.org/food.rss
+/kokpit news run                    # collect now
+/kokpit news                        # today's items, one headline per topic
+/kokpit news remove Food
+/kokpit news off
+```
+
+`news on|off|add|remove` write the plugin settings through Hermes
+(`ctx.set_config`). On a Hermes without a settings writer they print the exact
+`hermes config set plugins.entries.kokpit.settings.<key> ...` line to run
+instead. Only `http` and `https` URLs are accepted, both when you add a feed and
+when it is fetched (redirects included). The same settings by hand:
+
+```
+hermes config set plugins.entries.kokpit.settings.briefing true
+# briefing_topics: a list of {name, feeds, keywords}
+        briefing_topics:
+          - {name: AI, feeds: ["https://hnrss.org/frontpage"], keywords: [llm, agents]}
+        briefing_max_items: 30
+        briefing_model: false
+```
+
+What a collection does: for each topic it fetches the feeds (at most 8 topics,
+5 feeds per topic, 20 feeds and 40 items per feed per run, 2 MB per response,
+20 second timeout), strips HTML, drops items older than 3 days and URLs it
+already has, scores by recency plus keyword hits (a topic with keywords keeps
+only items that mention one), marks one headline per topic and keeps at most
+`briefing_max_items` for the day. A feed that fails becomes a warning and the
+other feeds still land; the result names the failed feed. Items whose title
+shares words with one of your active threads get `project` and `reason` (the
+same rule as the Kokpit app), and the night pass turns those into news
+proposals.
+
+Summaries: without a model, the first one or two sentences of the feed's own
+text (`by_model = 0`). With `briefing_model: true`, one bounded call per
+collection through the host model (`ctx.llm.complete_structured`, the same path
+as `night_model`) for at most 12 items. Feed text is passed as data and clipped;
+an answer is kept only when its url is one of the given items and its length
+fits, everything else falls back to the plain summary (`by_model = 1` only for
+kept answers). A Hermes without plugin model access falls back the same way and
+the result says so.
+
+Schedule (the plugin creates no job by itself). `hermes kokpit-collect` runs one
+collection and prints a short summary. A crontab line:
+
+```
+15 6 * * * hermes kokpit-collect >/dev/null 2>&1
+```
+
+Or with Hermes cron, no model involved: put `hermes kokpit-collect` in a script
+under `~/.hermes/scripts/` (for example `kokpit-collect.sh`) and run
+`hermes cron create "15 6 * * *" --no-agent --script kokpit-collect.sh --name kokpit-collect`.
+Like `kokpit-night`, the CLI command is wired only when plugins run in process.
+
+Where the data lives: the plugin's own SQLite file `collector.db` in the Hermes
+plugin data dir (on a Hermes without one, a temporary folder, and the tool
+output says so). It has the same `briefing_items` and `runs` tables as the
+Kokpit app, so `kokpit_health` shows the `briefing` job under `plugin_jobs`.
+Rows older than 30 days are pruned on each collection. To delete everything,
+remove `collector.db`; to stop collecting, `/kokpit news off`. The vault and the
+Kokpit app database are never written.
+
+Reading order: `kokpit_briefing` (and `/kokpit news`, the brief's News block,
+the night pass) uses the Kokpit app database when it has `briefing_items` rows
+for the day, otherwise the plugin store, and reports which one it used and when
+it was last collected. Nothing collected yet reads `never run`. Demo mode shows
+a few seeded items and never fetches.
+
+Not there yet: the plugin does not collect job listings or a podcast; those
+still come only from the Kokpit app.
 
 ## Cards and receipts: how the brain grows
 
@@ -408,8 +495,9 @@ is found word for word in that file. The rest are counted ("1 kept, 6 rejected
 by the checks") and never stored. A failed call leaves the rule results as
 they are.
 
-What needs the Kokpit app: news from `briefing_items` and the organiser list
-(both read from its database). Everything else, the demo included, works with
+News items come from `briefing_items` in the Kokpit app database, else from the
+plugin's own store when the news briefing is on. What needs the Kokpit app: the
+organiser list (read from its database). Everything else, the demo included, works with
 the plugin alone on a plain Markdown vault.
 
 ## Limits
@@ -426,6 +514,10 @@ the plugin alone on a plain Markdown vault.
 - Calendar and weather are what Kokpit's last `calendar` and `weather` runs
   stored. Older than 24 hours is marked `stale`.
 - The plugin does not run Kokpit jobs. `kokpit_health` tells you which one to run.
+  Its only collector is the opt-in news briefing; job listings and the podcast
+  are not collected by the plugin.
+- The news briefing reads RSS 2.0 and Atom only, with word-overlap scoring; no
+  full article text is fetched.
 - `kokpit_training` understands flat JSONL or CSV rows. TensorBoard event files
   and nested JSON are not read; log a flat line per step.
 - `kokpit_server` reports this machine only and checks user units only, not

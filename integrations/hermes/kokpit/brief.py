@@ -1,7 +1,8 @@
 """Morning brief: one compact plain-text message built from the existing builders.
 
 Today (calendar, tasks, weather when the database has them), open threads on you, night proposals
-(counts and the top 2), the last sessions' next steps and news matches. Fits one Telegram message.
+(counts and the top 2), the last sessions' next steps, news matches and, when the briefing module is on,
+the day's news headlines. Fits one Telegram message.
 Every section is optional: a missing database or vault only drops that section.
 """
 from __future__ import annotations
@@ -10,6 +11,7 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+from . import collector as _collector
 from . import contract as c
 from . import night as _night
 from . import tools
@@ -77,6 +79,20 @@ def _night_lines(state: dict) -> tuple[list[str], list[str]]:
     return head, (["News for your projects:"] + news if news else [])
 
 
+def _headlines(state: dict, today: date) -> list[str]:
+    """The day's headline per topic from the briefing (app database first, then the plugin store). Never fetches."""
+    if not state["cfg"]["modules"].get("briefing", False):
+        return []
+    try:
+        r = _collector.read(state, today.isoformat(), limit=40)
+    except (sqlite3.Error, OSError):
+        return []
+    heads = [i for i in r["items"] if i["headline"]][:5]
+    if not heads:
+        return []
+    return ["News:"] + [f"- {c.clean(i['topic'], 30)}: {c.clean(i['title'], 110)}" for i in heads]
+
+
 def build(state: dict, today: date | None = None) -> dict:
     today = today or date.today()
     demo = state["mode"] == "demo"
@@ -84,7 +100,7 @@ def build(state: dict, today: date | None = None) -> dict:
     sections.append(_today(state))
     threads, sessions = _brain(state)
     night_head, news = _night_lines(state)
-    sections += [threads, night_head, sessions, news]
+    sections += [threads, night_head, sessions, news, _headlines(state, today)]
     if state.get("vault") is not None and Path(state["vault"]).is_dir() and (night_head or threads):
         sections.append(["Act: /kokpit night, /kokpit add <id>, /kokpit todo <text>"])
     tail = "\n\n" + c.DEMO_HINT if demo else ""

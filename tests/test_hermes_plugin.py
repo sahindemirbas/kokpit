@@ -148,11 +148,11 @@ class Registration(unittest.TestCase):
         tools = [l.strip()[2:] for l in manifest.split("provides_tools:")[1].split("provides_hooks:")[0].splitlines() if l.strip()]
         hooks = [l.strip()[2:] for l in manifest.split("provides_hooks:")[1].split("config_schema:")[0].splitlines() if l.strip()]
         self.assertEqual(sorted(ctx.tools), sorted(tools))
-        self.assertEqual(len(ctx.tools), 11)
+        self.assertEqual(len(ctx.tools), 12)
         self.assertEqual(sorted(ctx.hooks), sorted(hooks))
         self.assertEqual(list(ctx.commands), ["kokpit"])
         self.assertTrue(all(t["toolset"] == "kokpit" for t in ctx.tools.values()))
-        self.assertIn('version: "0.4.0"', manifest)
+        self.assertIn('version: "0.5.0"', manifest)
         for name, t in ctx.tools.items():
             self.assertEqual(t["schema"]["name"], name)
             self.assertEqual(t["schema"]["parameters"]["type"], "object")
@@ -166,9 +166,11 @@ class Registration(unittest.TestCase):
     def test_stdlib_only_no_network(self):
         banned = ("import requests", "urllib.request", "http.client", "socket", "subprocess", "sys.modules",
                   "from kokpit", "import kokpit", "httpx")
-        # the two reviewed exceptions: the dashboard API registers its private package name, and
-        # the server module runs `systemctl --user is-active <validated name>` with a list argv
-        allowed = {"dashboard/plugin_api.py": {"sys.modules"}, "server.py": {"subprocess"}}
+        # the reviewed exceptions: the dashboard API registers its private package name, the server
+        # module runs `systemctl --user is-active <validated name>` with a list argv, and collector.py
+        # holds the one opt-in network call (fetch) of the news briefing
+        allowed = {"dashboard/plugin_api.py": {"sys.modules"}, "server.py": {"subprocess"},
+                   "collector.py": {"urllib.request"}}
         for p in PLUGIN_DIR.rglob("*.py"):
             rel = p.relative_to(PLUGIN_DIR).as_posix()
             text = p.read_text(encoding="utf-8")
@@ -759,7 +761,7 @@ class Dashboard(Base):
         o = T.overview(self.live_env(modules={"events": False, "ai_usage": False}))
         self.assertTrue(o["ok"])
         off = {m["module"]: m for m in o["modules"] if not m["enabled"]}
-        self.assertEqual(set(off), {"events", "ai_usage", "training", "server"})
+        self.assertEqual(set(off), {"events", "ai_usage", "training", "server", "briefing"})
         self.assertIn("[modules] events = true", off["events"]["enable"])
         self.assertIn("module disabled", o["events"]["error"])
         o = T.overview(self.env(demo="off"))

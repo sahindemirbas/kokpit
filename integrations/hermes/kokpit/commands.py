@@ -1,8 +1,13 @@
-"""/kokpit slash command: setup, brief, today, brain, health, capture (note, todo, journal) and night proposals.
+"""/kokpit slash command: setup, brief, today, brain, health, capture (note, todo, journal), night proposals
+and the opt-in news briefing.
 
 Short plain text that reads well in the CLI and in every Hermes gateway, Telegram included."""
 from __future__ import annotations
 
+import json
+import shlex
+
+from . import collector
 from . import contract as c
 from . import tools
 from . import vault_setup
@@ -20,6 +25,8 @@ HELP = ("Kokpit commands:\n"
         "/kokpit add <id> - accept a proposal; /kokpit skip <id> - dismiss it\n"
         "/kokpit done <summary> - close a result: session card plus a short receipt\n"
         "/kokpit health - Kokpit jobs: failed, 0 records, never run\n"
+        "/kokpit news - today's news briefing (news run: collect now; off by default)\n"
+        "/kokpit news add <topic> <feed-url> [keywords...] | news remove <topic> | news on | news off\n"
         "/kokpit help - this list")
 
 
@@ -98,12 +105,17 @@ def vault_text(files: dict) -> str:
 
 def health_text(r: dict) -> str:
     if r.get("db") in ("missing", "empty"):
-        lines = [f"Kokpit health{_demo(r)}: no runs recorded yet. {r.get('reason') or tools.NO_DB}"]
-        lines += [f"- {p}" for p in r["problems"] if p.startswith("vault:")]
+        app = "Kokpit app jobs: " if r.get("plugin_jobs") else ""
+        lines = [f"Kokpit health{_demo(r)}: {app}no runs recorded yet. {r.get('reason') or tools.NO_DB}"]
+        lines += [f"- {p}" for p in r["problems"] if p.startswith(("vault:", "plugin "))]
     else:
         ok = sum(1 for j in r["jobs"] if j["status"] == "ok")
         lines = [f"Kokpit health{_demo(r)}: {ok} of {len(r['jobs'])} jobs ok"]
         lines += [f"- {p}" for p in r["problems"][:10]] or ["- no problems"]
+    for j in r.get("plugin_jobs") or []:
+        age = f", {j['age_hours']} h ago" if j.get("age_hours") is not None else ""
+        recs = f", {j['records']} records" if j.get("records") is not None else ""
+        lines.append(f"Plugin job {j['job']} (collected by this plugin): {j['status']}{age}{recs}")
     if "vault_files" in r:
         lines.append(vault_text(r["vault_files"]))
     return "\n".join(lines)
@@ -175,7 +187,116 @@ CAPTURE = {"note": "note", "todo": "task", "j": "journal", "journal": "journal"}
 USAGE = {"note": "/kokpit note <text>", "todo": "/kokpit todo <text> [due:YYYY-MM-DD]",
          "j": "/kokpit j <text>", "journal": "/kokpit journal <text>",
          "add": "/kokpit add <id>", "skip": "/kokpit skip <id>",
-         "done": "/kokpit done <short summary of the result>"}
+         "done": "/kokpit done <short summary of the result>",
+         "news": "/kokpit news [run | add <topic> <feed-url> [keywords...] | remove <topic> | on | off]"}
+SET_LINE = "hermes config set plugins.entries.kokpit.settings.{key} {value}"
+
+
+def news_text(r: dict) -> str:
+    src = r.get("source")
+    if not r["items"]:
+        lines = [f"News {r['day']}{_demo(r)}: {r['status']}"]
+        if r.get("next"):
+            lines.append("Next: " + r["next"])
+    else:
+        fr = r.get("freshness") or {}
+        age = f", last collected {fr['age_hours']} h ago" if fr.get("age_hours") is not None else ""
+        lines = [f"News {r['day']}{_demo(r)} ({r['count']} items from the {src}{age}):"]
+        topic = None
+        for it in r["items"][:12]:
+            if it["topic"] != topic:
+                topic = it["topic"]
+                lines.append(f"{topic}:")
+            lines.append(f"- {'* ' if it['headline'] else ''}{c.clean(it['title'], 110)} {it['url']}")
+    note = (r.get("store") or {}).get("note")
+    if note:
+        lines.append("Note: " + note)
+    lines += [f"Settings: {p}" for p in (r.get("settings_problems") or [])[:3]]
+    return "\n".join(lines)
+
+
+def collect_text(r: dict) -> str:
+    lines = [f"News collected{_demo(r)}: {r['stored']} items from {r['feeds_fetched']} feeds "
+             f"({', '.join(f'{k} {n}' for k, n in r['topics'].items())}). Summaries by model: {r['model']}."]
+    lines += [f"- {h['topic']}: {h['title']}" for h in r["headlines"][:5]]
+    lines += [f"Failed feed: {f['url']} ({f['error']})" for f in r["failed_feeds"][:5]]
+    lines += [f"Warning: {w}" for w in r["warnings"] if not any(f["url"] in w for f in r["failed_feeds"])][:5]
+    if (r.get("store") or {}).get("note"):
+        lines.append("Note: " + r["store"]["note"])
+    return "\n".join(lines)
+
+
+def _save(env: c.Env, key: str, value) -> str:
+    """Write one plugin setting through the host when it can, else return the exact command to run."""
+    env.override(key, value)
+    shown = json.dumps(value, ensure_ascii=False) if not isinstance(value, bool) else str(value).lower()
+    cmd = SET_LINE.format(key=key, value=shlex.quote(shown))
+    if env.set_config is None:
+        return f"Not saved for the next start (this Hermes has no plugin settings writer). Run: {cmd}"
+    try:
+        env.set_config(key, value)
+    except Exception as e:  # managed install, administrator-managed key
+        return f"Not saved for the next start ({type(e).__name__}). Run: {cmd}"
+    return "Saved to the plugin settings."
+
+
+def _topics(env: c.Env) -> list[dict]:
+    return collector.parse_topics(env.setting("briefing_topics", []))[0]
+
+
+def news(env: c.Env, rest: str) -> str:
+    words = rest.split()
+    verb = words[0].lower() if words else ""
+    if verb in ("", "list", "today"):
+        r = tools.run(env, "kokpit_briefing", {"action": "list", "limit": 20})
+        return news_text(r) if r["ok"] else _err(r)
+    if verb == "run":
+        r = tools.run(env, "kokpit_briefing", {"action": "collect"})
+        return collect_text(r) if r["ok"] else _err(r)
+    if verb in ("on", "off"):
+        saved = _save(env, "briefing", verb == "on")
+        extra = (" Nothing is fetched until you add a topic and run /kokpit news run or schedule hermes kokpit-collect."
+                 if verb == "on" else " No feed is fetched while it is off.")
+        return f"News briefing {verb}.{extra} {saved}"
+    if verb == "add":
+        if len(words) < 3:
+            return f"Usage: /kokpit news add <topic> <feed-url> [keywords...]"
+        name, url, kws = c.clean(words[1], 40), words[2], words[3:]
+        try:
+            url = collector.check_url(url)
+        except ValueError as e:
+            return f"Kokpit: feed not added: {e}. Only http and https feed URLs are accepted."
+        topics = _topics(env)
+        t = next((x for x in topics if x["name"].casefold() == name.casefold()), None)
+        if t is None:
+            if len(topics) >= collector.MAX_TOPICS:
+                return f"Kokpit: at most {collector.MAX_TOPICS} topics; remove one first."
+            t = {"name": name, "feeds": [], "keywords": []}
+            topics.append(t)
+        if url not in t["feeds"]:
+            if len(t["feeds"]) >= collector.MAX_FEEDS_PER_TOPIC:
+                return f"Kokpit: topic {t['name']} already has {collector.MAX_FEEDS_PER_TOPIC} feeds."
+            t["feeds"].append(url)
+        for k in kws:
+            k = c.clean(k, 40)
+            if k and k not in t["keywords"] and len(t["keywords"]) < collector.MAX_KEYWORDS:
+                t["keywords"].append(k)
+        saved = _save(env, "briefing_topics", collector.topics_setting(topics))
+        on = tools.run(env, "kokpit_briefing", {"action": "list", "limit": 1})
+        hint = "" if on.get("ok") else " The module is off: /kokpit news on."
+        return (f"Topic {t['name']}: {len(t['feeds'])} feeds, keywords {', '.join(t['keywords']) or 'none'}. "
+                f"{saved}{hint}")
+    if verb == "remove":
+        if len(words) < 2:
+            return "Usage: /kokpit news remove <topic>"
+        name = " ".join(words[1:])
+        topics = _topics(env)
+        left = [x for x in topics if x["name"].casefold() != name.casefold()]
+        if len(left) == len(topics):
+            return f"Kokpit: no topic named {c.clean(name, 40)}. Topics: {', '.join(x['name'] for x in topics) or 'none'}"
+        saved = _save(env, "briefing_topics", collector.topics_setting(left))
+        return f"Topic {c.clean(name, 40)} removed; items already collected stay until they age out. {saved}"
+    return f"Usage: {USAGE['news']}"
 
 
 def done_text(r: dict) -> str:
@@ -259,12 +380,14 @@ def _run(env: c.Env, raw: str, session_id: str = "") -> str:
     if sub == "health":
         r = tools.run(env, "kokpit_health", {})
         return health_text(r) if r["ok"] else _err(r)
+    if sub == "news":
+        return news(env, rest)
     if sub == "help":
         return HELP
     return f"Unknown subcommand: {sub}\n" + HELP
 
 
-SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", "done", *CAPTURE}
+SUBS = {"setup", "brief", "today", "brain", "health", "help", "night", "add", "skip", "done", "news", *CAPTURE}
 
 
 def handler(env: c.Env):

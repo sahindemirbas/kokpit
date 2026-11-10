@@ -2,7 +2,9 @@
 
 Shape: {"ok": true, "mode": "live"|"demo", ...} or {"ok": false, "error": ..., "fix": ...}.
 Missing data is said out loud ("never run", "unknown", "no database yet"), never filled in.
-Only kokpit_capture writes to the vault on its own. kokpit_night stores proposals outside the notes and,
+Only kokpit_capture writes to the vault on its own. kokpit_briefing action collect is the one tool that goes to the
+network (only to the feed URLs the user configured, only when the briefing module is on) and it writes only the
+plugin's own store. kokpit_night stores proposals outside the notes and,
 on an explicit accept, writes through the same append-only capture writers (To-Do line or new ideas/ file).
 """
 from __future__ import annotations
@@ -14,6 +16,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from . import collector as _collector
 from . import contract as c
 from . import night as _night
 from . import server as _server
@@ -398,8 +401,76 @@ def _age(finished, status: str) -> tuple:
     return age, "stale" if age > STALE_HOURS else "fresh"
 
 
+def _job_rows(conn) -> list[dict]:
+    """The latest run of every job in a runs table (Kokpit app database or the plugin store)."""
+    jobs_ = []
+    for r in c.rows(conn, f"SELECT r.job, r.day, r.finished, r.ok, {c.optional_col(conn, 'runs', 'rows', 'r')}, "
+                          "r.info, r.warnings FROM runs r JOIN "
+                          "(SELECT job, MAX(id) AS id FROM runs GROUP BY job) m ON r.id = m.id ORDER BY r.job"):
+        j = {"job": r["job"], "last_run": r["finished"], "status": "ok" if r["ok"] else "failed",
+             "records": r["rows"], "warnings": _json(r["warnings"], [])}
+        if not r["ok"]:
+            j["error"] = str((_json(r["info"], {}) or {}).get("error", ""))[:200]
+        streak = 0
+        for (ok,) in conn.execute("SELECT ok FROM runs WHERE job=? ORDER BY id DESC", (r["job"],)):
+            if ok:
+                break
+            streak += 1
+        j["failed_in_a_row"] = streak
+        j["age_hours"], j["freshness"] = _age(r["finished"], j["status"])
+        jobs_.append(j)
+    return jobs_
+
+
+def _job_problems(jobs_: list[dict], prefix: str = "") -> list[str]:
+    problems = []
+    for j in jobs_:
+        name = prefix + j["job"]
+        if j["status"] == "failed":
+            problems.append(f"{name}: failed" + (f" {j['failed_in_a_row']} times in a row" if j["failed_in_a_row"] > 1 else "")
+                            + (f" ({j['error']})" if j.get("error") else ""))
+        elif j["records"] == 0:
+            problems.append(f"{name}: last run produced 0 records")
+        problems += [f"{name}: {w}" for w in j["warnings"]]
+    return problems
+
+
+def _store_conn(state: dict):
+    """Read-only connection to the plugin's own collector store, or None when nothing was collected yet."""
+    if state.get("mode") == "demo":
+        return None
+    p = (state.get("store") or {}).get("path")
+    return c.open_db(p) if p is not None else None
+
+
+def plugin_jobs(state: dict) -> list[dict]:
+    """Runs the plugin itself recorded (for example briefing), each marked source plugin. Empty before any run."""
+    conn = _store_conn(state)
+    if conn is None:
+        return []
+    try:
+        if c.table_problem(conn, "runs"):
+            return []
+        return [{**j, "source": "plugin"} for j in _job_rows(conn)]
+    finally:
+        conn.close()
+
+
 def health(state: dict, args: dict, conn=None) -> dict:
     _need(state, "health")
+    out = _app_health(state, conn)
+    own = plugin_jobs(state)
+    out["plugin_jobs"] = own  # collected by this plugin (plugin store), not by the Kokpit app
+    mine = {j["job"] for j in own}
+    if mine:  # an expected job the plugin ran is not "never run"
+        out["problems"] = [p for p in out["problems"] if not any(p == f"{j}: never run" for j in mine)]
+        if "never_run" in out:
+            out["never_run"] = [j for j in out["never_run"] if j not in mine]
+    out["problems"] = out["problems"] + _job_problems(own, prefix="plugin ")
+    return out
+
+
+def _app_health(state: dict, conn=None) -> dict:
     own = conn is None
     conn = _db(state) if own else conn
     expected = state["cfg"].get("expected") or []
@@ -413,31 +484,10 @@ def health(state: dict, args: dict, conn=None) -> dict:
             return {"db": "missing" if conn is None else "empty", "reason": bad or NO_DB, "jobs": [],
                     "problems": probs + vault_problems, "expected": expected,
                     "vault_files": vault_files}
-        jobs_ = []
-        for r in c.rows(conn, f"SELECT r.job, r.day, r.finished, r.ok, {c.optional_col(conn, 'runs', 'rows', 'r')}, "
-                              "r.info, r.warnings FROM runs r JOIN "
-                              "(SELECT job, MAX(id) AS id FROM runs GROUP BY job) m ON r.id = m.id ORDER BY r.job"):
-            j = {"job": r["job"], "last_run": r["finished"], "status": "ok" if r["ok"] else "failed",
-                 "records": r["rows"], "warnings": _json(r["warnings"], [])}
-            if not r["ok"]:
-                j["error"] = str((_json(r["info"], {}) or {}).get("error", ""))[:200]
-            streak = 0
-            for (ok,) in conn.execute("SELECT ok FROM runs WHERE job=? ORDER BY id DESC", (r["job"],)):
-                if ok:
-                    break
-                streak += 1
-            j["failed_in_a_row"] = streak
-            j["age_hours"], j["freshness"] = _age(r["finished"], j["status"])
-            jobs_.append(j)
+        jobs_ = _job_rows(conn)
         seen = {j["job"] for j in jobs_}
         problems = [f"{j}: never run" for j in expected if j not in seen]
-        for j in jobs_:
-            if j["status"] == "failed":
-                problems.append(f"{j['job']}: failed" + (f" {j['failed_in_a_row']} times in a row" if j["failed_in_a_row"] > 1 else "")
-                                + (f" ({j['error']})" if j.get("error") else ""))
-            elif j["records"] == 0:
-                problems.append(f"{j['job']}: last run produced 0 records")
-            problems += [f"{j['job']}: {w}" for w in j["warnings"]]
+        problems += _job_problems(jobs_)
         problems += vault_problems
         return {"db": "ok", "jobs": jobs_, "problems": problems, "expected": expected,
                 "never_run": [j for j in expected if j not in seen], "vault_files": vault_files}
@@ -503,10 +553,44 @@ def night(state: dict, args: dict) -> dict:
     return {"action": "list", **_night.listing(state, kind, _int(args.get("limit"), 10, 1, 50))}
 
 
+def briefing(state: dict, args: dict) -> dict:
+    """The personal news briefing: list the day's items (default) or collect now (network, module briefing)."""
+    action = str(args.get("action") or "list").strip().lower()
+    if action not in ("list", "collect"):
+        raise c.NotReady(f"unknown action {c.clean(action, 20)}", "use action list (default) or collect")
+    _need(state, "briefing")
+    b = state.get("briefing") or {"topics": [], "problems": []}
+    topics = [t["name"] for t in b["topics"]]
+    if action == "collect":
+        if state["mode"] == "demo":
+            raise c.NotReady("demo mode never fetches", "demo shows seeded items; configure your own vault or "
+                             "kokpit_config, then add a topic: /kokpit news add <topic> <feed-url>")
+        r = _collector.collect(state)
+        if r["status"] == "failed":
+            bad = "; ".join(f"{f['url']} ({f['error']})" for f in r["failed_feeds"][:5])
+            raise c.NotReady(f"briefing collect failed: {r.get('error') or 'unknown'}",
+                             f"check the feed URLs: {bad}" if bad else "check the feed URLs")
+        return {"action": "collect", **r}
+    day = str(args.get("day") or "").strip() or date.today().isoformat()
+    try:
+        day = date.fromisoformat(day).isoformat()
+    except ValueError:
+        raise c.NotReady("day must be YYYY-MM-DD", "for example day 2026-11-10") from None
+    out = _collector.read(state, day, c.clean(str(args.get("topic") or ""), 40), _int(args.get("limit"), 20, 1, 100))
+    out = {"action": "list", **out, "topics": topics}
+    if b.get("problems"):
+        out["settings_problems"] = b["problems"]
+    if out["status"] == "never run" and state["mode"] != "demo":
+        out["next"] = ("collect now: /kokpit news run (or kokpit_briefing action collect)" if topics else
+                       "add a topic first: /kokpit news add <topic> <feed-url> [keywords...]")
+    return out
+
+
 TOOLS = {"kokpit_today": today, "kokpit_brain_search": brain_search, "kokpit_threads": threads,
          "kokpit_capture": capture, "kokpit_events": events, "kokpit_jobs": jobs,
          "kokpit_ai_usage": ai_usage, "kokpit_health": health,
-         "kokpit_training": training, "kokpit_server": server, "kokpit_night": night}
+         "kokpit_training": training, "kokpit_server": server, "kokpit_night": night,
+         "kokpit_briefing": briefing}
 
 
 def run(env: c.Env, name: str, args, session_id: str = "") -> dict:
@@ -539,10 +623,10 @@ def run(env: c.Env, name: str, args, session_id: str = "") -> dict:
 OVERVIEW = (("today", "kokpit_today", {}), ("threads", "kokpit_threads", {}), ("health", "kokpit_health", {}),
             ("ai_usage", "kokpit_ai_usage", {"days": 7}), ("events", "kokpit_events", {"days": 7, "limit": 5}),
             ("jobs", "kokpit_jobs", {"limit": 5}), ("training", "kokpit_training", {}), ("server", "kokpit_server", {}),
-            ("night", "kokpit_night", {"limit": 3}))
+            ("night", "kokpit_night", {"limit": 3}), ("briefing", "kokpit_briefing", {"limit": 5}))
 MODULE_TOOLS = {"today": "kokpit_today", "brain": "kokpit_threads", "health": "kokpit_health",
                 "events": "kokpit_events", "jobs": "kokpit_jobs", "ai_usage": "kokpit_ai_usage",
-                "training": "kokpit_training", "server": "kokpit_server"}
+                "training": "kokpit_training", "server": "kokpit_server", "briefing": "kokpit_briefing"}
 
 
 def modules(state: dict) -> list[dict]:

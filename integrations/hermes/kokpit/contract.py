@@ -7,7 +7,8 @@ Mirrors (keep in step; tests in the Kokpit repo guard the drift):
   kokpit/modules/brain/receipt.py receipt file format
   kokpit/modules/*/schema.sql     table and column names
 The database is always opened read-only. The only writes are capture, the
-session card and the receipt, all inside the vault (or the demo copy).
+session card and the receipt, all inside the vault (or the demo copy), and the
+plugin's own collector store (collector.py) in the plugin data dir.
 """
 from __future__ import annotations
 
@@ -27,9 +28,9 @@ HERE = Path(__file__).resolve().parent
 DEMO_SRC = HERE / "demo"
 DEFAULT_LOCATIONS = (Path("kokpit.toml"), Path.home() / ".config" / "kokpit" / "kokpit.toml")
 MODULE_DEFAULTS = {"today": True, "brain": True, "health": True, "events": False, "jobs": False, "ai_usage": False,
-                   "training": False, "server": False}
+                   "training": False, "server": False, "briefing": False}
 # optional modules switched on by one plugin setting each (no kokpit.toml needed)
-PLUGIN_MODULES = ("training", "server")
+PLUGIN_MODULES = ("training", "server", "briefing")
 CARD_MAX = 800
 FIX_CONFIG = ("set plugins.entries.kokpit.settings.kokpit_config to your kokpit.toml "
               "(hermes config set plugins.entries.kokpit.settings.kokpit_config /path/kokpit.toml), "
@@ -181,6 +182,15 @@ class Env:
             return night_store_path(base, vault)
         return Path(vault) / ".kokpit" / "night.json"
 
+    def briefing_settings(self) -> dict:
+        from . import collector
+        return collector.settings(self.setting)
+
+    def collector_store(self) -> dict:
+        """The plugin's own writable store for collected data: <data dir>/collector.db (never the app database)."""
+        base = self.data_dir()
+        return {"path": base / "collector.db", "durable": self._durable}
+
     def layout_settings(self) -> dict:
         return {k: str(self.setting(k, "") or "") for k in LAYOUT_SETTINGS}
 
@@ -194,6 +204,8 @@ class Env:
             if v is not None and Path(v).is_dir() else None
         st["cfg"]["night"] = self.night_settings()
         st["night_store"] = self.night_store(v)
+        st["briefing"] = self.briefing_settings()
+        st["store"] = self.collector_store()
         if self.llm is not None:
             st["llm"] = self.llm
         return st
@@ -203,6 +215,10 @@ class Env:
         for m in PLUGIN_MODULES:
             if as_bool(self.setting(m, False)):
                 cfg["modules"][m] = True
+        # briefing: an explicit plugin setting wins both ways, so /kokpit news off really turns it off
+        flag = self.setting("briefing", None)
+        if flag not in (None, ""):
+            cfg["modules"]["briefing"] = as_bool(flag)
         logs = as_list(self.setting("training_logs", []))
         cfg["training_logs"] = [os.path.expanduser(x) for x in logs] or cfg.get("training_logs") or []
         stall = self.setting("training_stall_minutes", None)
@@ -254,6 +270,8 @@ class Env:
         if not vault.is_dir() or not marker.is_file() or read(marker).strip() != DEMO_VERSION:
             root.mkdir(parents=True, exist_ok=True)
             copy_demo_vault(vault)
+            if db.is_file():
+                db.unlink()  # the seed changed with the version; rebuild the demo database too
             marker.write_text(DEMO_VERSION + "\n", encoding="utf-8")
         if not db.is_file():
             build_demo_db(db)
@@ -267,7 +285,7 @@ class Env:
 
 DEMO_DATE = re.compile(r"\{\{([+-]\d+)\}\}")
 DEMO_HINT = "Demo data. Make it yours: /kokpit setup"
-DEMO_VERSION = "3"  # bump when demo/vault changes so an existing demo copy is refreshed
+DEMO_VERSION = "4"  # bump when demo/vault changes so an existing demo copy is refreshed
 
 
 def write_demo_training(folder: Path, now: float | None = None) -> list[Path]:
@@ -373,6 +391,7 @@ SCHEMA = {
     "ai_usage_hours": ("tool", "model", "session_hash", "bucket", "last_seen", "input_tokens", "output_tokens",
                        "cache_read_tokens", "cache_write_tokens"),
     "ai_usage_readers": ("tool", "status", "last_run", "rows", "error"),
+    "briefing_items": ("day", "topic", "url", "title", "score", "headline", "summary", "why", "by_model"),
 }
 # Columns a reader uses when they are there; older Kokpit databases lack them (runs.rows came later).
 # A missing optional column is not a problem: the reader leaves it out and reports null (unknown).

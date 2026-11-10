@@ -1,8 +1,8 @@
 name: kokpit
-version: "0.4.0"
+version: "0.5.0"
 manifest_version: 2
 api_version: 1
-description: "Your own cockpit in Hermes: /kokpit setup makes a plain Markdown vault, capture notes and tasks from any chat, a session card and a short receipt only when a session produced a result, so Claude Code, Codex and Hermes continue from the same place. Night pass with quoted sources, morning brief. Local, no network, no model by default."
+description: "Your own cockpit in Hermes: /kokpit setup makes a plain Markdown vault, capture from any chat, a session card and receipt when a session produced a result, so Claude Code, Codex and Hermes continue from the same place. Night pass, morning brief, opt-in news briefing. Nothing leaves the machine unless you turn on the briefing (your feeds only) or a model option."
 author: kokpit
 license: MIT
 requires_hermes: ">=0.22.0"
@@ -19,6 +19,7 @@ provides_tools:
   - kokpit_training
   - kokpit_server
   - kokpit_night
+  - kokpit_briefing
 provides_hooks:
   - pre_llm_call
   - post_tool_call
@@ -122,3 +123,19 @@ config_schema:
     type: bool
     default: false
     description: "Also ask the host model (ctx.llm) for proposals. Off by default; every model proposal must quote a real vault file word for word or it is dropped."
+  briefing:
+    type: bool
+    default: false
+    description: "Turn on the optional news briefing. Off by default. When on, kokpit_briefing collect, /kokpit news run and hermes kokpit-collect fetch only the feed URLs in briefing_topics; nothing else goes to the network."
+  briefing_topics:
+    type: list
+    default: []
+    description: "Topics for the news briefing, each {name, feeds: [http(s) feed URLs], keywords: [optional words]}. /kokpit news add <topic> <feed-url> [keywords...] writes this for you. At most 8 topics, 5 feeds each."
+  briefing_max_items:
+    type: int
+    default: 30
+    description: "Most briefing items kept per day (1 to 100), spread over the topics, one headline per topic."
+  briefing_model:
+    type: bool
+    default: false
+    description: "Summarise briefing items with the host model (ctx.llm) in one bounded call per collection. Off by default: summaries are then the first sentences of the feed's own text."

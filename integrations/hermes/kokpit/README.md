@@ -18,8 +18,9 @@ Why this one:
   the file before it is stored.
 - Capture from any Hermes gateway, Telegram included: `/kokpit note`, `todo`,
   `j` append to your vault from your phone. No extra bot.
-- Local first: standard library only, no network, no model by default. The
-  vault is only appended to, never edited.
+- Local first: standard library only. By default no network and no model.
+  Opt-in news briefing fetches only the feeds you list. The vault is only
+  appended to, never edited.
 
 ## Install
 
@@ -38,6 +39,9 @@ hermes chat
                                     # next session: the brain block shows that card and receipt
 /kokpit night run                   # proposals with quoted sources; /kokpit add <id> to accept
 /kokpit brief                       # the morning brief
+/kokpit news on                     # optional: your own news briefing
+/kokpit news add AI https://hnrss.org/frontpage llm
+/kokpit news run                    # fetches only the feeds you added
 ```
 
 A session with only chat and lookups writes nothing. A session that captured,
@@ -47,22 +51,41 @@ points at the notes touched.
 
 ## What needs the full Kokpit app
 
-The vault features above work with the plugin alone. Calendar and weather,
-job listings, events, news and podcast briefings, AI usage and job health come
-from the [Kokpit app](../../../README.md) database; the plugin reads it
-read-only when you point `db_path` at it, and says so plainly when it is not
-there.
+The vault features above work with the plugin alone, and so does the opt-in
+news briefing. Calendar and weather, job listings, events, the podcast, AI
+usage and the app's job health come from the [Kokpit app](../../../README.md)
+database; the plugin reads it read-only when you point `db_path` at it, and
+says so plainly when it is not there. The plugin does not collect job listings
+or a podcast.
+
+## News briefing
+
+Off by default. `/kokpit news on`, then `/kokpit news add <topic> <feed-url>
+[keywords...]` per topic (http and https feeds only), then `/kokpit news run`
+or schedule `hermes kokpit-collect` (crontab: `15 6 * * * hermes kokpit-collect
+>/dev/null 2>&1`). `/kokpit news` and the `kokpit_briefing` tool list the day's
+items with one headline per topic; `/kokpit brief` gets a short News block.
+Summaries are the feed's own first sentences unless you turn on
+`briefing_model` (one bounded host model call per collection, output checked).
+Items are stored in `collector.db` in the plugin data dir, pruned after 30
+days; delete that file to remove them. When the Kokpit app database has items
+for the day, those are shown instead. Details:
+[docs/hermes-plugin.md](../../../docs/hermes-plugin.md#news-briefing).
 
 ## Privacy
 
-Nothing leaves your machine. The plugin makes no network calls and no model
-calls unless you turn on `night_model`. It opens the Kokpit database read-only.
+By default nothing leaves your machine: no network calls and no model calls.
+Two opt-ins change that, and only as far as you set them: the news briefing
+fetches only the feed URLs you configured, and `night_model` or
+`briefing_model` call the host model you already use in Hermes. It opens the
+Kokpit database read-only and keeps collected news in its own `collector.db`.
 It writes to the vault only through capture, `/kokpit setup` (new files only),
 accepted night proposals, the session card and receipts. It never edits, moves
 or deletes your notes, and refuses receipt text that looks like a key.
 
 Off by default: `night_model` sends vault excerpts to the host model you
-already use in Hermes. The `server` module reads disk, load, memory and
+already use in Hermes; `briefing_model` sends feed titles and short feed
+excerpts (never vault text). The `server` module reads disk, load, memory and
 temperature from the local system and runs `systemctl --user is-active <unit>`
 for the units you list in `server_units` (names are validated, no shell).
 

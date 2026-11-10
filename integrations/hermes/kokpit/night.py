@@ -466,8 +466,9 @@ def vault_news(v: Vault) -> list[dict]:
     return items
 
 
-def db_news(conn, v: Vault) -> list[dict] | None:
-    """Briefing items Kokpit already matched to a project; None when the table is not there."""
+def db_news(conn, v: Vault, label: str = "briefing_items") -> list[dict] | None:
+    """Briefing items already matched to a project (by Kokpit, or by the plugin's own collector);
+    None when the table is not there. label names the source in each proposal's item reference."""
     if conn is None or not c.has_table(conn, "briefing_items"):
         return None
     if not all(c.has_column(conn, "briefing_items", col) for col in ("project", "title", "day")):
@@ -477,23 +478,31 @@ def db_news(conn, v: Vault) -> list[dict] | None:
     rows = c.rows(conn, f"SELECT id, day, title, project, {reason} FROM briefing_items "
                         "WHERE project IS NOT NULL AND project != '' AND day >= ? ORDER BY day DESC, id DESC LIMIT 50",
                   (since,))
-    return [{"item": f"briefing_items#{r['id']}", "title": c.clean(r["title"], 160), "quote": r["title"],
+    return [{"item": f"{label}#{r['id']}", "title": c.clean(r["title"], 160), "quote": r["title"],
              "project": c.clean(r["project"], 80), "why": c.clean(r.get("reason") or "", 160), "date": r["day"]}
             for r in rows]
 
 
-def pass_news(v: Vault, conn) -> tuple[list[dict], list[dict], dict]:
-    """(news proposals, matching todo proposals, info about the source)."""
+def pass_news(v: Vault, conn, store_conn=None) -> tuple[list[dict], list[dict], dict]:
+    """(news proposals, matching todo proposals, info about the source).
+    Order: the Kokpit app database, then the plugin's own collector store, then the vault news folder."""
     news, todos = [], []
     try:
         items = db_news(conn, v)
     except sqlite3.Error:
         items = None
+    source = "kokpit database (briefing_items)"
+    if not items and store_conn is not None:
+        try:
+            items = db_news(store_conn, v, label="plugin_briefing")
+        except sqlite3.Error:
+            items = None
+        source = "plugin store (briefing_items)"
     if items:
-        info = {"source": "kokpit database (briefing_items)", "items": len(items), "matched": len(items)}
+        info = {"source": source, "items": len(items), "matched": len(items)}
         for it in items:
             src = [{"item": it["item"], "quote": it["quote"]}]
-            reason = it["why"] or f"tagged {it['project']} by Kokpit"
+            reason = it["why"] or f"tagged {it['project']} by " + ("Kokpit" if source.startswith("kokpit") else "the plugin")
             news.append(_prop("news", f"News for {it['project']}: {it['title']}", reason, src,
                               key=it["project"], project=it["project"]))
             task = f"Check {it['title']} for {it['project']}"
@@ -694,17 +703,23 @@ def run(state: dict, today: date | None = None, now: datetime | None = None) -> 
     now = now or datetime.now()
     today = today or now.date()
     v = Vault(state, today)
-    conn = None
+    conn = own = None
     try:
         conn = c.open_db(state.get("db"))
     except sqlite3.Error:
         conn = None
+    try:  # the plugin's own collector store, read-only here; never in demo mode
+        own_path = (state.get("store") or {}).get("path")
+        own = c.open_db(own_path) if own_path is not None and state.get("mode") != "demo" else None
+    except sqlite3.Error:
+        own = None
     try:
         todos = pass_todo(v)
-        news, news_todos, news_info = pass_news(v, conn)
+        news, news_todos, news_info = pass_news(v, conn, own)
     finally:
-        if conn is not None:
-            conn.close()
+        for x in (conn, own):
+            if x is not None:
+                x.close()
     news_items = vault_news(v)
     fresh = (todos + news_todos)[: MAX_PER_KIND["todo"]] + pass_improve(v) + pass_link(v) \
         + pass_idea(v, news_items) + news[: MAX_PER_KIND["news"]]

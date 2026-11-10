@@ -17,7 +17,7 @@ from fastapi import APIRouter, Body, HTTPException
 PLUGIN_DIR = Path(__file__).resolve().parent.parent
 PACKAGE = "kokpit_hermes_dashboard_core"
 READ_TOOLS = ("kokpit_today", "kokpit_threads", "kokpit_health", "kokpit_ai_usage", "kokpit_events",
-              "kokpit_jobs", "kokpit_brain_search", "kokpit_training", "kokpit_server")
+              "kokpit_jobs", "kokpit_brain_search", "kokpit_training", "kokpit_server", "kokpit_briefing")
 
 
 def _load_package():

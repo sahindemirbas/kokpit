@@ -34,4 +34,9 @@ ALL = {
     "kokpit_training": _s("kokpit_training", "Optional module (off by default). Training runs from the configured JSONL/CSV log files: last step, last loss and metrics, steps per second, ETA, minutes since the last update and a may-have-stopped warning. Read-only, never touches processes.",
                           {"stall_minutes": {"type": "integer", "description": "Minutes without a new step before a run is flagged, default from settings (30)."}}),
     "kokpit_server": _s("kokpit_server", "Optional module (off by default). Local machine status: disk usage for the configured paths, CPU temperature, load average, memory, uptime and whether the listed systemd --user services are active. Read-only."),
+    "kokpit_briefing": _s("kokpit_briefing", "Optional module (off by default). Personal news briefing from the RSS/Atom feeds the user configured per topic: title, url, short summary, headline per topic, source (Kokpit app database or the plugin store) and freshness. action=list (default) only reads. action=collect fetches the configured feed URLs now (the only network access of the plugin) and stores the items in the plugin's own database, never in the vault or the Kokpit app database.",
+                          {"action": {"type": "string", "enum": ["list", "collect"], "description": "list (default) reads the day's items; collect fetches the configured feeds now."},
+                           "day": {"type": "string", "description": "Day to list, YYYY-MM-DD, default today."},
+                           "topic": {"type": "string", "description": "Only this topic, for list."},
+                           "limit": {"type": "integer", "description": "Items to list, default 20, max 100."}}),
 }

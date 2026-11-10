@@ -455,7 +455,7 @@ class BriefTests(Base):
 
         ctx = Ctx()
         P.register(ctx)
-        self.assertEqual(set(ctx.cli), {"kokpit-night", "kokpit-setup", "kokpit-brief"})
+        self.assertEqual(set(ctx.cli), {"kokpit-night", "kokpit-setup", "kokpit-brief", "kokpit-collect"})
 
 
 if __name__ == "__main__":

@@ -69,6 +69,6 @@ Hermes-only.
 ## Boundaries
 
 - Kokpit opens `state.db` read-only and never modifies Hermes configuration.
-- The plugin makes no network or model calls and never writes the database.
+- The plugin never writes the Kokpit database. By default it makes no network or model calls; the opt-in news briefing fetches only the feed URLs you configured, and the host model is called only with `night_model` or `briefing_model` on.
 - The vault conventions are a contract, not a dependency: a vault maintained by hand or by another tool renders the same.
 - If Hermes is not installed, the integration is simply absent from the Connections screen.

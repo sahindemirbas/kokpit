@@ -3,6 +3,8 @@
 Self-contained and stdlib-only. It talks to Kokpit through Kokpit's files
 (kokpit.toml, the SQLite database opened read-only, the Markdown vault), never
 through Python imports, so it works when Hermes installs only this folder.
+The only network access is the opt-in news briefing (collector.py): off by
+default, and then only to the feed URLs the user configured.
 See docs/hermes-plugin.md in the Kokpit repository.
 """
 from __future__ import annotations
@@ -15,7 +17,7 @@ TOOLSET = "kokpit"
 
 
 def _llm(ctx):
-    """The host LLM facade (ctx.llm) when this Hermes has one; only used when night_model is on."""
+    """The host LLM facade (ctx.llm) when this Hermes has one; only used when night_model or briefing_model is on."""
     def get():
         try:
             return ctx.llm
@@ -55,7 +57,9 @@ CLI = (("kokpit-night", "Kokpit night pass over the vault (rules only unless nig
        ("kokpit-setup", "Create or adopt your Kokpit vault and save it as the plugin's vault_path", _setup_setup,
         lambda a: ("setup " + (getattr(a, "path", "") or "")).strip()),
        ("kokpit-brief", "Print the Kokpit morning brief (plain text, for hermes cron --no-agent)", _no_args,
-        lambda a: "brief"))
+        lambda a: "brief"),
+       ("kokpit-collect", "Collect the Kokpit news briefing now from your configured feeds (needs briefing on)",
+        _no_args, lambda a: "news run"))
 
 
 def register(ctx):
@@ -70,9 +74,9 @@ def register(ctx):
     ctx.register_hook("on_session_start", h.on_session_start)
     ctx.register_hook("on_session_finalize", h.on_session_finalize)
     ctx.register_hook("post_compaction", h.post_compaction)
-    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, done, night",
-                         args_hint="setup|brief|today|brain|note|todo|j|done|night|add|skip|health|help")
-    if hasattr(ctx, "register_cli_command"):  # `hermes kokpit-night|kokpit-setup|kokpit-brief`; older Hermes: skipped
+    ctx.register_command("kokpit", commands.handler(env), description="Kokpit: setup, brief, today, brain, capture, done, night, news",
+                         args_hint="setup|brief|today|brain|note|todo|j|done|night|add|skip|health|news|help")
+    if hasattr(ctx, "register_cli_command"):  # `hermes kokpit-night|kokpit-setup|kokpit-brief|kokpit-collect`; older Hermes: skipped
         for name, help_, setup, raw in CLI:
             try:
                 ctx.register_cli_command(name, help_, setup, _cli(env, raw))
