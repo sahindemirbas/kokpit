@@ -1,7 +1,8 @@
 # Kokpit plugin for Hermes Agent
 
 `integrations/hermes/kokpit/` is a Hermes Agent plugin (name `kokpit`, version
-0.4.0). It gives Hermes nine Kokpit tools plus two optional ones, a `/kokpit`
+0.7.0). It gives Hermes fourteen Kokpit tools (five of them belong to opt-in
+modules: training, server, briefing, market, podcast), a `/kokpit`
 command that makes your own vault (`/kokpit setup`), captures notes, tasks and
 journal lines from any Hermes chat (Telegram included) and gives a morning
 brief, a rule-based night pass that proposes todos, next steps, links, ideas
@@ -58,6 +59,35 @@ the plugin stores `vault_path` through Hermes (`ctx.set_config`) and uses it at
 once. On an older Hermes without that helper it prints the one command to run
 (`hermes config set plugins.entries.kokpit.settings.vault_path <path>`). The
 same is available as `hermes kokpit-setup [path]`.
+
+## Requirements
+
+Needed:
+
+- Hermes Agent 0.22.0 or newer.
+- Python 3.11 or newer (Hermes already needs it). The plugin uses the standard
+  library only, so there is nothing to `pip install`.
+
+Not needed: the Kokpit app. Without it the vault, capture, cards and receipts,
+the night pass, the news briefing, job listings, market and podcast all work.
+Only calendar, weather and events come from the Kokpit app database; without
+it they stay empty and `/kokpit health` says so.
+
+Optional, each for one feature. When one is missing the plugin says so and
+carries on:
+
+| Feature | Needs | Without it |
+| --- | --- | --- |
+| Podcast with `podcast_engine: tts` | a text-to-speech provider set up in Hermes | `make` reports the failure and keeps the earlier episode; `podcast_engine: notebooklm` needs no TTS |
+| Joining podcast pieces that are not wav (mp3 for example) | `ffmpeg` and `ffprobe` on the PATH | the numbered part files stay, with the note "parts not joined: ffmpeg not found" |
+| `podcast_notebooklm_cli: true` | the unofficial notebooklm-py CLI, installed and logged in by you | leave it off: the plugin writes `source.md` and `focus.txt` for a manual upload |
+| Reading a `.pdf` CV for the job profile | `pdftotext` (poppler-utils) | pass a `.txt` or `.md` file, or paste the text |
+| `server` module | Linux (`/sys/class/thermal`, `systemctl --user`) | off by default; the readings it cannot take are left out |
+
+Isolation: with the default `plugins.isolation: in_process` everything works.
+With `plugins.isolation: host` Hermes does not register the `hermes kokpit-*`
+subcommands; use the `/kokpit` commands and `collect_auto` instead (see News
+briefing). A full host-isolation install has not been tested end to end.
 
 ## Connect your own Kokpit
 

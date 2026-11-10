@@ -28,6 +28,12 @@ Why this one:
 hermes plugins install sahindemirbas/kokpit#integrations/hermes/kokpit --enable
 ```
 
+Needs Hermes Agent 0.22.0 or newer on Python 3.11 or newer, nothing to
+`pip install`, and no Kokpit app. Optional per feature: a Hermes text-to-speech
+provider (podcast with the tts engine), `ffmpeg` (joining mp3 pieces),
+`pdftotext` (reading a PDF CV). The full table is under Requirements in
+[docs/hermes-plugin.md](../../../docs/hermes-plugin.md).
+
 ## 60-second quick start
 
 ```
