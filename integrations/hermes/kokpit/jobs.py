@@ -495,8 +495,10 @@ def score(profile: dict, listing: dict) -> dict:
     """-> {score: int|None, reasons: [{kind, effect, text}], max_known, unknowns}. Unknown is never zero:
     components without input are left out of the maximum; nothing judgeable gives score None.
 
-    Coverage cap: when fewer than COVERAGE_MIN of the FULL_SCALE points could be judged, the score is capped at
-    LOW_COVERAGE_CAP and a 'coverage' reason says so. The exclude cap still wins.
+    Coverage scaling: when fewer than COVERAGE_MIN of the FULL_SCALE points could be judged, the score is scaled
+    to LOW_COVERAGE_CAP percent of itself (100 -> 60, 83 -> 50), so the order between listings is kept, and a
+    'coverage' reason names the unscaled value. The exclude cap still wins, and an exclude hit shows no
+    coverage reason.
 
     Location rule: a profile location matches when its first comma part (the city, or the whole string when
     there is no comma) is found in the listing location as a whole word, so 'Milan, Italy' matches
@@ -649,12 +651,14 @@ def score(profile: dict, listing: dict) -> dict:
     if known <= 0:
         return {"score": None, "reasons": reasons, "max_known": 0, "unknowns": unknowns}
     value = round(100 * earned / known)
+    if known < COVERAGE_MIN:
+        raw = value
+        value = round(raw * LOW_COVERAGE_CAP / 100)
+        if not hits:
+            add("coverage", "neutral", f"scaled to {LOW_COVERAGE_CAP} percent: only {int(known)} of {FULL_SCALE} "
+                f"points could be judged (unscaled {raw})")
     if hits:
         value = min(value, EXCLUDE_CAP)
-    elif known < COVERAGE_MIN and value > LOW_COVERAGE_CAP:
-        value = LOW_COVERAGE_CAP
-        add("coverage", "neutral",
-            f"capped at {LOW_COVERAGE_CAP}: only {int(known)} of {FULL_SCALE} points could be judged")
     return {"score": int(value), "reasons": reasons, "max_known": int(known), "unknowns": unknowns}
 
 

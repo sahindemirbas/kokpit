@@ -472,11 +472,14 @@ plugin cannot judge are left out of the maximum, and a listing with nothing to
 judge has score `unknown`, never 0. The full scale is 100 points (30 role,
 25 must-have, 8 nice-to-have, 7 skills, 10 language, 8 seniority, 6 location,
 6 remote); the score is the share of the judged points that were earned. When
-fewer than 50 points could be judged, the score is capped at 60 with a
-`coverage` reason, and `/kokpit jobs` shows the judged share, for example
-`[60, judged 36/100]`; `kokpit_jobs` carries `max_known` per listing. Guest
+fewer than 50 points could be judged, the score is scaled to 60 percent of
+itself (`round(raw * 60 / 100)`) with a `coverage` reason that names the
+unscaled value, so the order between listings is kept. For example, with 36
+points judged, a listing where role and location match (raw 100) shows
+`[60, judged 36/100]` and the same role in another city (raw 83) shows
+`[50, judged 36/100]`; `kokpit_jobs` carries `max_known` per listing. Guest
 search listings have no description, so skills, language and seniority are
-unknown and most scores will be capped until a description source exists. An
+unknown and most scores will be scaled until a description source exists. An
 exclude word still caps the score at 15. A profile location matches when its
 first comma part (the city, or the whole entry without a comma) is found as a
 word in the listing location, so `Milan, Italy` matches `Milan, Lombardy, Italy`;

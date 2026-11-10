@@ -115,8 +115,11 @@ anything is shown.
 Listings are scored against the profile with reasons; a listing that cannot be
 judged shows `unknown`, never 0. Parts that cannot be judged are left out of the
 maximum, and when fewer than 50 of the 100 points could be judged the score is
-capped at 60 (shown as `[60, judged 36/100]`). Guest search listings have no
-description, so most scores stay capped until a description source exists.
+scaled to 60 percent of itself, so the order is kept: a listing where role and
+location match (raw 100 with 36 points judged) shows `[60, judged 36/100]`, the same
+role in another city (83) shows `[50, judged 36/100]`. Guest search listings
+have no description, so most scores stay scaled until a description source
+exists.
 A profile location matches when its city (the part before the first comma) is
 found in the listing location; same-named cities in different countries are
 not told apart. A listing not seen for `jobs_close_days`

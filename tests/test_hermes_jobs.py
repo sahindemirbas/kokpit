@@ -554,35 +554,50 @@ class Jobs(Base):
         self.assertEqual(loc_effect("Italy", "Milan, Lombardy, Italy"), ["plus"])
         self.assertEqual(loc_effect("Milan", "Milan, Lombardy, Italy"), ["plus"])
 
-    # F4 ------------------------------------------------------------ coverage cap
-    def test_f4_low_coverage_caps_the_score(self):
+    # F4 ------------------------------------------------------------ coverage scaling
+    def test_f4_low_coverage_scales_the_score(self):
         base = {"target_roles": ["Data Analyst"], "locations": ["Milan, Italy"]}
         listing = {"title": "Data Analyst", "location": "Milan, Lombardy, Italy"}
-        res = J.score(J.normalise(base), listing)
-        self.assertEqual((res["score"], res["max_known"]), (J.LOW_COVERAGE_CAP, 36))
-        cov = [r for r in res["reasons"] if r["kind"] == "coverage"]
-        self.assertEqual(cov, [{"kind": "coverage", "effect": "neutral",
-                                "text": "capped at 60: only 36 of 100 points could be judged"}])
         self.assertEqual((J.COVERAGE_MIN, J.LOW_COVERAGE_CAP, J.FULL_SCALE), (50, 60, 100))
-        # enough judged: not capped, no coverage reason
+
+        def cov(res):
+            return [r for r in res["reasons"] if r["kind"] == "coverage"]
+
+        # G1: role and location match, nothing else judgeable: raw 100 -> 60
+        g1 = J.score(J.normalise(base), listing)
+        self.assertEqual((g1["score"], g1["max_known"]), (60, 36))
+        self.assertEqual(cov(g1), [{"kind": "coverage", "effect": "neutral", "text":
+                                    "scaled to 60 percent: only 36 of 100 points could be judged (unscaled 100)"}])
+        # G2: role matches, location does not: raw 83 -> 50, strictly below G1
+        g2 = J.score(J.normalise(base), {**listing, "location": "Rome, Latium, Italy"})
+        self.assertEqual((g2["score"], g2["max_known"]), (50, 36))
+        self.assertEqual(len(cov(g2)), 1)
+        self.assertIn("(unscaled 83)", cov(g2)[0]["text"])
+        self.assertGreater(g1["score"], g2["score"])
+        # G3: a raw score below 60 is scaled too: raw 58 -> 35
+        g3 = J.score(J.normalise(base), {"title": "Business Analyst", "location": "Milan, Italy"})
+        self.assertEqual((g3["score"], g3["max_known"]), (35, 36))
+        self.assertEqual(len(cov(g3)), 1)
+        self.assertIn("(unscaled 58)", cov(g3)[0]["text"])
+        low = J.score(J.normalise(base), {"title": "Warehouse Operator", "location": "Rome, Latium, Italy"})
+        self.assertEqual(low["score"], 0)
+        self.assertIn("(unscaled 0)", cov(low)[0]["text"])
+        # G4: enough judged: not scaled, no coverage reason
         full = J.normalise({**base, "must_have": ["sql"], "skills": ["python"]})
         res = J.score(full, {**listing, "description": "SQL and Python for a food company."})
         self.assertGreaterEqual(res["max_known"], J.COVERAGE_MIN)
         self.assertGreater(res["score"], J.LOW_COVERAGE_CAP)
-        self.assertFalse([r for r in res["reasons"] if r["kind"] == "coverage"])
-        # low coverage but already below the cap: unchanged, no coverage reason
-        low = J.score(J.normalise(base), {"title": "Warehouse Operator", "location": "Rome, Latium, Italy"})
-        self.assertLess(low["score"], J.LOW_COVERAGE_CAP)
-        self.assertFalse([r for r in low["reasons"] if r["kind"] == "coverage"])
-        # the exclude cap still wins
+        self.assertFalse(cov(res))
+        # G5: the exclude cap still wins, and an exclude hit shows no coverage reason
         ex = J.score(J.normalise({**base, "exclude": ["unpaid"]}), {**listing, "title": "Unpaid Data Analyst"})
+        self.assertLess(ex["max_known"], J.COVERAGE_MIN)
         self.assertLessEqual(ex["score"], J.EXCLUDE_CAP)
-        self.assertFalse([r for r in ex["reasons"] if r["kind"] == "coverage"])
+        self.assertFalse(cov(ex))
         # nothing judgeable still gives None
         self.assertIsNone(J.score(J.empty(), listing)["score"])
 
     # F5 ------------------------------------------------------------ the list shows the judged share
-    def test_f5_jobs_list_shows_judged_share_when_capped(self):
+    def test_f5_jobs_list_shows_judged_share_when_scaled(self):
         self.save_profile({"target_roles": ["Data Analyst"], "locations": ["Milan, Italy"]})
         env = self.jenv()
         r = self.collect(env, FakeGet({0: card(1, "Data Analyst", loc="Milan, Lombardy, Italy")}))
@@ -596,6 +611,22 @@ class Jobs(Base):
         self.collect(env, FakeGet({0: card(1, "Data Analyst", loc="Milan, Lombardy, Italy")}))
         out = CMD.run(env, "jobs")
         self.assertNotIn("judged", out)
+
+    # G6 ------------------------------------------------------------ matching location ranks first
+    def test_g6_jobs_list_orders_low_coverage_listings_by_location(self):
+        self.save_profile({"target_roles": ["Data Analyst"], "locations": ["Milan, Italy"]})
+        env = self.jenv()
+        page = (card(1, "Data Analyst", company="Rome Foods", loc="Rome, Latium, Italy")
+                + card(2, "Data Analyst", company="Milan Foods", loc="Milan, Lombardy, Italy"))
+        r = self.collect(env, FakeGet({0: page}))
+        self.assertTrue(r["ok"], r)
+        lst = self.call(env, "kokpit_jobs", {})
+        self.assertEqual([(x["company"], x["score"], x["max_known"]) for x in lst["listings"]],
+                         [("Milan Foods", 60, 36), ("Rome Foods", 50, 36)])
+        out = CMD.run(env, "jobs")
+        milan = out.index("[60, judged 36/100] Data Analyst (Milan Foods")
+        rome = out.index("[50, judged 36/100] Data Analyst (Rome Foods")
+        self.assertLess(milan, rome)
 
 
 class Parser(unittest.TestCase):
